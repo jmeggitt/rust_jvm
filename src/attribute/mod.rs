@@ -4,14 +4,38 @@ use crate::instruction::InstructionReader;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::io;
 use std::io::{Cursor, Read};
+use crate::constant_pool::Constant;
+use crate::jvm::JVM;
 
 #[derive(Debug)]
 pub struct CodeAttribute {
     pub max_stack: u16,
     pub max_locals: u16,
-    pub instructions: Vec<Box<dyn Instruction>>,
+    pub instructions: Vec<(u64, Box<dyn Instruction>)>,
     pub exception_table: Vec<ExceptionRange>,
     pub attributes: Vec<AttributeInfo>,
+}
+
+impl CodeAttribute {
+
+    pub fn attempt_catch(&self, pos: u64, class: &str, pool: &[Constant], jvm: &mut JVM) -> Option<u64> {
+        // I assume that the first one that fits is the one to use?
+        for range in self.exception_table.iter().copied() {
+            if pos < range.try_start as u64 || pos > range.try_end as u64 {
+                continue
+            }
+
+            let index = pool[range.catch_type as usize - 1].expect_class().unwrap();
+            let catch_target = pool[index as usize - 1].expect_utf8().unwrap();
+
+            if jvm.instanceof(class, &catch_target) == Some(true){
+                return Some(range.catch_start as u64)
+            }
+        }
+
+        None
+    }
+
 }
 
 impl BufferedRead for CodeAttribute {

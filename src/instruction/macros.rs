@@ -39,8 +39,8 @@ macro_rules! instruction {
     (@writeb $name:ident, $self:ident, $buffer:ident, $x:block) => {
         impl crate::instruction::Instruction for $name {
             fn write(&$self, $buffer: &mut std::io::Cursor<Vec<u8>>) -> std::io::Result<()> { $x }
-            fn exec(&self, stack: &mut Vec<crate::jvm::LocalVariable>, pool: &[crate::constant_pool::Constant], jvm: &mut crate::jvm::JVM){
-                <Self as crate::instruction::InstructionAction>::exec(self, stack, pool, jvm);
+            fn exec(&self, stack: &mut crate::jvm::StackFrame, jvm: &mut crate::jvm::JVM){
+                <Self as crate::instruction::InstructionAction>::exec(self, stack, jvm);
             }
         }
     };
@@ -118,6 +118,23 @@ macro_rules! instruction {
             fn read(_: u8, buffer: &mut std::io::Cursor<Vec<u8>>) -> std::io::Result<Box<dyn crate::instruction::Instruction>> {
                 use byteorder::ReadBytesExt;
                 Ok(Box::new($name(buffer.read_u16::<byteorder::BigEndian>()?)))
+            }
+        }
+    };
+    (@partial $name:ident, $inst:literal, i16) => {
+        instruction!($name, i16);
+        instruction!(@writeb $name, self, buffer, {
+            use byteorder::WriteBytesExt;
+            buffer.write_u8(<Self as crate::instruction::StaticInstruct>::FORM)?;
+            buffer.write_i16::<byteorder::BigEndian>(self.0)
+        });
+
+        impl crate::instruction::StaticInstruct for $name {
+            const FORM: u8 = $inst;
+
+            fn read(_: u8, buffer: &mut std::io::Cursor<Vec<u8>>) -> std::io::Result<Box<dyn crate::instruction::Instruction>> {
+                use byteorder::ReadBytesExt;
+                Ok(Box::new($name(buffer.read_i16::<byteorder::BigEndian>()?)))
             }
         }
     };

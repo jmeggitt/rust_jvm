@@ -1,13 +1,16 @@
-use std::ffi::c_void;
 use crate::jvm::bindings::jvalue;
+use std::ffi::c_void;
 
 extern "C" {
 
     /// About as unsafe as it gets. I wrote it myself in assembly and fingers crossed the linker is
     /// working.
-    pub fn exec_x86_with_stack(fn_ptr: *const c_void, rbp: *const c_void, rsp: *const c_void) -> jvalue;
+    pub fn exec_x86_with_stack(
+        fn_ptr: *const c_void,
+        rbp: *const c_void,
+        rsp: *const c_void,
+    ) -> jvalue;
 }
-
 
 #[test]
 pub fn simple_asm_test() {

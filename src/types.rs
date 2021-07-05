@@ -1,11 +1,13 @@
 use crate::class::BufferedRead;
+use crate::jvm::bindings::jvalue;
+use crate::jvm::{LocalVariable, Object};
 use byteorder::ReadBytesExt;
 use hashbrown::HashSet;
 use std::io::{self, Cursor, Error, ErrorKind, Seek, SeekFrom};
-use crate::jvm::LocalVariable;
-use crate::jvm::bindings::jvalue;
+use std::rc::Rc;
+use std::cell::{RefCell, UnsafeCell};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FieldDescriptor {
     Byte,
     Char,
@@ -27,6 +29,44 @@ pub enum FieldDescriptor {
 }
 
 impl FieldDescriptor {
+
+    pub fn to_string(&self) -> String {
+        let mut string = String::new();
+
+        match self {
+            FieldDescriptor::Byte => string.push('B'),
+            FieldDescriptor::Char => string.push('C'),
+            FieldDescriptor::Double => string.push('D'),
+            FieldDescriptor::Float => string.push('F'),
+            FieldDescriptor::Int => string.push('I'),
+            FieldDescriptor::Long => string.push('J'),
+            FieldDescriptor::Short => string.push('S'),
+            FieldDescriptor::Boolean => string.push('Z'),
+            FieldDescriptor::Object(name) => {
+                string.push('L');
+                string.push_str(name);
+                string.push(';');
+            }
+            FieldDescriptor::Array(entry) => {
+                string.push('[');
+                string.push_str(&entry.to_string());
+            }
+            FieldDescriptor::Void => string.push('V'),
+            FieldDescriptor::Method { args, returns } => {
+                string.push('(');
+
+                for arg in args {
+                    string.push_str(&arg.to_string());
+                }
+
+                string.push(')');
+                string.push_str(&returns.to_string());
+            }
+        }
+
+        string
+    }
+
     pub fn class_usage(&self) -> HashSet<String> {
         let mut set = HashSet::new();
         match self {
@@ -69,7 +109,17 @@ impl FieldDescriptor {
                 FieldDescriptor::Long => LocalVariable::Long(value.j as i64),
                 FieldDescriptor::Short => LocalVariable::Short(value.s),
                 FieldDescriptor::Boolean => LocalVariable::Byte(value.z as i8),
-                FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => panic!("Unable to read object from jvalue"),
+                FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => unsafe {
+                    if value.l.is_null() {
+                        LocalVariable::Reference(None)
+                    } else {
+                        debug!("Attempting to clone Rc through pointer!");
+                        let reference = &*(value.l as *const Rc<UnsafeCell<Object>>);
+                        let out = LocalVariable::Reference(Some(reference.clone()));
+                        debug!("Got value {:?} from pointer", &out);
+                        out
+                    }
+                }
                 _ => return None,
             })
         }

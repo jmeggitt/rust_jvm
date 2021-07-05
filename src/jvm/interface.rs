@@ -1,17 +1,12 @@
-use crate::jvm::bindings::{JNINativeInterface_, JNIEnv, jclass, JNINativeMethod, jint};
-use std::ptr::null_mut;
-use crate::jvm::JVM;
-use std::ffi::{OsStr, OsString, CString};
+use crate::jvm::bindings::{jclass, jint, JNIEnv, JNINativeInterface_, JNINativeMethod};
+use crate::jvm::{Object, JVM};
+use std::ffi::{CString, OsStr, OsString};
 use std::mem::forget;
+use std::ptr::null_mut;
+use std::rc::Rc;
+use std::cell::{RefCell, UnsafeCell};
 
 pub static mut GLOBAL_JVM: Option<Box<JVM>> = None;
-
-/// Treat as label
-pub fn function_marker() {
-    unsafe {
-        asm!("nop");
-    }
-}
 
 
 pub unsafe extern "C" fn register_natives(
@@ -21,15 +16,22 @@ pub unsafe extern "C" fn register_natives(
     nMethods: jint,
 ) -> jint {
     debug!("Calling JNIEnv::RegisterNatives");
-    let class = &*(clazz as *const String);
-    // let methods = Vec::from_raw_parts(methods, nMethods as usize, nMethods as usize);
+    // let class = &*(clazz as *const String);
+    let class_object = &*(clazz as *const Rc<UnsafeCell<Object>>);
+    let class = (&*class_object.get()).expect_class().unwrap();
+
     let mut registered = 0;
 
     for method in std::slice::from_raw_parts_mut(methods, nMethods as usize) {
         let name = CString::from_raw(method.name);
         let desc = CString::from_raw(method.signature);
 
-        if GLOBAL_JVM.as_mut().unwrap().linked_libraries.register_fn(class, name.to_str().unwrap(), desc.to_str().unwrap(), method.fnPtr) {
+        if GLOBAL_JVM.as_mut().unwrap().linked_libraries.register_fn(
+            &class,
+            name.to_str().unwrap(),
+            desc.to_str().unwrap(),
+            method.fnPtr,
+        ) {
             registered += 1;
         }
 
@@ -37,36 +39,15 @@ pub unsafe extern "C" fn register_natives(
         forget(desc);
     }
 
-    // forget(methods);
-    // forget(class);
+
+
     forget(env);
     forget(clazz);
     forget(methods);
 
     forget(class);
-    function_marker();
-    // forget()
-
-    // for _ in 0..nMethods {
-    //     function_marker();
-    //     let method = *methods;
-    //     // info!("Name: {:?}, Desc: {:?}", method.name, method.signature);
-    //
-    //     let name = CString::from_raw(method.name);
-    //     let desc = CString::from_raw(method.signature);
-    //
-    //     if GLOBAL_JVM.as_mut().unwrap().linked_libraries.register_fn(class, name.to_str().unwrap(), desc.to_str().unwrap(), method.fnPtr) {
-    //         registered += 1;
-    //     }
-    //     let next_method = methods.add(1);
-    //     forget(methods);
-    //     methods = next_method;
-    //     function_marker();
-    // }
-
     registered
 }
-
 
 #[inline]
 pub fn build_interface() -> JNINativeInterface_ {

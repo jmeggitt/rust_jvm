@@ -1,6 +1,6 @@
-use walkdir::WalkDir;
 use std::io;
 use std::process::Command;
+use walkdir::WalkDir;
 
 pub fn main() {
     println!("cargo:rerun-if-changed=src/**.asm");
@@ -23,7 +23,7 @@ pub fn build_stdlib() -> io::Result<()> {
         let entry = entry?;
 
         if !entry.path().is_file() {
-            continue
+            continue;
         }
 
         if entry.path().extension() == Some("java".as_ref()) {

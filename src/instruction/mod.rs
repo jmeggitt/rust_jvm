@@ -18,22 +18,30 @@
 mod macros;
 
 // import instructions
-use general::*;
 use class::*;
+use cmp::*;
+use general::*;
+use locals::*;
 use push_const::*;
 use stack::*;
-use locals::*;
-
+use convert::*;
+use math::*;
+use array::*;
 
 mod class;
-mod load_store;
+mod cmp;
 mod general;
+mod load_store;
+mod locals;
 mod push_const;
 mod stack;
-mod locals;
+mod convert;
+mod math;
+mod array;
+mod exception;
 
 use crate::constant_pool::Constant;
-use crate::jvm::{LocalVariable, JVM};
+use crate::jvm::{LocalVariable, StackFrame, JVM};
 use byteorder::ReadBytesExt;
 use hashbrown::HashMap;
 use std::any::Any;
@@ -44,7 +52,7 @@ use std::ops::RangeInclusive;
 pub trait Instruction: Any + Debug {
     fn write(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<()>;
 
-    fn exec(&self, _stack: &mut Vec<LocalVariable>, _pool: &[Constant], _jvm: &mut JVM) {
+    fn exec(&self, _stack: &mut StackFrame, _jvm: &mut JVM) {
         panic!("Instruction not implemented for {:?}", self);
     }
 }
@@ -57,7 +65,7 @@ pub trait StaticInstruct: Instruction {
 }
 
 pub trait InstructionAction: Any {
-    fn exec(&self, stack: &mut Vec<LocalVariable>, pool: &[Constant], jvm: &mut JVM);
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM);
 }
 
 pub struct InstructionReader {
@@ -87,15 +95,19 @@ impl InstructionReader {
         }
     }
 
-    pub fn parse(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Vec<Box<dyn Instruction>>> {
+    pub fn parse(
+        &self,
+        buffer: &mut Cursor<Vec<u8>>,
+    ) -> io::Result<Vec<(u64, Box<dyn Instruction>)>> {
         let mut instructions = Vec::new();
-        let len = buffer.get_ref().len() - 1;
+        let len = buffer.get_ref().len();
 
         while (buffer.position() as usize) < len {
+            let pos = buffer.position();
             let form = buffer.read_u8()?;
 
             match self.table.get(&form) {
-                Some(reader) => instructions.push(reader(form, buffer)?),
+                Some(reader) => instructions.push((pos, reader(form, buffer)?)),
                 None => {
                     return Err(Error::new(
                         ErrorKind::Other,
@@ -107,7 +119,6 @@ impl InstructionReader {
 
         Ok(instructions)
     }
-
 
     fn do_register(&mut self) {
         self.register::<aaload>();
@@ -263,7 +274,8 @@ impl InstructionReader {
         self.register::<sastore>();
         self.register::<sipush>();
         self.register::<swap>();
+
+        self.register::<invokeinterface>();
+        self.register::<iinc>();
     }
 }
-
-

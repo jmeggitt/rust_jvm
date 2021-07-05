@@ -5,8 +5,8 @@ macro_rules! const_instruction {
         instruction! {@partial $name, $inst}
 
         impl crate::instruction::InstructionAction for $name {
-            fn exec(&self, stack: &mut Vec<crate::jvm::LocalVariable>, _: &[crate::constant_pool::Constant], _: &mut crate::jvm::JVM) {
-                stack.push($value);
+            fn exec(&self, stack: &mut crate::jvm::StackFrame, _: &mut crate::jvm::JVM) {
+                stack.stack.push($value);
             }
         }
     };

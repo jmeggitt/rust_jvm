@@ -518,7 +518,7 @@ impl ConstantPoolTag for ConstantFloat {
 
 #[derive(Debug, Clone)]
 pub struct ConstantLong {
-    value: i64,
+    pub value: i64,
 }
 
 impl ConstantPoolTag for ConstantLong {
@@ -539,7 +539,7 @@ impl ConstantPoolTag for ConstantLong {
 
 #[derive(Debug, Clone)]
 pub struct ConstantDouble {
-    value: f64,
+    pub value: f64,
 }
 
 impl ConstantPoolTag for ConstantDouble {

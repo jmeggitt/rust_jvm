@@ -1,6 +1,7 @@
 use crate::attribute::CodeAttribute;
 use crate::constant_pool::{Constant, ConstantClass, SimplifiedConstant};
 use crate::jar::{unpack_jar, Jar, Manifest};
+use crate::jvm::Object;
 use crate::types::FieldDescriptor;
 use crate::version::{check_magic_number, ClassVersion};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -13,7 +14,6 @@ use std::io::{Cursor, Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use walkdir::WalkDir;
 use zip::ZipArchive;
-use crate::jvm::Object;
 
 bitflags! {
     pub struct AccessFlags: u16 {
@@ -37,6 +37,11 @@ bitflags! {
 }
 
 pub trait BufferedRead: Sized {
+    fn read_str(string: &str) -> io::Result<Self> {
+        let mut buffer = Cursor::new(string.as_bytes().to_vec());
+        Self::read(&mut buffer)
+    }
+
     fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
         Self::read_versioned(ClassVersion(0, 0), buffer)
     }
@@ -168,7 +173,11 @@ impl Class {
         let super_class = buffer.read_u16::<BigEndian>()?;
 
         trace!("This class: {:?}", &constants[this_class as usize - 1]);
-        trace!("Super class: {:?}", &constants[super_class as usize - 1]);
+        if super_class != 0 {
+            trace!("Super class: {:?}", &constants[super_class as usize - 1]);
+        } else {
+            trace!("Super class: n/a");
+        }
 
         let num_interfaces = buffer.read_u16::<BigEndian>()?;
         trace!("Num interfaces: {}", num_interfaces);
@@ -331,12 +340,16 @@ impl Class {
     }
 
     pub fn name(&self) -> String {
-        let name_idx = self.constants[self.this_class as usize - 1].expect_class().unwrap();
+        let name_idx = self.constants[self.this_class as usize - 1]
+            .expect_class()
+            .unwrap();
         self.constants[name_idx as usize - 1].expect_utf8().unwrap()
     }
 
     pub fn super_class(&self) -> String {
-        let name_idx = self.constants[self.super_class as usize - 1].expect_class().unwrap();
+        let name_idx = self.constants[self.super_class as usize - 1]
+            .expect_class()
+            .unwrap();
         self.constants[name_idx as usize - 1].expect_utf8().unwrap()
     }
 
@@ -353,6 +366,18 @@ impl Class {
             fields: field_map,
             class: self.name(),
         }
+    }
+
+    /// Get list of interface classes for checking instanceof
+    pub fn interfaces(&self) -> Vec<String> {
+        let mut names = Vec::with_capacity(self.interfaces.len());
+
+        for index in &self.interfaces {
+            let class_name = self.constants[*index as usize - 1].expect_class().unwrap();
+            names.push(self.constants[class_name as usize - 1].expect_utf8().unwrap());
+        }
+
+        names
     }
 }
 
@@ -546,13 +571,12 @@ pub struct ClassLoader {
 }
 
 impl ClassLoader {
-
     pub fn from_class_path(class_path: ClassPath) -> Self {
         ClassLoader {
             loaded: Default::default(),
             class_path,
             load_requests: Default::default(),
-            loaded_jars: Default::default()
+            loaded_jars: Default::default(),
         }
     }
 
@@ -632,7 +656,7 @@ impl ClassLoader {
         }
 
         // debug!("Attempting to load class {}", class);
-        match self.class_path.found_classes.get(class) {
+        let ret = match self.class_path.found_classes.get(class) {
             Some(v) => {
                 // Annoyingly we need to clone this so we can make a second mutable reference to self
                 let load_path = v.clone();
@@ -668,7 +692,14 @@ impl ClassLoader {
 
                 Ok(false)
             }
+        };
+
+        if class != "java/lang/Object" {
+            let super_class = self.loaded.get(class).unwrap().super_class();
+            self.attempt_load(&super_class)?;
         }
+
+        ret
     }
 
     pub fn load_dependents(&mut self, class: &str) -> io::Result<()> {

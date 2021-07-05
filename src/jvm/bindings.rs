@@ -187,10 +187,10 @@ fn bindgen_test_layout___fsid_t() {
         unsafe { &(*(::std::ptr::null::<__fsid_t>())).__val as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__fsid_t),
-        "::",
-        stringify!(__val)
+            "Offset of field: ",
+            stringify!(__fsid_t),
+            "::",
+            stringify!(__val)
         )
     );
 }
@@ -256,10 +256,10 @@ fn bindgen_test_layout___mbstate_t__bindgen_ty_1() {
         unsafe { &(*(::std::ptr::null::<__mbstate_t__bindgen_ty_1>())).__wch as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__mbstate_t__bindgen_ty_1),
-        "::",
-        stringify!(__wch)
+            "Offset of field: ",
+            stringify!(__mbstate_t__bindgen_ty_1),
+            "::",
+            stringify!(__wch)
         )
     );
     assert_eq!(
@@ -268,10 +268,10 @@ fn bindgen_test_layout___mbstate_t__bindgen_ty_1() {
         },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__mbstate_t__bindgen_ty_1),
-        "::",
-        stringify!(__wchb)
+            "Offset of field: ",
+            stringify!(__mbstate_t__bindgen_ty_1),
+            "::",
+            stringify!(__wchb)
         )
     );
 }
@@ -292,20 +292,20 @@ fn bindgen_test_layout___mbstate_t() {
         unsafe { &(*(::std::ptr::null::<__mbstate_t>())).__count as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__mbstate_t),
-        "::",
-        stringify!(__count)
+            "Offset of field: ",
+            stringify!(__mbstate_t),
+            "::",
+            stringify!(__count)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<__mbstate_t>())).__value as *const _ as usize },
         4usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__mbstate_t),
-        "::",
-        stringify!(__value)
+            "Offset of field: ",
+            stringify!(__mbstate_t),
+            "::",
+            stringify!(__value)
         )
     );
 }
@@ -333,20 +333,20 @@ fn bindgen_test_layout__G_fpos_t() {
         unsafe { &(*(::std::ptr::null::<_G_fpos_t>())).__pos as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_G_fpos_t),
-        "::",
-        stringify!(__pos)
+            "Offset of field: ",
+            stringify!(_G_fpos_t),
+            "::",
+            stringify!(__pos)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_G_fpos_t>())).__state as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_G_fpos_t),
-        "::",
-        stringify!(__state)
+            "Offset of field: ",
+            stringify!(_G_fpos_t),
+            "::",
+            stringify!(__state)
         )
     );
 }
@@ -374,20 +374,20 @@ fn bindgen_test_layout__G_fpos64_t() {
         unsafe { &(*(::std::ptr::null::<_G_fpos64_t>())).__pos as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_G_fpos64_t),
-        "::",
-        stringify!(__pos)
+            "Offset of field: ",
+            stringify!(_G_fpos64_t),
+            "::",
+            stringify!(__pos)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_G_fpos64_t>())).__state as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_G_fpos64_t),
-        "::",
-        stringify!(__state)
+            "Offset of field: ",
+            stringify!(_G_fpos64_t),
+            "::",
+            stringify!(__state)
         )
     );
 }
@@ -427,30 +427,30 @@ fn bindgen_test_layout__IO_marker() {
         unsafe { &(*(::std::ptr::null::<_IO_marker>()))._next as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_marker),
-        "::",
-        stringify!(_next)
+            "Offset of field: ",
+            stringify!(_IO_marker),
+            "::",
+            stringify!(_next)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_marker>()))._sbuf as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_marker),
-        "::",
-        stringify!(_sbuf)
+            "Offset of field: ",
+            stringify!(_IO_marker),
+            "::",
+            stringify!(_sbuf)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_marker>()))._pos as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_marker),
-        "::",
-        stringify!(_pos)
+            "Offset of field: ",
+            stringify!(_IO_marker),
+            "::",
+            stringify!(_pos)
         )
     );
 }
@@ -512,290 +512,290 @@ fn bindgen_test_layout__IO_FILE() {
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._flags as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_flags)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_flags)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_read_ptr as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_read_ptr)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_read_ptr)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_read_end as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_read_end)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_read_end)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_read_base as *const _ as usize },
         24usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_read_base)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_read_base)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_write_base as *const _ as usize },
         32usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_write_base)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_write_base)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_write_ptr as *const _ as usize },
         40usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_write_ptr)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_write_ptr)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_write_end as *const _ as usize },
         48usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_write_end)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_write_end)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_buf_base as *const _ as usize },
         56usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_buf_base)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_buf_base)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_buf_end as *const _ as usize },
         64usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_buf_end)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_buf_end)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_save_base as *const _ as usize },
         72usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_save_base)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_save_base)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_backup_base as *const _ as usize },
         80usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_backup_base)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_backup_base)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._IO_save_end as *const _ as usize },
         88usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_IO_save_end)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_IO_save_end)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._markers as *const _ as usize },
         96usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_markers)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_markers)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._chain as *const _ as usize },
         104usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_chain)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_chain)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._fileno as *const _ as usize },
         112usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_fileno)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_fileno)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._flags2 as *const _ as usize },
         116usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_flags2)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_flags2)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._old_offset as *const _ as usize },
         120usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_old_offset)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_old_offset)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._cur_column as *const _ as usize },
         128usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_cur_column)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_cur_column)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._vtable_offset as *const _ as usize },
         130usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_vtable_offset)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_vtable_offset)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._shortbuf as *const _ as usize },
         131usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_shortbuf)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_shortbuf)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._lock as *const _ as usize },
         136usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_lock)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_lock)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._offset as *const _ as usize },
         144usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_offset)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_offset)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>())).__pad1 as *const _ as usize },
         152usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(__pad1)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(__pad1)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>())).__pad2 as *const _ as usize },
         160usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(__pad2)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(__pad2)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>())).__pad3 as *const _ as usize },
         168usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(__pad3)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(__pad3)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>())).__pad4 as *const _ as usize },
         176usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(__pad4)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(__pad4)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>())).__pad5 as *const _ as usize },
         184usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(__pad5)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(__pad5)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._mode as *const _ as usize },
         192usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_mode)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_mode)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<_IO_FILE>()))._unused2 as *const _ as usize },
         196usize,
         concat!(
-        "Offset of field: ",
-        stringify!(_IO_FILE),
-        "::",
-        stringify!(_unused2)
+            "Offset of field: ",
+            stringify!(_IO_FILE),
+            "::",
+            stringify!(_unused2)
         )
     );
 }
@@ -909,7 +909,7 @@ extern "C" {
 
 extern "C" {
     pub fn _IO_padn(arg1: *mut _IO_FILE, arg2: ::std::os::raw::c_int, arg3: __ssize_t)
-                    -> __ssize_t;
+        -> __ssize_t;
 }
 
 extern "C" {
@@ -1023,7 +1023,7 @@ extern "C" {
 
 extern "C" {
     pub fn fdopen(__fd: ::std::os::raw::c_int, __modes: *const ::std::os::raw::c_char)
-                  -> *mut FILE;
+        -> *mut FILE;
 }
 
 extern "C" {
@@ -1269,7 +1269,7 @@ extern "C" {
 
 extern "C" {
     pub fn fputc_unlocked(__c: ::std::os::raw::c_int, __stream: *mut FILE)
-                          -> ::std::os::raw::c_int;
+        -> ::std::os::raw::c_int;
 }
 
 extern "C" {
@@ -1634,30 +1634,30 @@ fn bindgen_test_layout_JNINativeMethod() {
         unsafe { &(*(::std::ptr::null::<JNINativeMethod>())).name as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeMethod),
-        "::",
-        stringify!(name)
+            "Offset of field: ",
+            stringify!(JNINativeMethod),
+            "::",
+            stringify!(name)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeMethod>())).signature as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeMethod),
-        "::",
-        stringify!(signature)
+            "Offset of field: ",
+            stringify!(JNINativeMethod),
+            "::",
+            stringify!(signature)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeMethod>())).fnPtr as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeMethod),
-        "::",
-        stringify!(fnPtr)
+            "Offset of field: ",
+            stringify!(JNINativeMethod),
+            "::",
+            stringify!(fnPtr)
         )
     );
 }
@@ -1686,9 +1686,9 @@ pub struct JNINativeInterface_ {
         unsafe extern "C" fn(env: *mut JNIEnv, name: *const ::std::os::raw::c_char) -> jclass,
     >,
     pub FromReflectedMethod:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, method: jobject) -> jmethodID>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, method: jobject) -> jmethodID>,
     pub FromReflectedField:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, field: jobject) -> jfieldID>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, field: jobject) -> jfieldID>,
     pub ToReflectedMethod: ::std::option::Option<
         unsafe extern "C" fn(
             env: *mut JNIEnv,
@@ -1698,7 +1698,7 @@ pub struct JNINativeInterface_ {
         ) -> jobject,
     >,
     pub GetSuperclass:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, sub: jclass) -> jclass>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, sub: jclass) -> jclass>,
     pub IsAssignableFrom: ::std::option::Option<
         unsafe extern "C" fn(env: *mut JNIEnv, sub: jclass, sup: jclass) -> jboolean,
     >,
@@ -1711,7 +1711,7 @@ pub struct JNINativeInterface_ {
         ) -> jobject,
     >,
     pub Throw:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jthrowable) -> jint>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jthrowable) -> jint>,
     pub ThrowNew: ::std::option::Option<
         unsafe extern "C" fn(
             env: *mut JNIEnv,
@@ -1720,30 +1720,30 @@ pub struct JNINativeInterface_ {
         ) -> jint,
     >,
     pub ExceptionOccurred:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv) -> jthrowable>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv) -> jthrowable>,
     pub ExceptionDescribe: ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv)>,
     pub ExceptionClear: ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv)>,
     pub FatalError: ::std::option::Option<
         unsafe extern "C" fn(env: *mut JNIEnv, msg: *const ::std::os::raw::c_char),
     >,
     pub PushLocalFrame:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, capacity: jint) -> jint>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, capacity: jint) -> jint>,
     pub PopLocalFrame:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, result: jobject) -> jobject>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, result: jobject) -> jobject>,
     pub NewGlobalRef:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, lobj: jobject) -> jobject>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, lobj: jobject) -> jobject>,
     pub DeleteGlobalRef:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, gref: jobject)>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, gref: jobject)>,
     pub DeleteLocalRef: ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject)>,
     pub IsSameObject: ::std::option::Option<
         unsafe extern "C" fn(env: *mut JNIEnv, obj1: jobject, obj2: jobject) -> jboolean,
     >,
     pub NewLocalRef:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, ref_: jobject) -> jobject>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, ref_: jobject) -> jobject>,
     pub EnsureLocalCapacity:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, capacity: jint) -> jint>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, capacity: jint) -> jint>,
     pub AllocObject:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, clazz: jclass) -> jobject>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, clazz: jclass) -> jobject>,
     pub NewObject: ::std::option::Option<
         unsafe extern "C" fn(env: *mut JNIEnv, clazz: jclass, methodID: jmethodID, ...) -> jobject,
     >,
@@ -1764,7 +1764,7 @@ pub struct JNINativeInterface_ {
         ) -> jobject,
     >,
     pub GetObjectClass:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject) -> jclass>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject) -> jclass>,
     pub IsInstanceOf: ::std::option::Option<
         unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject, clazz: jclass) -> jboolean,
     >,
@@ -2562,7 +2562,7 @@ pub struct JNINativeInterface_ {
         unsafe extern "C" fn(env: *mut JNIEnv, unicode: *const jchar, len: jsize) -> jstring,
     >,
     pub GetStringLength:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, str: jstring) -> jsize>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, str: jstring) -> jsize>,
     pub GetStringChars: ::std::option::Option<
         unsafe extern "C" fn(env: *mut JNIEnv, str: jstring, isCopy: *mut jboolean) -> *const jchar,
     >,
@@ -2573,7 +2573,7 @@ pub struct JNINativeInterface_ {
         unsafe extern "C" fn(env: *mut JNIEnv, utf: *const ::std::os::raw::c_char) -> jstring,
     >,
     pub GetStringUTFLength:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, str: jstring) -> jsize>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, str: jstring) -> jsize>,
     pub GetStringUTFChars: ::std::option::Option<
         unsafe extern "C" fn(
             env: *mut JNIEnv,
@@ -2585,7 +2585,7 @@ pub struct JNINativeInterface_ {
         unsafe extern "C" fn(env: *mut JNIEnv, str: jstring, chars: *const ::std::os::raw::c_char),
     >,
     pub GetArrayLength:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, array: jarray) -> jsize>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, array: jarray) -> jsize>,
     pub NewObjectArray: ::std::option::Option<
         unsafe extern "C" fn(
             env: *mut JNIEnv,
@@ -2601,21 +2601,21 @@ pub struct JNINativeInterface_ {
         unsafe extern "C" fn(env: *mut JNIEnv, array: jobjectArray, index: jsize, val: jobject),
     >,
     pub NewBooleanArray:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jbooleanArray>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jbooleanArray>,
     pub NewByteArray:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jbyteArray>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jbyteArray>,
     pub NewCharArray:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jcharArray>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jcharArray>,
     pub NewShortArray:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jshortArray>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jshortArray>,
     pub NewIntArray:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jintArray>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jintArray>,
     pub NewLongArray:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jlongArray>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jlongArray>,
     pub NewFloatArray:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jfloatArray>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jfloatArray>,
     pub NewDoubleArray:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jdoubleArray>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, len: jsize) -> jdoubleArray>,
     pub GetBooleanArrayElements: ::std::option::Option<
         unsafe extern "C" fn(
             env: *mut JNIEnv,
@@ -2859,13 +2859,13 @@ pub struct JNINativeInterface_ {
         ) -> jint,
     >,
     pub UnregisterNatives:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, clazz: jclass) -> jint>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, clazz: jclass) -> jint>,
     pub MonitorEnter:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject) -> jint>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject) -> jint>,
     pub MonitorExit:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject) -> jint>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject) -> jint>,
     pub GetJavaVM:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, vm: *mut *mut JavaVM) -> jint>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, vm: *mut *mut JavaVM) -> jint>,
     pub GetStringRegion: ::std::option::Option<
         unsafe extern "C" fn(
             env: *mut JNIEnv,
@@ -2910,9 +2910,9 @@ pub struct JNINativeInterface_ {
         unsafe extern "C" fn(env: *mut JNIEnv, string: jstring, cstring: *const jchar),
     >,
     pub NewWeakGlobalRef:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject) -> jweak>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject) -> jweak>,
     pub DeleteWeakGlobalRef:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, ref_: jweak)>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, ref_: jweak)>,
     pub ExceptionCheck: ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv) -> jboolean>,
     pub NewDirectByteBuffer: ::std::option::Option<
         unsafe extern "C" fn(
@@ -2925,7 +2925,7 @@ pub struct JNINativeInterface_ {
         unsafe extern "C" fn(env: *mut JNIEnv, buf: jobject) -> *mut ::std::os::raw::c_void,
     >,
     pub GetDirectBufferCapacity:
-    ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, buf: jobject) -> jlong>,
+        ::std::option::Option<unsafe extern "C" fn(env: *mut JNIEnv, buf: jobject) -> jlong>,
     pub GetObjectRefType: ::std::option::Option<
         unsafe extern "C" fn(env: *mut JNIEnv, obj: jobject) -> jobjectRefType,
     >,
@@ -2947,70 +2947,70 @@ fn bindgen_test_layout_JNINativeInterface_() {
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).reserved0 as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(reserved0)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(reserved0)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).reserved1 as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(reserved1)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(reserved1)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).reserved2 as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(reserved2)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(reserved2)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).reserved3 as *const _ as usize },
         24usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(reserved3)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(reserved3)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).GetVersion as *const _ as usize },
         32usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetVersion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetVersion)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).DefineClass as *const _ as usize },
         40usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(DefineClass)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(DefineClass)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).FindClass as *const _ as usize },
         48usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(FindClass)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(FindClass)
         )
     );
     assert_eq!(
@@ -3019,10 +3019,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         56usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(FromReflectedMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(FromReflectedMethod)
         )
     );
     assert_eq!(
@@ -3031,10 +3031,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         64usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(FromReflectedField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(FromReflectedField)
         )
     );
     assert_eq!(
@@ -3043,10 +3043,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         72usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ToReflectedMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ToReflectedMethod)
         )
     );
     assert_eq!(
@@ -3055,10 +3055,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         80usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetSuperclass)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetSuperclass)
         )
     );
     assert_eq!(
@@ -3067,10 +3067,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         88usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(IsAssignableFrom)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(IsAssignableFrom)
         )
     );
     assert_eq!(
@@ -3079,30 +3079,30 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         96usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ToReflectedField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ToReflectedField)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).Throw as *const _ as usize },
         104usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(Throw)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(Throw)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).ThrowNew as *const _ as usize },
         112usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ThrowNew)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ThrowNew)
         )
     );
     assert_eq!(
@@ -3111,10 +3111,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         120usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ExceptionOccurred)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ExceptionOccurred)
         )
     );
     assert_eq!(
@@ -3123,10 +3123,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         128usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ExceptionDescribe)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ExceptionDescribe)
         )
     );
     assert_eq!(
@@ -3135,20 +3135,20 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         136usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ExceptionClear)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ExceptionClear)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).FatalError as *const _ as usize },
         144usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(FatalError)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(FatalError)
         )
     );
     assert_eq!(
@@ -3157,10 +3157,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         152usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(PushLocalFrame)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(PushLocalFrame)
         )
     );
     assert_eq!(
@@ -3169,10 +3169,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         160usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(PopLocalFrame)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(PopLocalFrame)
         )
     );
     assert_eq!(
@@ -3181,10 +3181,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         168usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewGlobalRef)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewGlobalRef)
         )
     );
     assert_eq!(
@@ -3193,10 +3193,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         176usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(DeleteGlobalRef)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(DeleteGlobalRef)
         )
     );
     assert_eq!(
@@ -3205,10 +3205,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         184usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(DeleteLocalRef)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(DeleteLocalRef)
         )
     );
     assert_eq!(
@@ -3217,20 +3217,20 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         192usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(IsSameObject)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(IsSameObject)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).NewLocalRef as *const _ as usize },
         200usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewLocalRef)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewLocalRef)
         )
     );
     assert_eq!(
@@ -3239,50 +3239,50 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         208usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(EnsureLocalCapacity)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(EnsureLocalCapacity)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).AllocObject as *const _ as usize },
         216usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(AllocObject)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(AllocObject)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).NewObject as *const _ as usize },
         224usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewObject)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewObject)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).NewObjectV as *const _ as usize },
         232usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewObjectV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewObjectV)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).NewObjectA as *const _ as usize },
         240usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewObjectA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewObjectA)
         )
     );
     assert_eq!(
@@ -3291,10 +3291,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         248usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetObjectClass)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetObjectClass)
         )
     );
     assert_eq!(
@@ -3303,20 +3303,20 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         256usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(IsInstanceOf)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(IsInstanceOf)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).GetMethodID as *const _ as usize },
         264usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetMethodID)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetMethodID)
         )
     );
     assert_eq!(
@@ -3325,10 +3325,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         272usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallObjectMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallObjectMethod)
         )
     );
     assert_eq!(
@@ -3337,10 +3337,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         280usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallObjectMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallObjectMethodV)
         )
     );
     assert_eq!(
@@ -3349,10 +3349,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         288usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallObjectMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallObjectMethodA)
         )
     );
     assert_eq!(
@@ -3361,10 +3361,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         296usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallBooleanMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallBooleanMethod)
         )
     );
     assert_eq!(
@@ -3373,10 +3373,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         304usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallBooleanMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallBooleanMethodV)
         )
     );
     assert_eq!(
@@ -3385,10 +3385,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         312usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallBooleanMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallBooleanMethodA)
         )
     );
     assert_eq!(
@@ -3397,10 +3397,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         320usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallByteMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallByteMethod)
         )
     );
     assert_eq!(
@@ -3409,10 +3409,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         328usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallByteMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallByteMethodV)
         )
     );
     assert_eq!(
@@ -3421,10 +3421,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         336usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallByteMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallByteMethodA)
         )
     );
     assert_eq!(
@@ -3433,10 +3433,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         344usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallCharMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallCharMethod)
         )
     );
     assert_eq!(
@@ -3445,10 +3445,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         352usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallCharMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallCharMethodV)
         )
     );
     assert_eq!(
@@ -3457,10 +3457,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         360usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallCharMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallCharMethodA)
         )
     );
     assert_eq!(
@@ -3469,10 +3469,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         368usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallShortMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallShortMethod)
         )
     );
     assert_eq!(
@@ -3481,10 +3481,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         376usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallShortMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallShortMethodV)
         )
     );
     assert_eq!(
@@ -3493,10 +3493,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         384usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallShortMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallShortMethodA)
         )
     );
     assert_eq!(
@@ -3505,10 +3505,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         392usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallIntMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallIntMethod)
         )
     );
     assert_eq!(
@@ -3517,10 +3517,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         400usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallIntMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallIntMethodV)
         )
     );
     assert_eq!(
@@ -3529,10 +3529,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         408usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallIntMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallIntMethodA)
         )
     );
     assert_eq!(
@@ -3541,10 +3541,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         416usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallLongMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallLongMethod)
         )
     );
     assert_eq!(
@@ -3553,10 +3553,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         424usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallLongMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallLongMethodV)
         )
     );
     assert_eq!(
@@ -3565,10 +3565,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         432usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallLongMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallLongMethodA)
         )
     );
     assert_eq!(
@@ -3577,10 +3577,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         440usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallFloatMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallFloatMethod)
         )
     );
     assert_eq!(
@@ -3589,10 +3589,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         448usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallFloatMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallFloatMethodV)
         )
     );
     assert_eq!(
@@ -3601,10 +3601,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         456usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallFloatMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallFloatMethodA)
         )
     );
     assert_eq!(
@@ -3613,10 +3613,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         464usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallDoubleMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallDoubleMethod)
         )
     );
     assert_eq!(
@@ -3625,10 +3625,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         472usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallDoubleMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallDoubleMethodV)
         )
     );
     assert_eq!(
@@ -3637,10 +3637,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         480usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallDoubleMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallDoubleMethodA)
         )
     );
     assert_eq!(
@@ -3649,10 +3649,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         488usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallVoidMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallVoidMethod)
         )
     );
     assert_eq!(
@@ -3661,10 +3661,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         496usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallVoidMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallVoidMethodV)
         )
     );
     assert_eq!(
@@ -3673,10 +3673,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         504usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallVoidMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallVoidMethodA)
         )
     );
     assert_eq!(
@@ -3686,10 +3686,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         512usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualObjectMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualObjectMethod)
         )
     );
     assert_eq!(
@@ -3699,10 +3699,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         520usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualObjectMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualObjectMethodV)
         )
     );
     assert_eq!(
@@ -3712,10 +3712,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         528usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualObjectMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualObjectMethodA)
         )
     );
     assert_eq!(
@@ -3725,10 +3725,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         536usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualBooleanMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualBooleanMethod)
         )
     );
     assert_eq!(
@@ -3738,10 +3738,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         544usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualBooleanMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualBooleanMethodV)
         )
     );
     assert_eq!(
@@ -3751,10 +3751,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         552usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualBooleanMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualBooleanMethodA)
         )
     );
     assert_eq!(
@@ -3764,10 +3764,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         560usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualByteMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualByteMethod)
         )
     );
     assert_eq!(
@@ -3777,10 +3777,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         568usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualByteMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualByteMethodV)
         )
     );
     assert_eq!(
@@ -3790,10 +3790,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         576usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualByteMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualByteMethodA)
         )
     );
     assert_eq!(
@@ -3803,10 +3803,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         584usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualCharMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualCharMethod)
         )
     );
     assert_eq!(
@@ -3816,10 +3816,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         592usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualCharMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualCharMethodV)
         )
     );
     assert_eq!(
@@ -3829,10 +3829,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         600usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualCharMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualCharMethodA)
         )
     );
     assert_eq!(
@@ -3842,10 +3842,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         608usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualShortMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualShortMethod)
         )
     );
     assert_eq!(
@@ -3855,10 +3855,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         616usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualShortMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualShortMethodV)
         )
     );
     assert_eq!(
@@ -3868,10 +3868,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         624usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualShortMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualShortMethodA)
         )
     );
     assert_eq!(
@@ -3881,10 +3881,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         632usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualIntMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualIntMethod)
         )
     );
     assert_eq!(
@@ -3894,10 +3894,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         640usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualIntMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualIntMethodV)
         )
     );
     assert_eq!(
@@ -3907,10 +3907,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         648usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualIntMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualIntMethodA)
         )
     );
     assert_eq!(
@@ -3920,10 +3920,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         656usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualLongMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualLongMethod)
         )
     );
     assert_eq!(
@@ -3933,10 +3933,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         664usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualLongMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualLongMethodV)
         )
     );
     assert_eq!(
@@ -3946,10 +3946,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         672usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualLongMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualLongMethodA)
         )
     );
     assert_eq!(
@@ -3959,10 +3959,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         680usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualFloatMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualFloatMethod)
         )
     );
     assert_eq!(
@@ -3972,10 +3972,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         688usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualFloatMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualFloatMethodV)
         )
     );
     assert_eq!(
@@ -3985,10 +3985,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         696usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualFloatMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualFloatMethodA)
         )
     );
     assert_eq!(
@@ -3998,10 +3998,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         704usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualDoubleMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualDoubleMethod)
         )
     );
     assert_eq!(
@@ -4011,10 +4011,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         712usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualDoubleMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualDoubleMethodV)
         )
     );
     assert_eq!(
@@ -4024,10 +4024,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         720usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualDoubleMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualDoubleMethodA)
         )
     );
     assert_eq!(
@@ -4037,10 +4037,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         728usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualVoidMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualVoidMethod)
         )
     );
     assert_eq!(
@@ -4050,10 +4050,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         736usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualVoidMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualVoidMethodV)
         )
     );
     assert_eq!(
@@ -4063,20 +4063,20 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         744usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallNonvirtualVoidMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallNonvirtualVoidMethodA)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).GetFieldID as *const _ as usize },
         752usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetFieldID)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetFieldID)
         )
     );
     assert_eq!(
@@ -4085,10 +4085,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         760usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetObjectField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetObjectField)
         )
     );
     assert_eq!(
@@ -4097,10 +4097,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         768usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetBooleanField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetBooleanField)
         )
     );
     assert_eq!(
@@ -4109,10 +4109,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         776usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetByteField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetByteField)
         )
     );
     assert_eq!(
@@ -4121,10 +4121,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         784usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetCharField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetCharField)
         )
     );
     assert_eq!(
@@ -4133,20 +4133,20 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         792usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetShortField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetShortField)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).GetIntField as *const _ as usize },
         800usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetIntField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetIntField)
         )
     );
     assert_eq!(
@@ -4155,10 +4155,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         808usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetLongField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetLongField)
         )
     );
     assert_eq!(
@@ -4167,10 +4167,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         816usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetFloatField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetFloatField)
         )
     );
     assert_eq!(
@@ -4179,10 +4179,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         824usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetDoubleField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetDoubleField)
         )
     );
     assert_eq!(
@@ -4191,10 +4191,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         832usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetObjectField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetObjectField)
         )
     );
     assert_eq!(
@@ -4203,10 +4203,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         840usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetBooleanField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetBooleanField)
         )
     );
     assert_eq!(
@@ -4215,10 +4215,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         848usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetByteField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetByteField)
         )
     );
     assert_eq!(
@@ -4227,10 +4227,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         856usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetCharField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetCharField)
         )
     );
     assert_eq!(
@@ -4239,20 +4239,20 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         864usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetShortField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetShortField)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).SetIntField as *const _ as usize },
         872usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetIntField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetIntField)
         )
     );
     assert_eq!(
@@ -4261,10 +4261,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         880usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetLongField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetLongField)
         )
     );
     assert_eq!(
@@ -4273,10 +4273,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         888usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetFloatField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetFloatField)
         )
     );
     assert_eq!(
@@ -4285,10 +4285,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         896usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetDoubleField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetDoubleField)
         )
     );
     assert_eq!(
@@ -4297,10 +4297,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         904usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticMethodID)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticMethodID)
         )
     );
     assert_eq!(
@@ -4310,10 +4310,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         912usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticObjectMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticObjectMethod)
         )
     );
     assert_eq!(
@@ -4323,10 +4323,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         920usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticObjectMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticObjectMethodV)
         )
     );
     assert_eq!(
@@ -4336,10 +4336,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         928usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticObjectMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticObjectMethodA)
         )
     );
     assert_eq!(
@@ -4349,10 +4349,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         936usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticBooleanMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticBooleanMethod)
         )
     );
     assert_eq!(
@@ -4362,10 +4362,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         944usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticBooleanMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticBooleanMethodV)
         )
     );
     assert_eq!(
@@ -4375,10 +4375,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         952usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticBooleanMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticBooleanMethodA)
         )
     );
     assert_eq!(
@@ -4388,10 +4388,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         960usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticByteMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticByteMethod)
         )
     );
     assert_eq!(
@@ -4401,10 +4401,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         968usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticByteMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticByteMethodV)
         )
     );
     assert_eq!(
@@ -4414,10 +4414,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         976usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticByteMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticByteMethodA)
         )
     );
     assert_eq!(
@@ -4427,10 +4427,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         984usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticCharMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticCharMethod)
         )
     );
     assert_eq!(
@@ -4440,10 +4440,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         992usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticCharMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticCharMethodV)
         )
     );
     assert_eq!(
@@ -4453,10 +4453,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1000usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticCharMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticCharMethodA)
         )
     );
     assert_eq!(
@@ -4466,10 +4466,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1008usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticShortMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticShortMethod)
         )
     );
     assert_eq!(
@@ -4479,10 +4479,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1016usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticShortMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticShortMethodV)
         )
     );
     assert_eq!(
@@ -4492,10 +4492,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1024usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticShortMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticShortMethodA)
         )
     );
     assert_eq!(
@@ -4504,10 +4504,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1032usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticIntMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticIntMethod)
         )
     );
     assert_eq!(
@@ -4517,10 +4517,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1040usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticIntMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticIntMethodV)
         )
     );
     assert_eq!(
@@ -4530,10 +4530,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1048usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticIntMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticIntMethodA)
         )
     );
     assert_eq!(
@@ -4543,10 +4543,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1056usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticLongMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticLongMethod)
         )
     );
     assert_eq!(
@@ -4556,10 +4556,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1064usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticLongMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticLongMethodV)
         )
     );
     assert_eq!(
@@ -4569,10 +4569,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1072usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticLongMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticLongMethodA)
         )
     );
     assert_eq!(
@@ -4582,10 +4582,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1080usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticFloatMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticFloatMethod)
         )
     );
     assert_eq!(
@@ -4595,10 +4595,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1088usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticFloatMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticFloatMethodV)
         )
     );
     assert_eq!(
@@ -4608,10 +4608,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1096usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticFloatMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticFloatMethodA)
         )
     );
     assert_eq!(
@@ -4621,10 +4621,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1104usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticDoubleMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticDoubleMethod)
         )
     );
     assert_eq!(
@@ -4634,10 +4634,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1112usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticDoubleMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticDoubleMethodV)
         )
     );
     assert_eq!(
@@ -4647,10 +4647,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1120usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticDoubleMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticDoubleMethodA)
         )
     );
     assert_eq!(
@@ -4660,10 +4660,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1128usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticVoidMethod)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticVoidMethod)
         )
     );
     assert_eq!(
@@ -4673,10 +4673,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1136usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticVoidMethodV)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticVoidMethodV)
         )
     );
     assert_eq!(
@@ -4686,10 +4686,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1144usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(CallStaticVoidMethodA)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(CallStaticVoidMethodA)
         )
     );
     assert_eq!(
@@ -4698,10 +4698,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1152usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticFieldID)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticFieldID)
         )
     );
     assert_eq!(
@@ -4711,10 +4711,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1160usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticObjectField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticObjectField)
         )
     );
     assert_eq!(
@@ -4724,10 +4724,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1168usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticBooleanField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticBooleanField)
         )
     );
     assert_eq!(
@@ -4736,10 +4736,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1176usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticByteField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticByteField)
         )
     );
     assert_eq!(
@@ -4748,10 +4748,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1184usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticCharField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticCharField)
         )
     );
     assert_eq!(
@@ -4760,10 +4760,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1192usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticShortField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticShortField)
         )
     );
     assert_eq!(
@@ -4772,10 +4772,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1200usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticIntField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticIntField)
         )
     );
     assert_eq!(
@@ -4784,10 +4784,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1208usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticLongField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticLongField)
         )
     );
     assert_eq!(
@@ -4796,10 +4796,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1216usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticFloatField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticFloatField)
         )
     );
     assert_eq!(
@@ -4809,10 +4809,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1224usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStaticDoubleField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStaticDoubleField)
         )
     );
     assert_eq!(
@@ -4822,10 +4822,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1232usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetStaticObjectField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetStaticObjectField)
         )
     );
     assert_eq!(
@@ -4835,10 +4835,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1240usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetStaticBooleanField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetStaticBooleanField)
         )
     );
     assert_eq!(
@@ -4847,10 +4847,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1248usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetStaticByteField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetStaticByteField)
         )
     );
     assert_eq!(
@@ -4859,10 +4859,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1256usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetStaticCharField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetStaticCharField)
         )
     );
     assert_eq!(
@@ -4871,10 +4871,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1264usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetStaticShortField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetStaticShortField)
         )
     );
     assert_eq!(
@@ -4883,10 +4883,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1272usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetStaticIntField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetStaticIntField)
         )
     );
     assert_eq!(
@@ -4895,10 +4895,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1280usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetStaticLongField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetStaticLongField)
         )
     );
     assert_eq!(
@@ -4907,10 +4907,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1288usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetStaticFloatField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetStaticFloatField)
         )
     );
     assert_eq!(
@@ -4920,20 +4920,20 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1296usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetStaticDoubleField)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetStaticDoubleField)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).NewString as *const _ as usize },
         1304usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewString)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewString)
         )
     );
     assert_eq!(
@@ -4942,10 +4942,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1312usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStringLength)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStringLength)
         )
     );
     assert_eq!(
@@ -4954,10 +4954,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1320usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStringChars)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStringChars)
         )
     );
     assert_eq!(
@@ -4966,10 +4966,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1328usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseStringChars)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseStringChars)
         )
     );
     assert_eq!(
@@ -4978,10 +4978,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1336usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewStringUTF)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewStringUTF)
         )
     );
     assert_eq!(
@@ -4990,10 +4990,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1344usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStringUTFLength)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStringUTFLength)
         )
     );
     assert_eq!(
@@ -5002,10 +5002,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1352usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStringUTFChars)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStringUTFChars)
         )
     );
     assert_eq!(
@@ -5015,10 +5015,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1360usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseStringUTFChars)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseStringUTFChars)
         )
     );
     assert_eq!(
@@ -5027,10 +5027,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1368usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetArrayLength)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetArrayLength)
         )
     );
     assert_eq!(
@@ -5039,10 +5039,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1376usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewObjectArray)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewObjectArray)
         )
     );
     assert_eq!(
@@ -5052,10 +5052,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1384usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetObjectArrayElement)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetObjectArrayElement)
         )
     );
     assert_eq!(
@@ -5065,10 +5065,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1392usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetObjectArrayElement)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetObjectArrayElement)
         )
     );
     assert_eq!(
@@ -5077,10 +5077,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1400usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewBooleanArray)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewBooleanArray)
         )
     );
     assert_eq!(
@@ -5089,10 +5089,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1408usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewByteArray)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewByteArray)
         )
     );
     assert_eq!(
@@ -5101,10 +5101,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1416usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewCharArray)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewCharArray)
         )
     );
     assert_eq!(
@@ -5113,20 +5113,20 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1424usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewShortArray)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewShortArray)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).NewIntArray as *const _ as usize },
         1432usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewIntArray)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewIntArray)
         )
     );
     assert_eq!(
@@ -5135,10 +5135,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1440usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewLongArray)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewLongArray)
         )
     );
     assert_eq!(
@@ -5147,10 +5147,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1448usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewFloatArray)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewFloatArray)
         )
     );
     assert_eq!(
@@ -5159,10 +5159,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1456usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewDoubleArray)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewDoubleArray)
         )
     );
     assert_eq!(
@@ -5172,10 +5172,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1464usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetBooleanArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetBooleanArrayElements)
         )
     );
     assert_eq!(
@@ -5185,10 +5185,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1472usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetByteArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetByteArrayElements)
         )
     );
     assert_eq!(
@@ -5198,10 +5198,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1480usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetCharArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetCharArrayElements)
         )
     );
     assert_eq!(
@@ -5211,10 +5211,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1488usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetShortArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetShortArrayElements)
         )
     );
     assert_eq!(
@@ -5223,10 +5223,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1496usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetIntArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetIntArrayElements)
         )
     );
     assert_eq!(
@@ -5236,10 +5236,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1504usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetLongArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetLongArrayElements)
         )
     );
     assert_eq!(
@@ -5249,10 +5249,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1512usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetFloatArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetFloatArrayElements)
         )
     );
     assert_eq!(
@@ -5262,10 +5262,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1520usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetDoubleArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetDoubleArrayElements)
         )
     );
     assert_eq!(
@@ -5275,10 +5275,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1528usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseBooleanArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseBooleanArrayElements)
         )
     );
     assert_eq!(
@@ -5288,10 +5288,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1536usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseByteArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseByteArrayElements)
         )
     );
     assert_eq!(
@@ -5301,10 +5301,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1544usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseCharArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseCharArrayElements)
         )
     );
     assert_eq!(
@@ -5314,10 +5314,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1552usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseShortArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseShortArrayElements)
         )
     );
     assert_eq!(
@@ -5327,10 +5327,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1560usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseIntArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseIntArrayElements)
         )
     );
     assert_eq!(
@@ -5340,10 +5340,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1568usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseLongArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseLongArrayElements)
         )
     );
     assert_eq!(
@@ -5353,10 +5353,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1576usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseFloatArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseFloatArrayElements)
         )
     );
     assert_eq!(
@@ -5366,10 +5366,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1584usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseDoubleArrayElements)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseDoubleArrayElements)
         )
     );
     assert_eq!(
@@ -5379,10 +5379,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1592usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetBooleanArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetBooleanArrayRegion)
         )
     );
     assert_eq!(
@@ -5391,10 +5391,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1600usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetByteArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetByteArrayRegion)
         )
     );
     assert_eq!(
@@ -5403,10 +5403,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1608usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetCharArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetCharArrayRegion)
         )
     );
     assert_eq!(
@@ -5415,10 +5415,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1616usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetShortArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetShortArrayRegion)
         )
     );
     assert_eq!(
@@ -5427,10 +5427,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1624usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetIntArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetIntArrayRegion)
         )
     );
     assert_eq!(
@@ -5439,10 +5439,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1632usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetLongArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetLongArrayRegion)
         )
     );
     assert_eq!(
@@ -5451,10 +5451,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1640usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetFloatArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetFloatArrayRegion)
         )
     );
     assert_eq!(
@@ -5464,10 +5464,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1648usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetDoubleArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetDoubleArrayRegion)
         )
     );
     assert_eq!(
@@ -5477,10 +5477,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1656usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetBooleanArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetBooleanArrayRegion)
         )
     );
     assert_eq!(
@@ -5489,10 +5489,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1664usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetByteArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetByteArrayRegion)
         )
     );
     assert_eq!(
@@ -5501,10 +5501,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1672usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetCharArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetCharArrayRegion)
         )
     );
     assert_eq!(
@@ -5513,10 +5513,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1680usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetShortArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetShortArrayRegion)
         )
     );
     assert_eq!(
@@ -5525,10 +5525,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1688usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetIntArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetIntArrayRegion)
         )
     );
     assert_eq!(
@@ -5537,10 +5537,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1696usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetLongArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetLongArrayRegion)
         )
     );
     assert_eq!(
@@ -5549,10 +5549,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1704usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetFloatArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetFloatArrayRegion)
         )
     );
     assert_eq!(
@@ -5562,10 +5562,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1712usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(SetDoubleArrayRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(SetDoubleArrayRegion)
         )
     );
     assert_eq!(
@@ -5574,10 +5574,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1720usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(RegisterNatives)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(RegisterNatives)
         )
     );
     assert_eq!(
@@ -5586,10 +5586,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1728usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(UnregisterNatives)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(UnregisterNatives)
         )
     );
     assert_eq!(
@@ -5598,30 +5598,30 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1736usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(MonitorEnter)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(MonitorEnter)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).MonitorExit as *const _ as usize },
         1744usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(MonitorExit)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(MonitorExit)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNINativeInterface_>())).GetJavaVM as *const _ as usize },
         1752usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetJavaVM)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetJavaVM)
         )
     );
     assert_eq!(
@@ -5630,10 +5630,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1760usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStringRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStringRegion)
         )
     );
     assert_eq!(
@@ -5642,10 +5642,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1768usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStringUTFRegion)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStringUTFRegion)
         )
     );
     assert_eq!(
@@ -5655,10 +5655,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1776usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetPrimitiveArrayCritical)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetPrimitiveArrayCritical)
         )
     );
     assert_eq!(
@@ -5668,10 +5668,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1784usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleasePrimitiveArrayCritical)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleasePrimitiveArrayCritical)
         )
     );
     assert_eq!(
@@ -5680,10 +5680,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1792usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetStringCritical)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetStringCritical)
         )
     );
     assert_eq!(
@@ -5693,10 +5693,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1800usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ReleaseStringCritical)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ReleaseStringCritical)
         )
     );
     assert_eq!(
@@ -5705,10 +5705,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1808usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewWeakGlobalRef)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewWeakGlobalRef)
         )
     );
     assert_eq!(
@@ -5717,10 +5717,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1816usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(DeleteWeakGlobalRef)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(DeleteWeakGlobalRef)
         )
     );
     assert_eq!(
@@ -5729,10 +5729,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1824usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(ExceptionCheck)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(ExceptionCheck)
         )
     );
     assert_eq!(
@@ -5741,10 +5741,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1832usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(NewDirectByteBuffer)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(NewDirectByteBuffer)
         )
     );
     assert_eq!(
@@ -5754,10 +5754,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1840usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetDirectBufferAddress)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetDirectBufferAddress)
         )
     );
     assert_eq!(
@@ -5767,10 +5767,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1848usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetDirectBufferCapacity)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetDirectBufferCapacity)
         )
     );
     assert_eq!(
@@ -5779,10 +5779,10 @@ fn bindgen_test_layout_JNINativeInterface_() {
         },
         1856usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNINativeInterface_),
-        "::",
-        stringify!(GetObjectRefType)
+            "Offset of field: ",
+            stringify!(JNINativeInterface_),
+            "::",
+            stringify!(GetObjectRefType)
         )
     );
 }
@@ -5809,10 +5809,10 @@ fn bindgen_test_layout_JNIEnv_() {
         unsafe { &(*(::std::ptr::null::<JNIEnv_>())).functions as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNIEnv_),
-        "::",
-        stringify!(functions)
+            "Offset of field: ",
+            stringify!(JNIEnv_),
+            "::",
+            stringify!(functions)
         )
     );
 }
@@ -5840,20 +5840,20 @@ fn bindgen_test_layout_JavaVMOption() {
         unsafe { &(*(::std::ptr::null::<JavaVMOption>())).optionString as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVMOption),
-        "::",
-        stringify!(optionString)
+            "Offset of field: ",
+            stringify!(JavaVMOption),
+            "::",
+            stringify!(optionString)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JavaVMOption>())).extraInfo as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVMOption),
-        "::",
-        stringify!(extraInfo)
+            "Offset of field: ",
+            stringify!(JavaVMOption),
+            "::",
+            stringify!(extraInfo)
         )
     );
 }
@@ -5883,30 +5883,30 @@ fn bindgen_test_layout_JavaVMInitArgs() {
         unsafe { &(*(::std::ptr::null::<JavaVMInitArgs>())).version as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVMInitArgs),
-        "::",
-        stringify!(version)
+            "Offset of field: ",
+            stringify!(JavaVMInitArgs),
+            "::",
+            stringify!(version)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JavaVMInitArgs>())).nOptions as *const _ as usize },
         4usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVMInitArgs),
-        "::",
-        stringify!(nOptions)
+            "Offset of field: ",
+            stringify!(JavaVMInitArgs),
+            "::",
+            stringify!(nOptions)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JavaVMInitArgs>())).options as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVMInitArgs),
-        "::",
-        stringify!(options)
+            "Offset of field: ",
+            stringify!(JavaVMInitArgs),
+            "::",
+            stringify!(options)
         )
     );
     assert_eq!(
@@ -5915,10 +5915,10 @@ fn bindgen_test_layout_JavaVMInitArgs() {
         },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVMInitArgs),
-        "::",
-        stringify!(ignoreUnrecognized)
+            "Offset of field: ",
+            stringify!(JavaVMInitArgs),
+            "::",
+            stringify!(ignoreUnrecognized)
         )
     );
 }
@@ -5947,30 +5947,30 @@ fn bindgen_test_layout_JavaVMAttachArgs() {
         unsafe { &(*(::std::ptr::null::<JavaVMAttachArgs>())).version as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVMAttachArgs),
-        "::",
-        stringify!(version)
+            "Offset of field: ",
+            stringify!(JavaVMAttachArgs),
+            "::",
+            stringify!(version)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JavaVMAttachArgs>())).name as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVMAttachArgs),
-        "::",
-        stringify!(name)
+            "Offset of field: ",
+            stringify!(JavaVMAttachArgs),
+            "::",
+            stringify!(name)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JavaVMAttachArgs>())).group as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVMAttachArgs),
-        "::",
-        stringify!(group)
+            "Offset of field: ",
+            stringify!(JavaVMAttachArgs),
+            "::",
+            stringify!(group)
         )
     );
 }
@@ -6022,30 +6022,30 @@ fn bindgen_test_layout_JNIInvokeInterface_() {
         unsafe { &(*(::std::ptr::null::<JNIInvokeInterface_>())).reserved0 as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNIInvokeInterface_),
-        "::",
-        stringify!(reserved0)
+            "Offset of field: ",
+            stringify!(JNIInvokeInterface_),
+            "::",
+            stringify!(reserved0)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNIInvokeInterface_>())).reserved1 as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNIInvokeInterface_),
-        "::",
-        stringify!(reserved1)
+            "Offset of field: ",
+            stringify!(JNIInvokeInterface_),
+            "::",
+            stringify!(reserved1)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNIInvokeInterface_>())).reserved2 as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNIInvokeInterface_),
-        "::",
-        stringify!(reserved2)
+            "Offset of field: ",
+            stringify!(JNIInvokeInterface_),
+            "::",
+            stringify!(reserved2)
         )
     );
     assert_eq!(
@@ -6054,10 +6054,10 @@ fn bindgen_test_layout_JNIInvokeInterface_() {
         },
         24usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNIInvokeInterface_),
-        "::",
-        stringify!(DestroyJavaVM)
+            "Offset of field: ",
+            stringify!(JNIInvokeInterface_),
+            "::",
+            stringify!(DestroyJavaVM)
         )
     );
     assert_eq!(
@@ -6066,10 +6066,10 @@ fn bindgen_test_layout_JNIInvokeInterface_() {
         },
         32usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNIInvokeInterface_),
-        "::",
-        stringify!(AttachCurrentThread)
+            "Offset of field: ",
+            stringify!(JNIInvokeInterface_),
+            "::",
+            stringify!(AttachCurrentThread)
         )
     );
     assert_eq!(
@@ -6078,20 +6078,20 @@ fn bindgen_test_layout_JNIInvokeInterface_() {
         },
         40usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNIInvokeInterface_),
-        "::",
-        stringify!(DetachCurrentThread)
+            "Offset of field: ",
+            stringify!(JNIInvokeInterface_),
+            "::",
+            stringify!(DetachCurrentThread)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<JNIInvokeInterface_>())).GetEnv as *const _ as usize },
         48usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNIInvokeInterface_),
-        "::",
-        stringify!(GetEnv)
+            "Offset of field: ",
+            stringify!(JNIInvokeInterface_),
+            "::",
+            stringify!(GetEnv)
         )
     );
     assert_eq!(
@@ -6101,10 +6101,10 @@ fn bindgen_test_layout_JNIInvokeInterface_() {
         },
         56usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JNIInvokeInterface_),
-        "::",
-        stringify!(AttachCurrentThreadAsDaemon)
+            "Offset of field: ",
+            stringify!(JNIInvokeInterface_),
+            "::",
+            stringify!(AttachCurrentThreadAsDaemon)
         )
     );
 }
@@ -6131,10 +6131,10 @@ fn bindgen_test_layout_JavaVM_() {
         unsafe { &(*(::std::ptr::null::<JavaVM_>())).functions as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(JavaVM_),
-        "::",
-        stringify!(functions)
+            "Offset of field: ",
+            stringify!(JavaVM_),
+            "::",
+            stringify!(functions)
         )
     );
 }
@@ -6190,40 +6190,40 @@ fn bindgen_test_layout___va_list_tag() {
         unsafe { &(*(::std::ptr::null::<__va_list_tag>())).gp_offset as *const _ as usize },
         0usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__va_list_tag),
-        "::",
-        stringify!(gp_offset)
+            "Offset of field: ",
+            stringify!(__va_list_tag),
+            "::",
+            stringify!(gp_offset)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<__va_list_tag>())).fp_offset as *const _ as usize },
         4usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__va_list_tag),
-        "::",
-        stringify!(fp_offset)
+            "Offset of field: ",
+            stringify!(__va_list_tag),
+            "::",
+            stringify!(fp_offset)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<__va_list_tag>())).overflow_arg_area as *const _ as usize },
         8usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__va_list_tag),
-        "::",
-        stringify!(overflow_arg_area)
+            "Offset of field: ",
+            stringify!(__va_list_tag),
+            "::",
+            stringify!(overflow_arg_area)
         )
     );
     assert_eq!(
         unsafe { &(*(::std::ptr::null::<__va_list_tag>())).reg_save_area as *const _ as usize },
         16usize,
         concat!(
-        "Offset of field: ",
-        stringify!(__va_list_tag),
-        "::",
-        stringify!(reg_save_area)
+            "Offset of field: ",
+            stringify!(__va_list_tag),
+            "::",
+            stringify!(reg_save_area)
         )
     );
 }

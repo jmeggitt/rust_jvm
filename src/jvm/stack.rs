@@ -1,10 +1,10 @@
 //! Maintains the opperand stack for the jvm. The primary objective of this system is to support the
 //! native interface which requires stdcall support.
-use crate::jvm::bindings::{jvalue, JNIEnv, JNINativeInterface_, jobject};
-use std::mem::{zeroed, size_of, transmute, forget};
-use std::ffi::c_void;
-use std::pin::Pin;
+use crate::jvm::bindings::{jobject, jvalue, JNIEnv, JNINativeInterface_};
 use crate::jvm::interface::build_interface;
+use std::ffi::c_void;
+use std::mem::{forget, size_of, transmute, zeroed};
+use std::pin::Pin;
 
 pub struct OperandStack {
     stack: Vec<jvalue>,
@@ -67,10 +67,68 @@ impl OperandStack {
         match args.len() {
             0 => transmute::<_, unsafe extern "C" fn() -> jvalue>(fn_ptr)(),
             1 => transmute::<_, unsafe extern "C" fn(jvalue) -> jvalue>(fn_ptr)(args[0]),
-            2 => transmute::<_, unsafe extern "C" fn(jvalue, jvalue) -> jvalue>(fn_ptr)(args[0], args[1]),
-            3 => transmute::<_, unsafe extern "C" fn(jvalue, jvalue, jvalue) -> jvalue>(fn_ptr)(args[0], args[1], args[2]),
-            4 => transmute::<_, unsafe extern "C" fn(jvalue, jvalue, jvalue, jvalue) -> jvalue>(fn_ptr)(args[0], args[1], args[2], args[3]),
-            5 => transmute::<_, unsafe extern "C" fn(jvalue, jvalue, jvalue, jvalue, jvalue) -> jvalue>(fn_ptr)(args[0], args[1], args[2], args[3], args[4]),
+            2 => transmute::<_, unsafe extern "C" fn(jvalue, jvalue) -> jvalue>(fn_ptr)(
+                args[0], args[1],
+            ),
+            3 => transmute::<_, unsafe extern "C" fn(jvalue, jvalue, jvalue) -> jvalue>(fn_ptr)(
+                args[0], args[1], args[2],
+            ),
+            4 => transmute::<_, unsafe extern "C" fn(jvalue, jvalue, jvalue, jvalue) -> jvalue>(
+                fn_ptr,
+            )(args[0], args[1], args[2], args[3]),
+            5 => transmute::<
+                _,
+                unsafe extern "C" fn(jvalue, jvalue, jvalue, jvalue, jvalue) -> jvalue,
+            >(fn_ptr)(args[0], args[1], args[2], args[3], args[4]),
+            6 => transmute::<
+                _,
+                unsafe extern "C" fn(jvalue, jvalue, jvalue, jvalue, jvalue, jvalue) -> jvalue,
+            >(fn_ptr)(args[0], args[1], args[2], args[3], args[4], args[5]),
+            7 => transmute::<
+                _,
+                unsafe extern "C" fn(
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                ) -> jvalue,
+            >(fn_ptr)(
+                args[0], args[1], args[2], args[3], args[4], args[5], args[6],
+            ),
+            8 => transmute::<
+                _,
+                unsafe extern "C" fn(
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                ) -> jvalue,
+            >(fn_ptr)(
+                args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7],
+            ),
+            9 => transmute::<
+                _,
+                unsafe extern "C" fn(
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                    jvalue,
+                ) -> jvalue,
+            >(fn_ptr)(
+                args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8],
+            ),
             _ => {
                 self.preload_stack(args);
                 self.perform_raw_call(fn_ptr)
@@ -97,20 +155,31 @@ impl OperandStack {
         exec_x86_with_stack(fn_ptr, rbp, rsp)
     }
 
-    pub unsafe fn native_static_call(&mut self, fn_ptr: *const c_void, mut args: Vec<jvalue>) -> jvalue {
+    pub unsafe fn native_static_call(
+        &mut self,
+        fn_ptr: *const c_void,
+        mut args: Vec<jvalue>,
+    ) -> jvalue {
         // Push JNIEnv
         // self.stack_top -= 1;
         let env = &*self.native_env as JNIEnv;
         let env_ptr = &env as *const JNIEnv;
 
-        let value = jvalue { l: transmute(env_ptr) };
+        let value = jvalue {
+            l: transmute(env_ptr),
+        };
         args.insert(0, value);
         // self.stack[self.stack_top] = value;
 
         self.native_call(fn_ptr, args)
     }
 
-    pub unsafe fn native_method_call(&mut self, fn_ptr: *const c_void, object: jobject, mut args: Vec<jvalue>) -> jvalue {
+    pub unsafe fn native_method_call(
+        &mut self,
+        fn_ptr: *const c_void,
+        object: jobject,
+        mut args: Vec<jvalue>,
+    ) -> jvalue {
         args.insert(0, jvalue { l: object });
         self.native_static_call(fn_ptr, args)
     }
@@ -121,7 +190,6 @@ impl Default for OperandStack {
         OperandStack::new(16384)
     }
 }
-
 
 #[test]
 pub fn basic_functionality() {
@@ -140,7 +208,6 @@ pub fn basic_functionality() {
         assert_eq!(result.i, -6);
     }
 }
-
 
 // #[test]
 // pub fn many_args() {
