@@ -14,19 +14,30 @@
 //!  - bipush
 #![allow(non_camel_case_types)]
 
-#[macro_use]
-mod macros;
+use std::any::Any;
+use std::fmt::Debug;
+use std::io::{self, Cursor, Error, ErrorKind};
+use std::ops::RangeInclusive;
 
+use byteorder::ReadBytesExt;
+use hashbrown::HashMap;
+
+use array::*;
 // import instructions
 use class::*;
 use cmp::*;
+use convert::*;
 use general::*;
 use locals::*;
+use math::*;
 use push_const::*;
 use stack::*;
-use convert::*;
-use math::*;
-use array::*;
+
+use crate::constant_pool::Constant;
+use crate::jvm::{JVM, LocalVariable, StackFrame};
+
+#[macro_use]
+mod macros;
 
 mod class;
 mod cmp;
@@ -39,15 +50,6 @@ mod convert;
 mod math;
 mod array;
 mod exception;
-
-use crate::constant_pool::Constant;
-use crate::jvm::{LocalVariable, StackFrame, JVM};
-use byteorder::ReadBytesExt;
-use hashbrown::HashMap;
-use std::any::Any;
-use std::fmt::Debug;
-use std::io::{self, Cursor, Error, ErrorKind};
-use std::ops::RangeInclusive;
 
 pub trait Instruction: Any + Debug {
     fn write(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<()>;

@@ -1,11 +1,13 @@
-use crate::class::BufferedRead;
-use crate::jvm::bindings::jvalue;
-use crate::jvm::{LocalVariable, Object};
-use byteorder::ReadBytesExt;
-use hashbrown::HashSet;
+use std::cell::{RefCell, UnsafeCell};
 use std::io::{self, Cursor, Error, ErrorKind, Seek, SeekFrom};
 use std::rc::Rc;
-use std::cell::{RefCell, UnsafeCell};
+
+use byteorder::ReadBytesExt;
+use hashbrown::HashSet;
+use jni::sys::jvalue;
+
+use crate::class::BufferedRead;
+use crate::jvm::{LocalVariable, Object};
 
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FieldDescriptor {

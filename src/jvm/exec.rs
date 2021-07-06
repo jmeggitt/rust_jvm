@@ -1,5 +1,6 @@
-use crate::jvm::bindings::jvalue;
 use std::ffi::c_void;
+
+use jni::sys::jvalue;
 
 extern "C" {
 

@@ -1,14 +1,16 @@
+use std::borrow::{Borrow, BorrowMut};
+use std::cell::{RefCell, UnsafeCell};
+use std::io;
+use std::io::Cursor;
+use std::rc::Rc;
+
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+
 use crate::class::BufferedRead;
 use crate::constant_pool::Constant;
-use crate::instruction::{InstructionAction, StaticInstruct, Instruction};
-use crate::jvm::{clean_str, LocalVariable, Object, StackFrame, JVM};
+use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
+use crate::jvm::{clean_str, JVM, LocalVariable, Object, StackFrame};
 use crate::types::FieldDescriptor;
-use std::cell::{RefCell, UnsafeCell};
-use std::rc::Rc;
-use std::io::Cursor;
-use std::io;
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::borrow::{Borrow, BorrowMut};
 
 instruction! {@partial getstatic, 0xb2, u16}
 

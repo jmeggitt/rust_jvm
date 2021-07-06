@@ -1,10 +1,12 @@
-use crate::class::BufferedRead;
-use crate::version::ClassVersion;
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_traits::FromPrimitive;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::io::{self, Cursor, Error, ErrorKind, Read, Write};
+
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use num_traits::FromPrimitive;
+
+use crate::class::BufferedRead;
+use crate::version::ClassVersion;
 
 #[derive(Debug)]
 pub struct ConstantPool {

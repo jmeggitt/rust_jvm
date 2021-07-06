@@ -1,10 +1,12 @@
 //! This file contains all the loading and storing instructions. In other words, all of the
 //! instructions supported by the wide instruction.
 
-use crate::instruction::{Instruction, StaticInstruct};
-use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{self, Cursor, Write};
 use std::ops::RangeInclusive;
+
+use byteorder::{ReadBytesExt, WriteBytesExt};
+
+use crate::instruction::{Instruction, StaticInstruct};
 
 #[derive(Debug, Copy, Clone)]
 pub struct iload(u8);

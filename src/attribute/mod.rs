@@ -1,10 +1,12 @@
-use crate::class::{AttributeInfo, BufferedRead};
-use crate::instruction::Instruction;
-use crate::instruction::InstructionReader;
-use byteorder::{BigEndian, ReadBytesExt};
 use std::io;
 use std::io::{Cursor, Read};
+
+use byteorder::{BigEndian, ReadBytesExt};
+
+use crate::class::{AttributeInfo, BufferedRead};
 use crate::constant_pool::Constant;
+use crate::instruction::Instruction;
+use crate::instruction::InstructionReader;
 use crate::jvm::JVM;
 
 #[derive(Debug)]

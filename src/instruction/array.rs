@@ -1,9 +1,10 @@
-use crate::instruction::InstructionAction;
-use crate::jvm::{StackFrame, JVM, LocalVariable, Object};
-use crate::constant_pool::{Constant, ConstantClass};
-use crate::types::FieldDescriptor;
-use std::rc::Rc;
 use std::cell::{RefCell, UnsafeCell};
+use std::rc::Rc;
+
+use crate::constant_pool::{Constant, ConstantClass};
+use crate::instruction::InstructionAction;
+use crate::jvm::{JVM, LocalVariable, Object, StackFrame};
+use crate::types::FieldDescriptor;
 
 macro_rules! array_instruction {
     (@$type:ident $name:ident, $inst:literal) => {

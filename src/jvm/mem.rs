@@ -1,17 +1,20 @@
-use crate::class::FieldInfo;
-use crate::jvm::bindings::{_jobject, jobject, jvalue};
-use crate::jvm::JVM;
-use crate::types::FieldDescriptor;
-use hashbrown::HashMap;
+use std::borrow::Borrow;
 use std::cell::{RefCell, UnsafeCell};
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
+use std::mem::{forget, transmute_copy};
 use std::os::raw::c_long;
+use std::pin::Pin;
 use std::ptr::null_mut;
 use std::rc::Rc;
+
 use byteorder::LittleEndian;
-use std::mem::{forget, transmute_copy};
-use std::hash::{Hash, Hasher};
-use std::borrow::Borrow;
+use hashbrown::HashMap;
+use jni::sys::{jobject, jvalue};
+
+use crate::class::FieldInfo;
+use crate::jvm::JVM;
+use crate::types::FieldDescriptor;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
@@ -129,8 +132,8 @@ impl From<&str> for Object {
 }
 
 impl<'a> Into<jobject> for &'a Object {
-    fn into(self) -> *mut _jobject {
-        self as *const _ as *mut _jobject
+    fn into(self) -> jobject {
+        self as *const _ as jobject
     }
 }
 
@@ -301,7 +304,7 @@ impl Into<Option<jvalue>> for LocalVariable {
                     },
                 },
                 LocalVariable::ReturnAddress(x) => panic!(),
-                LocalVariable::Long(x) => jvalue { j: x as c_long },
+                LocalVariable::Long(x) => jvalue { j: x },
                 LocalVariable::Double(x) => jvalue { d: x },
                 LocalVariable::Padding => return None,
             })

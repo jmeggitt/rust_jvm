@@ -1,6 +1,7 @@
-use crate::instruction::InstructionAction;
-use crate::jvm::{StackFrame, JVM, LocalVariable};
 use std::cmp::Ordering;
+
+use crate::instruction::InstructionAction;
+use crate::jvm::{JVM, LocalVariable, StackFrame};
 
 macro_rules! cmp_instruction {
     ($name:ident, $inst:literal, i16, $cond:expr) => {

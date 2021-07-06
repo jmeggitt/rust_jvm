@@ -6,23 +6,24 @@
 // TODO: Remove later
 #![allow(dead_code)]
 
-use crate::class::{ClassLoader, ClassPath};
-use crate::jvm::JVM;
-use crate::types::FieldDescriptor::Object;
-use log::LevelFilter;
-use pretty_env_logger::env_logger::Target;
+#[macro_use]
+extern crate bitflags;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate num_derive;
+
 use std::env::set_current_dir;
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 
-#[macro_use]
-extern crate num_derive;
+use log::LevelFilter;
+use pretty_env_logger::env_logger::Target;
 
-#[macro_use]
-extern crate bitflags;
+use crate::class::{ClassLoader, ClassPath};
+use crate::jvm::JVM;
+use crate::types::FieldDescriptor::Object;
 
-#[macro_use]
-extern crate log;
 
 mod attribute;
 mod class;

@@ -1,17 +1,18 @@
-use std::fs::{create_dir_all, read_dir, File};
+use std::collections::hash_map::DefaultHasher;
+use std::fs::{create_dir_all, File, read_dir};
+use std::hash::{Hash, Hasher};
 use std::io;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
+use std::mem::replace;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+
+use hashbrown::HashMap;
+use sha2::{Digest, Sha256};
+use walkdir::WalkDir;
 use zip::ZipArchive;
 
 use crate::read_file;
-use hashbrown::HashMap;
-use sha2::{Digest, Sha256};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-use std::mem::replace;
-use walkdir::WalkDir;
 
 pub fn unpack_jar<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     let mut jar = ZipArchive::new(File::open(path.as_ref())?)?;

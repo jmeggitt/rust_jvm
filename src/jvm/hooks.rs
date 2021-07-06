@@ -1,18 +1,20 @@
 //! TODO: Split into seperate crate for shared library object
 
-use crate::jvm::bindings::{jint, jobject, jstring, JNIEnv, jclass, jboolean};
-use crate::jvm::{clean_str, LocalVariable, JVM, Object};
-use std::ffi::c_void;
-use walkdir::WalkDir;
-use crate::jvm::interface::GLOBAL_JVM;
 use std::cell::{RefCell, UnsafeCell};
-use std::rc::Rc;
-use std::mem::{forget, ManuallyDrop, transmute};
-use crate::instruction::Instruction;
-use std::io::Cursor;
-use std::io;
 use std::collections::hash_map::DefaultHasher;
+use std::ffi::c_void;
 use std::hash::{Hash, Hasher};
+use std::io;
+use std::io::Cursor;
+use std::mem::{forget, ManuallyDrop, transmute};
+use std::rc::Rc;
+
+use jni::sys::{jboolean, jclass, jint, JNIEnv, jobject, jstring};
+use walkdir::WalkDir;
+
+use crate::instruction::Instruction;
+use crate::jvm::{clean_str, JVM, LocalVariable, Object};
+use crate::jvm::interface::GLOBAL_JVM;
 
 pub fn register_hooks(jvm: &mut JVM) {
     // Load classes since they are outside the class loaders visiblity

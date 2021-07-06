@@ -1,19 +1,21 @@
-use crate::attribute::CodeAttribute;
-use crate::constant_pool::{Constant, ConstantClass, SimplifiedConstant};
-use crate::jar::{unpack_jar, Jar, Manifest};
-use crate::jvm::Object;
-use crate::types::FieldDescriptor;
-use crate::version::{check_magic_number, ClassVersion};
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use hashbrown::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io;
 use std::io::{Cursor, Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
+
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use hashbrown::{HashMap, HashSet};
 use walkdir::WalkDir;
 use zip::ZipArchive;
+
+use crate::attribute::CodeAttribute;
+use crate::constant_pool::{Constant, ConstantClass, SimplifiedConstant};
+use crate::jar::{Jar, Manifest, unpack_jar};
+use crate::jvm::Object;
+use crate::types::FieldDescriptor;
+use crate::version::{check_magic_number, ClassVersion};
 
 bitflags! {
     pub struct AccessFlags: u16 {

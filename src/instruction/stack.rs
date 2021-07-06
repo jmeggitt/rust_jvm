@@ -1,6 +1,6 @@
 use crate::constant_pool::Constant;
 use crate::instruction::InstructionAction;
-use crate::jvm::{LocalVariable, StackFrame, JVM};
+use crate::jvm::{JVM, LocalVariable, StackFrame};
 
 instruction! {@partial dup, 0x59}
 instruction! {@partial dup_x1, 0x5a}

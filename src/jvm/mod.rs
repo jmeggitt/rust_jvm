@@ -1,20 +1,30 @@
-use crate::class::{AccessFlags, BufferedRead, Class, ClassLoader, MethodInfo};
-use crate::jvm::bindings::{_jobject, jvalue, jobject};
-use crate::jvm::stack::OperandStack;
-use crate::types::FieldDescriptor;
-use hashbrown::{HashMap, HashSet};
-use libloading::Library;
+use std::borrow::Borrow;
+use std::cell::{RefCell, UnsafeCell};
 use std::env::{current_dir, set_current_dir, set_var, var};
 use std::ffi::c_void;
 use std::fs::read_dir;
 use std::io;
 use std::io::{Cursor, Error, ErrorKind};
+use std::mem::replace;
 use std::option::Option::Some;
 use std::os::raw::c_long;
 use std::path::PathBuf;
 use std::ptr::{null, null_mut};
 use std::rc::Rc;
+
+use hashbrown::{HashMap, HashSet};
+use jni::sys::{jobject, jvalue};
+use libloading::Library;
 use walkdir::WalkDir;
+
+pub use mem::*;
+
+use crate::attribute::CodeAttribute;
+use crate::class::{AccessFlags, BufferedRead, Class, ClassLoader, MethodInfo};
+use crate::constant_pool::Constant;
+use crate::jvm::hooks::register_hooks;
+use crate::jvm::stack::OperandStack;
+use crate::types::FieldDescriptor;
 
 macro_rules! fatal_error {
     ($($arg:tt),*) => {{
@@ -23,19 +33,11 @@ macro_rules! fatal_error {
     }};
 }
 
-/// This was generated from jni.h so allow any variations
-#[allow(warnings)]
-pub mod bindings;
+// This was generated from jni.h so allow any variations
+// #[allow(warnings)]
+// pub mod bindings;
 
 mod mem;
-
-use crate::attribute::CodeAttribute;
-use crate::constant_pool::Constant;
-use crate::jvm::hooks::register_hooks;
-pub use mem::*;
-use std::cell::{RefCell, UnsafeCell};
-use std::borrow::Borrow;
-use std::mem::replace;
 
 mod hooks;
 mod interface;
@@ -43,6 +45,7 @@ mod stack;
 
 #[cfg(unix)]
 mod exec;
+mod mem_rewrite;
 
 pub struct StackFrame {
     // Either an object or class

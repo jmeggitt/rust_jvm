@@ -1,18 +1,20 @@
-use crate::jvm::bindings::{jclass, jint, JNIEnv, JNINativeInterface_, JNINativeMethod};
-use crate::jvm::{Object, JVM};
+use std::cell::{RefCell, UnsafeCell};
 use std::ffi::{CString, OsStr, OsString};
 use std::mem::forget;
 use std::ptr::null_mut;
 use std::rc::Rc;
-use std::cell::{RefCell, UnsafeCell};
+
+use jni::sys::{jclass, jint, JNIEnv, JNINativeInterface_, JNINativeMethod};
+
+use crate::jvm::{JVM, Object};
 
 pub static mut GLOBAL_JVM: Option<Box<JVM>> = None;
 
 
-pub unsafe extern "C" fn register_natives(
+pub unsafe extern "system" fn register_natives(
     env: *mut JNIEnv,
     clazz: jclass,
-    mut methods: *mut JNINativeMethod,
+    mut methods: *const JNINativeMethod,
     nMethods: jint,
 ) -> jint {
     debug!("Calling JNIEnv::RegisterNatives");
@@ -22,7 +24,7 @@ pub unsafe extern "C" fn register_natives(
 
     let mut registered = 0;
 
-    for method in std::slice::from_raw_parts_mut(methods, nMethods as usize) {
+    for method in std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, nMethods as usize) {
         let name = CString::from_raw(method.name);
         let desc = CString::from_raw(method.signature);
 

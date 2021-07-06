@@ -1,15 +1,17 @@
 //! Instructions I have yet to implement, but can still be parsed
 
-use crate::constant_pool::{Constant, ConstantClass, ConstantFloat, ConstantInteger, ConstantMethodRef, ConstantString, ConstantDouble, ConstantLong};
-use crate::instruction::{InstructionAction, Instruction, StaticInstruct};
-use crate::jvm::{LocalVariable, Object, StackFrame, JVM};
-use crate::types::FieldDescriptor;
 use std::cell::RefCell;
-use std::rc::Rc;
-use num_traits::ToPrimitive;
-use std::io::Cursor;
 use std::io;
-use byteorder::{ReadBytesExt, BigEndian, WriteBytesExt};
+use std::io::Cursor;
+use std::rc::Rc;
+
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use num_traits::ToPrimitive;
+
+use crate::constant_pool::{Constant, ConstantClass, ConstantDouble, ConstantFloat, ConstantInteger, ConstantLong, ConstantMethodRef, ConstantString};
+use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
+use crate::jvm::{JVM, LocalVariable, Object, StackFrame};
+use crate::types::FieldDescriptor;
 
 instruction! {athrow, 0xbf}
 instruction! {dcmpg, 0x98}
