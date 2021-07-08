@@ -290,7 +290,7 @@ impl Class {
                     .expect_utf8()
                     .unwrap();
 
-                if name.contains(";") || name.contains("[") {
+                if name.contains(';') || name.contains('[') {
                     let mut buffer = Cursor::new(name.as_bytes().to_vec());
                     match FieldDescriptor::read(&mut buffer) {
                         Ok(v) => dependencies.extend(v.class_usage()),
@@ -307,34 +307,27 @@ impl Class {
 
     pub fn get_method(&self, name: &str, desc: &str) -> Option<&MethodInfo> {
         for method in &self.methods {
-            match (
+            if let (Some(a), Some(b)) = (
                 method.name(&self.constants),
                 method.descriptor(&self.constants),
             ) {
-                (Some(a), Some(b)) => {
-                    if &a == name && &b == desc {
-                        return Some(method);
-                    }
+                if a == name && b == desc {
+                    return Some(method);
                 }
-                _ => {}
             }
         }
-
         None
     }
 
     pub fn get_field(&self, name: &str, desc: &str) -> Option<&FieldInfo> {
         for field in &self.fields {
-            match (
+            if let (Some(a), Some(b)) = (
                 field.name(&self.constants),
                 field.descriptor(&self.constants),
             ) {
-                (Some(a), Some(b)) => {
-                    if &a == name && &b == desc {
-                        return Some(field);
-                    }
+                if a == name && b == desc {
+                    return Some(field);
                 }
-                _ => {}
             }
         }
 
@@ -636,7 +629,7 @@ impl ClassLoader {
                     manifest,
                 },
             );
-            break;
+            // break;
         }
 
         Ok(())
@@ -713,12 +706,7 @@ impl ClassLoader {
         let mut queue = Vec::new();
         queue.push(class.to_string());
 
-        loop {
-            let target = match queue.pop() {
-                Some(v) => v,
-                None => break,
-            };
-
+        while let Some(target) = queue.pop() {
             if touched.contains(&target) {
                 continue;
             }
@@ -915,10 +903,9 @@ impl ClassPath {
         for i in 0..jar.len() {
             if let Some(path) = jar.by_index(i)?.enclosed_name() {
                 if let Some(name) = path.to_str() {
-                    let filtered_name = if name.ends_with(".class") {
-                        &name[..name.len() - 6]
-                    } else {
-                        name
+                    let filtered_name = match name.strip_suffix(".class") {
+                        Some(v) => v,
+                        None => name,
                     };
 
                     if !self.found_classes.contains_key(filtered_name) {

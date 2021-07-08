@@ -1,17 +1,3 @@
-//! Used Instructions:
-//!  - iload_N
-//!  - aload_N
-//!  - astore_N
-//!  - invokespecial
-//!  - getfield
-//!  - putfield
-//!  - return
-//!  - getstatic
-//!  - ldc
-//!  - invokevirtual
-//!  - new
-//!  - dup
-//!  - bipush
 #![allow(non_camel_case_types)]
 
 use std::any::Any;
@@ -23,7 +9,6 @@ use byteorder::ReadBytesExt;
 use hashbrown::HashMap;
 
 use array::*;
-// import instructions
 use class::*;
 use cmp::*;
 use convert::*;
@@ -33,7 +18,7 @@ use math::*;
 use push_const::*;
 use stack::*;
 
-use crate::jvm::{LocalVariable, StackFrame, JVM};
+use crate::jvm::{StackFrame, JVM};
 
 #[macro_use]
 mod macros;
@@ -42,9 +27,7 @@ mod array;
 mod class;
 mod cmp;
 mod convert;
-mod exception;
 mod general;
-mod load_store;
 mod locals;
 mod math;
 mod push_const;
@@ -70,6 +53,7 @@ pub trait InstructionAction: Any {
 }
 
 pub struct InstructionReader {
+    #[allow(clippy::type_complexity)]
     table: HashMap<u8, fn(u8, &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>>>,
 }
 
@@ -83,13 +67,13 @@ impl InstructionReader {
     }
 
     pub fn register<I: StaticInstruct>(&mut self) {
-        if let Some(_) = self.table.insert(I::FORM, I::read) {
+        if self.table.insert(I::FORM, I::read).is_some() {
             panic!("Got duplicate key: {}", I::FORM);
         }
 
         if let Some(range) = I::STRIDE {
             for alternate in range {
-                if let Some(_) = self.table.insert(alternate, I::read) {
+                if self.table.insert(alternate, I::read).is_some() {
                     panic!("Got duplicate key: {}", alternate);
                 }
             }

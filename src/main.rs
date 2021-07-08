@@ -74,7 +74,7 @@ fn main() {
 
     // let mut jar = jar::Jar::new(jar_file.clone()).unwrap();
 
-    let mut class_path = ClassPath::new(None, Some(vec!["std/out".into()])).unwrap();
+    let class_path = ClassPath::new(None, Some(vec!["std/out".into()])).unwrap();
     let mut class_loader = ClassLoader::from_class_path(class_path);
     class_loader.preload_class_path().unwrap();
 

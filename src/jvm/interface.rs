@@ -1,5 +1,5 @@
-use std::cell::{RefCell, UnsafeCell};
-use std::ffi::{CString, OsStr, OsString};
+use std::cell::UnsafeCell;
+use std::ffi::CString;
 use std::mem::forget;
 use std::ptr::null_mut;
 use std::rc::Rc;
@@ -11,10 +11,10 @@ use crate::jvm::{Object, JVM};
 pub static mut GLOBAL_JVM: Option<Box<JVM>> = None;
 
 pub unsafe extern "system" fn register_natives(
-    env: *mut JNIEnv,
+    _env: *mut JNIEnv,
     clazz: jclass,
-    mut methods: *const JNINativeMethod,
-    nMethods: jint,
+    methods: *const JNINativeMethod,
+    num_methods: jint,
 ) -> jint {
     debug!("Calling JNIEnv::RegisterNatives");
     // let class = &*(clazz as *const String);
@@ -23,7 +23,8 @@ pub unsafe extern "system" fn register_natives(
 
     let mut registered = 0;
 
-    for method in std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, nMethods as usize)
+    for method in
+        std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, num_methods as usize)
     {
         let name = CString::from_raw(method.name);
         let desc = CString::from_raw(method.signature);
@@ -40,10 +41,6 @@ pub unsafe extern "system" fn register_natives(
         forget(name);
         forget(desc);
     }
-
-    forget(env);
-    forget(clazz);
-    forget(methods);
 
     forget(class);
     registered

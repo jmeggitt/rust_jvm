@@ -35,12 +35,8 @@ pub fn unpack_jar<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     let file_hash = hasher.finish();
 
     let unpack_dir;
-    if file_name.ends_with(".jar") {
-        unpack_dir = PathBuf::from(format!(
-            "java_libs/{}-{:0x?}",
-            &file_name[..file_name.len() - 4],
-            file_hash
-        ));
+    if let Some(prefix) = file_name.strip_suffix(".jar") {
+        unpack_dir = PathBuf::from(format!("java_libs/{}-{:0x?}", prefix, file_hash));
     } else {
         unpack_dir = PathBuf::from(format!("java_libs/{}-{:0x?}", &file_name, file_hash));
     }
@@ -60,7 +56,7 @@ pub fn unpack_jar<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
 
         trace!("Extracting {:?}", &path);
 
-        if file.name().ends_with("/") {
+        if file.name().ends_with('/') {
             create_dir_all(path)?;
         } else {
             if let Some(parent) = path.parent() {
@@ -160,13 +156,13 @@ impl<'a, I: Iterator<Item = io::Result<String>>> Iterator for LineJoiner<'a, I> 
                     }
                 }
                 (Some(Ok(v)), Some(pre)) => {
-                    if v.len() > 0 && v.as_bytes()[0] == b' ' {
+                    if !v.is_empty() && v.as_bytes()[0] == b' ' {
                         pre.push_str(&v[1..]);
                     } else {
                         return Some(Ok(replace(pre, v)));
                     }
                 }
-                (None, x) if x.is_some() => return Some(Ok(replace(x, None).unwrap())),
+                (None, x) if x.is_some() => return Some(Ok(x.take().unwrap())),
                 _ => return None,
             }
         }
@@ -213,7 +209,7 @@ impl MetaInf {
                 "Signature-Version" => manifest.signature_version = u16::from_str(value).ok(),
                 "Class-Path" => manifest
                     .class_path
-                    .extend(value.split(" ").map(|x| x.to_owned())),
+                    .extend(value.split(' ').map(|x| x.to_owned())),
                 "Automatic-Module-Name" => unimplemented!("Does not support Automatic-Module-Name"),
                 "Multi-Release" => {} // TODO: What does this effect? We already split for multi release
                 "Main-Class" => manifest.main_class = Some(value.to_string()),

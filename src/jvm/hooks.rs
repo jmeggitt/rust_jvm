@@ -1,18 +1,15 @@
 //! TODO: Split into seperate crate for shared library object
 
-use std::cell::{RefCell, UnsafeCell};
+use std::cell::UnsafeCell;
 use std::collections::hash_map::DefaultHasher;
 use std::ffi::c_void;
 use std::hash::{Hash, Hasher};
-use std::io;
-use std::io::Cursor;
-use std::mem::{forget, transmute, ManuallyDrop};
+use std::mem::transmute;
 use std::rc::Rc;
 
 use jni::sys::{jboolean, jclass, jint, jobject, jstring, JNIEnv};
 use walkdir::WalkDir;
 
-use crate::instruction::Instruction;
 use crate::jvm::interface::GLOBAL_JVM;
 use crate::jvm::{clean_str, LocalVariable, Object, JVM};
 
@@ -105,7 +102,7 @@ pub fn register_hooks(jvm: &mut JVM) {
     jvm.static_fields.insert(field_reference, stderr);
 }
 
-pub unsafe extern "C" fn hash_object(env: *mut JNIEnv, obj: jobject) -> jint {
+pub unsafe extern "C" fn hash_object(_env: *mut JNIEnv, obj: jobject) -> jint {
     let mut hasher = DefaultHasher::new();
     let name_object = &*(obj as *const Rc<UnsafeCell<Object>>);
     (&*name_object.get()).hash(&mut hasher);
@@ -115,7 +112,7 @@ pub unsafe extern "C" fn hash_object(env: *mut JNIEnv, obj: jobject) -> jint {
 }
 
 pub unsafe extern "C" fn array_copy(
-    env: *mut JNIEnv,
+    _env: *mut JNIEnv,
     cls: jclass,
     src: jobject,
     src_pos: jint,
@@ -131,7 +128,7 @@ pub unsafe extern "C" fn array_copy(
     debug!("Got class object: {:?}", cls_object);
 
     let src_object = &*(&*(src as *const Rc<UnsafeCell<Object>>)).get();
-    let mut dst_object = &mut *(&mut *(dst as *mut Rc<UnsafeCell<Object>>)).get();
+    let dst_object = &mut *(&*(dst as *const Rc<UnsafeCell<Object>>)).get();
 
     let src_vec = match &*src_object {
         Object::Array { values, .. } => values,
@@ -155,17 +152,17 @@ pub unsafe extern "C" fn array_copy(
     }
 }
 
-pub unsafe extern "C" fn empty(env: *mut JNIEnv, cls: jclass) {}
+pub unsafe extern "C" fn empty(_env: *mut JNIEnv, _cls: jclass) {}
 
 pub unsafe extern "C" fn desired_assertions(
-    env: *mut JNIEnv,
-    cls: jclass,
-    target: jclass,
+    _env: *mut JNIEnv,
+    _cls: jclass,
+    _target: jclass,
 ) -> jboolean {
     0 // Don't do assertions, I don't need the extra work
 }
 
-pub unsafe extern "C" fn get_class(env: *mut JNIEnv, cls: jclass, name: jstring) -> jclass {
+pub unsafe extern "C" fn get_class(_env: *mut JNIEnv, _cls: jclass, name: jstring) -> jclass {
     debug!("Executing getPrimitiveClass");
     let name_object = &*(name as *const Rc<UnsafeCell<Object>>);
     debug!("Received object: {:p}", name);
@@ -179,13 +176,14 @@ pub unsafe extern "C" fn get_class(env: *mut JNIEnv, cls: jclass, name: jstring)
     // FIXME: Make explicit memory leak because current value is stored on the stack and we can't
     // make a policy of freeing results since it wont apply in all cases. It could be solved by a
     // reference table, but that does not work well with rust.
-    let mut boxed = ManuallyDrop::new(Box::new(class));
-    // forget(&boxed);
-    let ptr = (&mut **boxed) as *mut Rc<UnsafeCell<Object>> as jclass;
-    forget(ptr);
-    ptr
+    Box::leak(Box::new(class)) as *mut Rc<UnsafeCell<Object>> as jclass
 }
 
-pub unsafe extern "C" fn print_stream_hook(env: *mut JNIEnv, obj: jobject, fd: jint, str: jstring) {
-    println!("Got print to {}", fd);
+pub unsafe extern "C" fn print_stream_hook(
+    _env: *mut JNIEnv,
+    _obj: jobject,
+    fd: jint,
+    _str: jstring,
+) {
+    panic!("Got print to {}", fd);
 }

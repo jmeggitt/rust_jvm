@@ -681,7 +681,7 @@ impl ConstantPoolTag for ConstantUtf8Info {
     // TODO: This is not compliant, but its way faster and works for most common unicode characters
     fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
         buffer.write_u16::<BigEndian>(self.text.len() as u16)?;
-        buffer.write(self.text.as_bytes())?;
+        buffer.write_all(self.text.as_bytes())?;
         Ok(())
     }
 }

@@ -1,7 +1,7 @@
 use crate::jvm::NativeManager;
-use std::ffi::c_void;
-use jni::JNIEnv;
 use jni::objects::JClass;
+use jni::JNIEnv;
+use std::ffi::c_void;
 
 pub mod reflection;
 mod system;
@@ -30,7 +30,6 @@ pub fn register_natives(natives: &mut NativeManager) {
         reflection::Java_sun_reflect_Reflection_getClassAccessFlags as *mut c_void,
     );
 
-
     // Skip default initialization for object so we can overwrite it
     natives.register_fn(
         "java/lang/Object",
@@ -47,9 +46,8 @@ pub fn register_natives(natives: &mut NativeManager) {
     );
 }
 
-
 /// A dummy function to register native functions to avoid/skip their usage later on.
 /// This is mainly focused on all of the registerNatives() functions in internal classes.
-pub unsafe extern "system" fn empty(env: *mut JNIEnv, cls: JClass) {
+pub unsafe extern "system" fn empty(_env: *mut JNIEnv, _cls: JClass) {
     warn!("Executed dummy function! No Operation was performed.");
 }

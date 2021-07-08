@@ -1,15 +1,10 @@
-use std::borrow::Borrow;
-use std::cell::{RefCell, UnsafeCell};
-use std::env::{current_dir, set_current_dir, set_var, var};
+use std::cell::UnsafeCell;
 use std::ffi::c_void;
-use std::fs::read_dir;
 use std::io;
-use std::io::{Cursor, Error, ErrorKind};
+use std::io::{Error, ErrorKind};
 use std::mem::replace;
 use std::option::Option::Some;
-use std::os::raw::c_long;
 use std::path::PathBuf;
-use std::ptr::{null, null_mut};
 use std::rc::Rc;
 
 use hashbrown::{HashMap, HashSet};
@@ -23,9 +18,9 @@ use crate::attribute::CodeAttribute;
 use crate::class::{AccessFlags, BufferedRead, Class, ClassLoader, MethodInfo};
 use crate::constant_pool::Constant;
 use crate::jvm::hooks::register_hooks;
+use crate::jvm::mem_rewrite::ClassSchema;
 use crate::jvm::stack::OperandStack;
 use crate::types::FieldDescriptor;
-use crate::jvm::mem_rewrite::ClassSchema;
 use std::sync::Arc;
 
 macro_rules! fatal_error {
@@ -65,7 +60,7 @@ pub struct StackFrame {
     // Instructions within function
     // pub code: CodeAttribute,
     // Work around so instructions can set the return value
-    pub returns: Option<LocalVariable>,
+    pub returns: Option<Option<LocalVariable>>,
     // Kinda like a sticky fault
     pub throws: Option<LocalVariable>,
 }
@@ -138,11 +133,9 @@ impl StackFrame {
             debug!("Executing instruction {:?}", &code.instructions[rip]);
             code.instructions[rip].1.exec(self, jvm);
 
-            match &self.returns {
-                Some(LocalVariable::Padding) => return Ok(None),
-                Some(v) => return Ok(Some(v.clone())),
-                _ => {}
-            };
+            if let Some(v) = &self.returns {
+                return Ok(v.clone());
+            }
 
             if self.throws.is_some() {
                 let exception = replace(&mut self.throws, None).unwrap();
@@ -255,7 +248,6 @@ impl JVM {
 
             let schema = ClassSchema::build(&class_spec, self);
             self.schemas.insert(class.to_string(), Arc::new(schema));
-
         }
 
         self.schemas.get(class).cloned()
@@ -281,12 +273,12 @@ impl JVM {
         let entry_class = self.class_loader.class(instance)?;
         let super_class = entry_class.super_class();
 
-        if &super_class == target {
+        if super_class == target {
             return Some(true);
         }
 
         for interface in entry_class.interfaces() {
-            if &interface == target || self.instanceof(&interface, target) == Some(true) {
+            if interface == target || self.instanceof(&interface, target) == Some(true) {
                 return Some(true);
             }
         }
@@ -436,8 +428,8 @@ impl JVM {
                                     l: v as *mut _ as jobject,
                                 },
                                 x => {
-                                    let value: Option<jvalue> = x.clone().into();
-                                    value.unwrap()
+                                    let value: jvalue = x.clone().into();
+                                    value
                                 }
                             }
                         })
@@ -489,7 +481,7 @@ impl JVM {
                 _ => fatal_error!("Unable to find {}::{} {}", class, method, desc),
             };
 
-        self.exec(target.clone(), &class_name, main_method, constants, args)
+        self.exec(target, &class_name, main_method, constants, args)
     }
 
     pub fn exec_static(
@@ -569,6 +561,7 @@ pub fn clean_str(str: &str) -> String {
     out
 }
 
+#[derive(Default)]
 pub struct NativeManager {
     libs: HashMap<PathBuf, Library>,
     load_order: Vec<PathBuf>,
@@ -577,12 +570,7 @@ pub struct NativeManager {
 
 impl NativeManager {
     pub fn new() -> Self {
-        let mut manager = NativeManager {
-            libs: HashMap::new(),
-            load_order: Vec::new(),
-            loaded_fns: HashMap::new(),
-        };
-
+        let mut manager = NativeManager::default();
         internals::register_natives(&mut manager);
         manager
     }
@@ -605,7 +593,7 @@ impl NativeManager {
     }
 
     fn clean_desc(x: &str) -> Option<String> {
-        Some(clean_str(&x[1..x.find(")")?]))
+        Some(clean_str(&x[1..x.find(')')?]))
     }
 
     pub fn register_fn(
@@ -627,7 +615,10 @@ impl NativeManager {
         );
 
         if self.loaded_fns.contains_key(&long_name) {
-            error!("Failed to register native function! Already registered: {}", long_name);
+            error!(
+                "Failed to register native function! Already registered: {}",
+                long_name
+            );
             return false;
         }
 

@@ -1,20 +1,16 @@
 //! Instructions I have yet to implement, but can still be parsed
 
-use std::cell::RefCell;
 use std::io;
 use std::io::Cursor;
-use std::rc::Rc;
 
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use num_traits::ToPrimitive;
+use byteorder::{ReadBytesExt, WriteBytesExt};
 
 use crate::constant_pool::{
     Constant, ConstantClass, ConstantDouble, ConstantFloat, ConstantInteger, ConstantLong,
-    ConstantMethodRef, ConstantString,
+    ConstantString,
 };
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
-use crate::jvm::{LocalVariable, Object, StackFrame, JVM};
-use crate::types::FieldDescriptor;
+use crate::jvm::{LocalVariable, StackFrame, JVM};
 
 instruction! {athrow, 0xbf}
 instruction! {dcmpg, 0x98}
@@ -37,7 +33,7 @@ instruction! {ret, 0xa9, u8}
 instruction! {@partial checkcast, 0xc0, u16}
 
 impl InstructionAction for checkcast {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, _frame: &mut StackFrame, _jvm: &mut JVM) {
         warn!("Skipped cast check as exceptions are not implemented yet!");
     }
 }
@@ -45,7 +41,7 @@ impl InstructionAction for checkcast {
 instruction! {@partial bipush, 0x10, u8}
 
 impl InstructionAction for bipush {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
         let bipush(value) = *self;
         // Be lazy and transmute the byte from unsigned to signed to avoid implementing another
         // pattern in the instruction macro
@@ -58,7 +54,7 @@ impl InstructionAction for bipush {
 instruction! {@partial sipush, 0x11, i16}
 
 impl InstructionAction for sipush {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
         let sipush(value) = *self;
         // Sign extend short to int as specified in specification
         frame.stack.push(LocalVariable::Int(value as _));
@@ -126,7 +122,7 @@ impl InstructionAction for ldc_w {
 instruction! {@partial ldc2_w, 0x14, u16}
 
 impl InstructionAction for ldc2_w {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
         let ldc2_w(index) = *self;
 
         frame
@@ -142,7 +138,7 @@ impl InstructionAction for ldc2_w {
 instruction! {@partial goto, 0xa7, i16}
 
 impl InstructionAction for goto {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
         let goto(offset) = *self;
         frame.branch_offset += offset as i64;
     }
@@ -155,40 +151,40 @@ instruction! {@partial dreturn, 0xaf}
 instruction! {@partial areturn, 0xb0}
 
 impl InstructionAction for ireturn {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
-        frame.returns = frame.stack.pop();
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+        frame.returns = Some(frame.stack.pop());
     }
 }
 
 impl InstructionAction for lreturn {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
-        frame.returns = frame.stack.pop();
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+        frame.returns = Some(frame.stack.pop());
     }
 }
 
 impl InstructionAction for freturn {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
-        frame.returns = frame.stack.pop();
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+        frame.returns = Some(frame.stack.pop());
     }
 }
 
 impl InstructionAction for dreturn {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
-        frame.returns = frame.stack.pop();
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+        frame.returns = Some(frame.stack.pop());
     }
 }
 
 impl InstructionAction for areturn {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
-        frame.returns = frame.stack.pop();
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+        frame.returns = Some(frame.stack.pop());
     }
 }
 
 instruction! {@partial r#return, 0xb1}
 
 impl InstructionAction for r#return {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
-        frame.returns = Some(LocalVariable::Padding);
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+        frame.returns = Some(None);
     }
 }
 
@@ -212,13 +208,13 @@ impl Instruction for iinc {
 impl StaticInstruct for iinc {
     const FORM: u8 = 0x84;
 
-    fn read(form: u8, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>> {
+    fn read(_form: u8, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>> {
         Ok(Box::new(iinc(buffer.read_u8()?, buffer.read_i8()?)))
     }
 }
 
 impl InstructionAction for iinc {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
         let iinc(index, val) = *self;
 
         match &mut frame.locals[index as usize] {

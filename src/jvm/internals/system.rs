@@ -1,4 +1,3 @@
-
 /*
  * Class:     java_lang_System
  * Method:    registerNatives

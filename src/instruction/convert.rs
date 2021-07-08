@@ -6,7 +6,7 @@ macro_rules! convert_instruction {
         instruction! {@partial $name, $inst}
 
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+            fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
                 let popped = frame.stack.pop().unwrap();
                 if let LocalVariable::$from(x) = popped {
                     frame.stack.push(LocalVariable::$to(x as _));

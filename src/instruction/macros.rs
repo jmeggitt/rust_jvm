@@ -52,7 +52,7 @@ macro_rules! instruction {
             if self.0 <= $stop - $start {
                 buffer.write_u8($start + self.0)
             } else {
-                buffer.write(&[$inst, self.0])?;
+                buffer.write_all(&[$inst, self.0])?;
                 Ok(())
             }
         });
@@ -163,7 +163,7 @@ macro_rules! instruction {
             if self.0 <= $stop - $start {
                 buffer.write_u8($start + self.0)
             } else {
-                buffer.write(&[$inst, self.0])?;
+                buffer.write_all(&[$inst, self.0])?;
                 Ok(())
             }
         });

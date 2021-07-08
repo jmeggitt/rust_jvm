@@ -1,22 +1,17 @@
-use std::borrow::Borrow;
-use std::cell::{RefCell, UnsafeCell};
+use std::cell::UnsafeCell;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
-use std::mem::{forget, transmute_copy};
-use std::os::raw::c_long;
-use std::pin::Pin;
+use std::mem::transmute_copy;
 use std::ptr::null_mut;
 use std::rc::Rc;
 
-use byteorder::LittleEndian;
 use hashbrown::HashMap;
 use jni::sys::{jobject, jvalue};
 
-use crate::class::FieldInfo;
 use crate::jvm::JVM;
 use crate::types::FieldDescriptor;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Object {
     Instance {
         fields: HashMap<String, LocalVariable>,
@@ -35,7 +30,7 @@ impl Hash for Object {
         match self {
             Object::Instance { fields, class } => {
                 class.hash(state);
-                let mut keys: Vec<String> = fields.keys().map(|x| x.clone()).collect();
+                let mut keys: Vec<String> = fields.keys().cloned().collect();
                 keys.sort();
                 for key in keys {
                     key.hash(state);
@@ -57,7 +52,7 @@ impl Hash for Object {
 
 impl Object {
     pub fn expect_string(&self) -> String {
-        if let Object::Instance { fields, class } = self {
+        if let Object::Instance { fields, .. } = self {
             if let Some(LocalVariable::Reference(Some(data))) = fields.get("value") {
                 if let Object::Array { values, .. } = unsafe { &*data.get() } {
                     let mut bytes = Vec::with_capacity(values.len());
@@ -68,7 +63,7 @@ impl Object {
                         }
                     }
 
-                    return String::from_utf8(bytes).unwrap();
+                    String::from_utf8(bytes).unwrap()
                 } else {
                     panic!("Data field of string was not an array")
                 }
@@ -83,7 +78,7 @@ impl Object {
     pub fn build_class(jvm: &mut JVM, name: &str) -> Rc<UnsafeCell<Self>> {
         jvm.init_class("java/lang/Class");
 
-        let mut base_obj = Rc::new(UnsafeCell::new(Object::Instance {
+        let base_obj = Rc::new(UnsafeCell::new(Object::Instance {
             fields: HashMap::new(),
             class: "java/lang/Class".to_string(),
         }));
@@ -141,7 +136,7 @@ impl<'a> Into<jobject> for &'a Object {
     }
 }
 
-/// All types which may exist on the java stack frame
+/// All distinct java values
 #[derive(Debug, Clone)]
 pub enum LocalVariable {
     Byte(i8),
@@ -150,13 +145,8 @@ pub enum LocalVariable {
     Int(i32),
     Float(f32),
     Reference(Option<Rc<UnsafeCell<Object>>>),
-    // This is more of a token effort as I don't currently plan on using this value
-    ReturnAddress(u32),
-
-    // Double long values takes 2 spots and must be followed by padding
     Long(i64),
     Double(f64),
-    Padding,
 }
 
 impl Hash for LocalVariable {
@@ -286,36 +276,24 @@ impl PartialOrd for LocalVariable {
                 (Some(x), Some(y)) => x.partial_cmp(&y),
                 _ => None,
             },
-            _ => None,
         }
     }
 }
 
-impl Into<Option<jvalue>> for LocalVariable {
-    fn into(self) -> Option<jvalue> {
-        unsafe {
-            Some(match self {
-                LocalVariable::Byte(x) => jvalue { b: x },
-                LocalVariable::Char(x) => jvalue { c: x },
-                LocalVariable::Short(x) => jvalue { s: x },
-                LocalVariable::Int(x) => jvalue { i: x },
-                LocalVariable::Float(x) => jvalue { f: x },
-                LocalVariable::Reference(x) => jvalue {
-                    l: match x {
-                        Some(v) => {
-                            let object = v.get() as jobject;
-                            forget(object);
-                            object
-                        }
-                        // Some(v) => &v.as_ref() as *const _ as *mut _jobject,
-                        None => null_mut(),
-                    },
-                },
-                LocalVariable::ReturnAddress(x) => panic!(),
-                LocalVariable::Long(x) => jvalue { j: x },
-                LocalVariable::Double(x) => jvalue { d: x },
-                LocalVariable::Padding => return None,
-            })
+impl Into<jvalue> for LocalVariable {
+    fn into(self) -> jvalue {
+        match self {
+            LocalVariable::Byte(x) => jvalue { b: x },
+            LocalVariable::Char(x) => jvalue { c: x },
+            LocalVariable::Short(x) => jvalue { s: x },
+            LocalVariable::Int(x) => jvalue { i: x },
+            LocalVariable::Float(x) => jvalue { f: x },
+            LocalVariable::Reference(None) => jvalue { l: null_mut() },
+            LocalVariable::Reference(Some(x)) => jvalue {
+                l: Rc::into_raw(x) as jobject,
+            },
+            LocalVariable::Long(x) => jvalue { j: x },
+            LocalVariable::Double(x) => jvalue { d: x },
         }
     }
 }

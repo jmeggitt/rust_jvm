@@ -1,10 +1,10 @@
 //! Maintains the opperand stack for the jvm. The primary objective of this system is to support the
 //! native interface which requires stdcall support.
 use std::ffi::c_void;
-use std::mem::{forget, size_of, transmute, zeroed};
+use std::mem::{size_of, transmute, zeroed};
 use std::pin::Pin;
 
-use jni::sys::{jobject, jvalue, JNIEnv, JNINativeInterface_};
+use jni::sys::{jobject, jvalue, JNIEnv, JNINativeInterface_, _jobject};
 
 use crate::jvm::interface::build_interface;
 
@@ -167,8 +167,11 @@ impl OperandStack {
         let env = &*self.native_env as JNIEnv;
         let env_ptr = &env as *const JNIEnv;
 
+        // let value = jvalue {
+        //     l: transmute(env_ptr),
+        // };
         let value = jvalue {
-            l: transmute(env_ptr),
+            l: env_ptr as *mut _jobject,
         };
         args.insert(0, value);
         // self.stack[self.stack_top] = value;

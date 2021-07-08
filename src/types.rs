@@ -1,4 +1,4 @@
-use std::cell::{RefCell, UnsafeCell};
+use std::cell::UnsafeCell;
 use std::io::{self, Cursor, Error, ErrorKind, Seek, SeekFrom};
 use std::rc::Rc;
 
@@ -9,6 +9,7 @@ use jni::sys::jvalue;
 use crate::class::BufferedRead;
 use crate::jvm::{LocalVariable, Object};
 use libffi::middle::{Cif, Type};
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FieldDescriptor {
@@ -31,43 +32,70 @@ pub enum FieldDescriptor {
     },
 }
 
-impl FieldDescriptor {
-    pub fn to_string(&self) -> String {
-        let mut string = String::new();
-
+impl Display for FieldDescriptor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            FieldDescriptor::Byte => string.push('B'),
-            FieldDescriptor::Char => string.push('C'),
-            FieldDescriptor::Double => string.push('D'),
-            FieldDescriptor::Float => string.push('F'),
-            FieldDescriptor::Int => string.push('I'),
-            FieldDescriptor::Long => string.push('J'),
-            FieldDescriptor::Short => string.push('S'),
-            FieldDescriptor::Boolean => string.push('Z'),
-            FieldDescriptor::Object(name) => {
-                string.push('L');
-                string.push_str(name);
-                string.push(';');
-            }
-            FieldDescriptor::Array(entry) => {
-                string.push('[');
-                string.push_str(&entry.to_string());
-            }
-            FieldDescriptor::Void => string.push('V'),
+            FieldDescriptor::Byte => write!(f, "B"),
+            FieldDescriptor::Char => write!(f, "C"),
+            FieldDescriptor::Double => write!(f, "D"),
+            FieldDescriptor::Float => write!(f, "F"),
+            FieldDescriptor::Int => write!(f, "I"),
+            FieldDescriptor::Long => write!(f, "J"),
+            FieldDescriptor::Short => write!(f, "S"),
+            FieldDescriptor::Boolean => write!(f, "Z"),
+            FieldDescriptor::Object(name) => write!(f, "L{};", name),
+            FieldDescriptor::Array(entry) => write!(f, "[{}", entry),
+            FieldDescriptor::Void => write!(f, "V"),
             FieldDescriptor::Method { args, returns } => {
-                string.push('(');
+                write!(f, "(")?;
 
                 for arg in args {
-                    string.push_str(&arg.to_string());
+                    write!(f, "{}", arg)?;
                 }
 
-                string.push(')');
-                string.push_str(&returns.to_string());
+                write!(f, "){}", returns)
             }
         }
-
-        string
     }
+}
+
+impl FieldDescriptor {
+    // pub fn to_string(&self) -> String {
+    //     let mut string = String::new();
+    //
+    //     match self {
+    //         FieldDescriptor::Byte => string.push('B'),
+    //         FieldDescriptor::Char => string.push('C'),
+    //         FieldDescriptor::Double => string.push('D'),
+    //         FieldDescriptor::Float => string.push('F'),
+    //         FieldDescriptor::Int => string.push('I'),
+    //         FieldDescriptor::Long => string.push('J'),
+    //         FieldDescriptor::Short => string.push('S'),
+    //         FieldDescriptor::Boolean => string.push('Z'),
+    //         FieldDescriptor::Object(name) => {
+    //             string.push('L');
+    //             string.push_str(name);
+    //             string.push(';');
+    //         }
+    //         FieldDescriptor::Array(entry) => {
+    //             string.push('[');
+    //             string.push_str(&entry.to_string());
+    //         }
+    //         FieldDescriptor::Void => string.push('V'),
+    //         FieldDescriptor::Method { args, returns } => {
+    //             string.push('(');
+    //
+    //             for arg in args {
+    //                 string.push_str(&arg.to_string());
+    //             }
+    //
+    //             string.push(')');
+    //             string.push_str(&returns.to_string());
+    //         }
+    //     }
+    //
+    //     string
+    // }
 
     pub fn class_usage(&self) -> HashSet<String> {
         let mut set = HashSet::new();
@@ -111,7 +139,7 @@ impl FieldDescriptor {
                 FieldDescriptor::Long => LocalVariable::Long(value.j as i64),
                 FieldDescriptor::Short => LocalVariable::Short(value.s),
                 FieldDescriptor::Boolean => LocalVariable::Byte(value.z as i8),
-                FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => unsafe {
+                FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => {
                     if value.l.is_null() {
                         LocalVariable::Reference(None)
                     } else {
@@ -121,7 +149,7 @@ impl FieldDescriptor {
                         debug!("Got value {:?} from pointer", &out);
                         out
                     }
-                },
+                }
                 _ => return None,
             })
         }
@@ -194,7 +222,7 @@ impl FieldDescriptor {
     }
 
     pub fn build_cif(&self) -> Cif {
-        if let FieldDescriptor::Method {args, returns} = self {
+        if let FieldDescriptor::Method { args, returns } = self {
             let mut cif = Cif::new(args.iter().map(Self::ffi_arg_type), returns.ffi_arg_type());
 
             #[cfg(not(all(target_arch = "x86", windows)))]
@@ -210,4 +238,3 @@ impl FieldDescriptor {
         }
     }
 }
-

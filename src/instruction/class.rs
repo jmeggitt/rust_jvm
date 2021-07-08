@@ -81,7 +81,7 @@ impl InstructionAction for invokestatic {
             .unwrap();
 
         if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
-            let mut stack_args = frame.stack[frame.stack.len() - args.len()..].to_vec();
+            let stack_args = frame.stack[frame.stack.len() - args.len()..].to_vec();
 
             for _ in 0..args.len() {
                 frame.stack.pop();
@@ -167,14 +167,14 @@ impl InstructionAction for invokevirtual {
             .unwrap();
 
         if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
-            let mut stack_args = frame.stack[frame.stack.len() - args.len()..].to_vec();
+            let stack_args = frame.stack[frame.stack.len() - args.len()..].to_vec();
 
             for _ in 0..args.len() {
                 frame.stack.pop();
             }
 
             let target = match frame.stack.pop() {
-                Some(LocalVariable::Reference(Some(v))) => v.clone(),
+                Some(LocalVariable::Reference(Some(v))) => v,
                 _ => {
                     raise_null_pointer_exception(frame, jvm);
                     warn!(
@@ -259,18 +259,15 @@ impl InstructionAction for invokespecial {
                 ),
             };
 
-        // debug!("Attempting to run invokespecial {}::{} {}", &method_class, &field_name, &descriptor);
-        // frame.debug_print();
-
         if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
-            let mut stack_args = frame.stack[frame.stack.len() - args.len()..].to_vec();
+            let stack_args = frame.stack[frame.stack.len() - args.len()..].to_vec();
 
             for _ in 0..args.len() {
                 frame.stack.pop();
             }
 
             let target = match frame.stack.pop() {
-                Some(LocalVariable::Reference(Some(v))) => v.clone(),
+                Some(LocalVariable::Reference(Some(v))) => v,
                 _ => {
                     raise_null_pointer_exception(frame, jvm);
                     warn!(
@@ -302,16 +299,10 @@ impl InstructionAction for getfield {
     fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
         let getfield(field) = *self;
 
-        let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
+        let (_, desc_index) = match &frame.constants[field as usize - 1] {
             Constant::FieldRef(v) => (v.class_index, v.name_and_type_index),
             x => panic!("Unexpected constant in getfield: {:?}", x),
         };
-
-        // let class = frame.constants[class_index as usize - 1]
-        //     .expect_class()
-        //     .unwrap();
-        // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
-        // jvm.init_class(&class_name);
 
         let field = frame.constants[desc_index as usize - 1]
             .expect_name_and_type()
@@ -320,7 +311,7 @@ impl InstructionAction for getfield {
             .expect_utf8()
             .unwrap();
 
-        if let Some(LocalVariable::Reference(Some(mut obj))) = frame.stack.pop() {
+        if let Some(LocalVariable::Reference(Some(obj))) = frame.stack.pop() {
             if let Object::Instance { fields, .. } = unsafe { &*obj.get() } {
                 if let Some(v) = fields.get(&field_name) {
                     frame.stack.push(v.clone());
@@ -345,16 +336,10 @@ impl InstructionAction for putfield {
     fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
         let putfield(field) = *self;
 
-        let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
+        let (_, desc_index) = match &frame.constants[field as usize - 1] {
             Constant::FieldRef(v) => (v.class_index, v.name_and_type_index),
             x => panic!("Unexpected constant in putfield: {:?}", x),
         };
-
-        // let class = frame.constants[class_index as usize - 1]
-        //     .expect_class()
-        //     .unwrap();
-        // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
-        // jvm.init_class(&class_name);
 
         let field = frame.constants[desc_index as usize - 1]
             .expect_name_and_type()
@@ -365,7 +350,7 @@ impl InstructionAction for putfield {
 
         let value = frame.stack.pop().unwrap();
 
-        if let Some(LocalVariable::Reference(Some(mut obj))) = frame.stack.pop() {
+        if let Some(LocalVariable::Reference(Some(obj))) = frame.stack.pop() {
             if let Object::Instance { fields, .. } = unsafe { &mut *obj.get() } {
                 fields.insert(field_name, value);
             } else {
@@ -398,7 +383,7 @@ impl Instruction for invokeinterface {
 impl StaticInstruct for invokeinterface {
     const FORM: u8 = 0xb9;
 
-    fn read(form: u8, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>> {
+    fn read(_form: u8, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>> {
         let ret = invokeinterface {
             index: buffer.read_u16::<BigEndian>()?,
             count: buffer.read_u8()?,
@@ -410,7 +395,7 @@ impl StaticInstruct for invokeinterface {
 
 impl InstructionAction for invokeinterface {
     fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
-        let invokeinterface { index, count } = *self;
+        let invokeinterface { index, .. } = *self;
 
         let (class_index, desc_index) = match &frame.constants[index as usize - 1] {
             Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),
@@ -435,19 +420,14 @@ impl InstructionAction for invokeinterface {
             .unwrap();
 
         if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
-            let mut stack_args = frame.stack[frame.stack.len() - args.len()..].to_vec();
+            let stack_args = frame.stack[frame.stack.len() - args.len()..].to_vec();
 
             for _ in 0..args.len() {
                 frame.stack.pop();
             }
 
-            // let target = match frame.stack.pop() {
-            //     Some(LocalVariable::Reference(Some(v))) => v.clone(),
-            //     _ => panic!("Attempted to run invokevirtual, but did not find target object!"),
-            // };
-
             let target = match frame.stack.pop() {
-                Some(LocalVariable::Reference(Some(v))) => v.clone(),
+                Some(LocalVariable::Reference(Some(v))) => v,
                 _ => {
                     raise_null_pointer_exception(frame, jvm);
                     warn!(
@@ -518,8 +498,3 @@ pub fn raise_null_pointer_exception(frame: &mut StackFrame, jvm: &mut JVM) {
         object,
     )))));
 }
-
-//  - getfield
-//  - putfield
-//  - getstatic
-//  - invokevirtual
