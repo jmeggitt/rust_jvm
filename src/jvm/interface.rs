@@ -6,10 +6,9 @@ use std::rc::Rc;
 
 use jni::sys::{jclass, jint, JNIEnv, JNINativeInterface_, JNINativeMethod};
 
-use crate::jvm::{JVM, Object};
+use crate::jvm::{Object, JVM};
 
 pub static mut GLOBAL_JVM: Option<Box<JVM>> = None;
-
 
 pub unsafe extern "system" fn register_natives(
     env: *mut JNIEnv,
@@ -24,7 +23,8 @@ pub unsafe extern "system" fn register_natives(
 
     let mut registered = 0;
 
-    for method in std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, nMethods as usize) {
+    for method in std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, nMethods as usize)
+    {
         let name = CString::from_raw(method.name);
         let desc = CString::from_raw(method.signature);
 
@@ -40,8 +40,6 @@ pub unsafe extern "system" fn register_natives(
         forget(name);
         forget(desc);
     }
-
-
 
     forget(env);
     forget(clazz);

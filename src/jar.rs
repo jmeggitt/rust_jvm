@@ -1,5 +1,5 @@
 use std::collections::hash_map::DefaultHasher;
-use std::fs::{create_dir_all, File, read_dir};
+use std::fs::{create_dir_all, read_dir, File};
 use std::hash::{Hash, Hasher};
 use std::io;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};

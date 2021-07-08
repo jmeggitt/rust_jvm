@@ -12,7 +12,7 @@ use zip::ZipArchive;
 
 use crate::attribute::CodeAttribute;
 use crate::constant_pool::{Constant, ConstantClass, SimplifiedConstant};
-use crate::jar::{Jar, Manifest, unpack_jar};
+use crate::jar::{unpack_jar, Jar, Manifest};
 use crate::jvm::Object;
 use crate::types::FieldDescriptor;
 use crate::version::{check_magic_number, ClassVersion};
@@ -376,7 +376,11 @@ impl Class {
 
         for index in &self.interfaces {
             let class_name = self.constants[*index as usize - 1].expect_class().unwrap();
-            names.push(self.constants[class_name as usize - 1].expect_utf8().unwrap());
+            names.push(
+                self.constants[class_name as usize - 1]
+                    .expect_utf8()
+                    .unwrap(),
+            );
         }
 
         names

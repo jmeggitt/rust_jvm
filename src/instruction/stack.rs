@@ -1,6 +1,6 @@
 use crate::constant_pool::Constant;
 use crate::instruction::InstructionAction;
-use crate::jvm::{JVM, LocalVariable, StackFrame};
+use crate::jvm::{LocalVariable, StackFrame, JVM};
 
 instruction! {@partial dup, 0x59}
 instruction! {@partial dup_x1, 0x5a}
@@ -72,7 +72,6 @@ impl InstructionAction for dup2_x2 {
     }
 }
 
-
 instruction! {@partial nop, 0x0}
 instruction! {@partial pop, 0x57}
 instruction! {@partial pop2, 0x58}
@@ -84,13 +83,11 @@ impl InstructionAction for nop {
     }
 }
 
-
 impl InstructionAction for pop {
     fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
         frame.stack.pop().unwrap();
     }
 }
-
 
 impl InstructionAction for pop2 {
     fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
@@ -98,7 +95,6 @@ impl InstructionAction for pop2 {
         frame.stack.pop().unwrap();
     }
 }
-
 
 impl InstructionAction for swap {
     fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
@@ -109,4 +105,3 @@ impl InstructionAction for swap {
         frame.stack.push(b);
     }
 }
-

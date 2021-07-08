@@ -6,15 +6,15 @@ use std::ffi::c_void;
 use std::hash::{Hash, Hasher};
 use std::io;
 use std::io::Cursor;
-use std::mem::{forget, ManuallyDrop, transmute};
+use std::mem::{forget, transmute, ManuallyDrop};
 use std::rc::Rc;
 
-use jni::sys::{jboolean, jclass, jint, JNIEnv, jobject, jstring};
+use jni::sys::{jboolean, jclass, jint, jobject, jstring, JNIEnv};
 use walkdir::WalkDir;
 
 use crate::instruction::Instruction;
-use crate::jvm::{clean_str, JVM, LocalVariable, Object};
 use crate::jvm::interface::GLOBAL_JVM;
+use crate::jvm::{clean_str, LocalVariable, Object, JVM};
 
 pub fn register_hooks(jvm: &mut JVM) {
     // Load classes since they are outside the class loaders visiblity
@@ -35,9 +35,7 @@ pub fn register_hooks(jvm: &mut JVM) {
         empty as *const c_void,
     );
 
-
     // jvm.init_class("java/lang/Object");
-
 
     jvm.linked_libraries.register_fn(
         "java/lang/Object",
@@ -46,10 +44,7 @@ pub fn register_hooks(jvm: &mut JVM) {
         hash_object as *const c_void,
     );
 
-
-
-
-    jvm.init_class("java/lang/System");
+    // jvm.init_class("java/lang/System");
 
     jvm.linked_libraries.register_fn(
         "java/lang/System",
@@ -58,7 +53,7 @@ pub fn register_hooks(jvm: &mut JVM) {
         array_copy as *const c_void,
     );
 
-    jvm.init_class("java/lang/Class");
+    // jvm.init_class("java/lang/Class");
 
     jvm.linked_libraries.register_fn(
         "java/lang/Class",
@@ -90,7 +85,8 @@ pub fn register_hooks(jvm: &mut JVM) {
             "(I)Ljava/io/PrintStream;",
             vec![LocalVariable::Int(0)],
         )
-        .unwrap().unwrap();
+        .unwrap()
+        .unwrap();
     // jvm.locals[0] = LocalVariable::Int(1);
     let stderr = jvm
         .exec_static(
@@ -99,8 +95,8 @@ pub fn register_hooks(jvm: &mut JVM) {
             "(I)Ljava/io/PrintStream;",
             vec![LocalVariable::Int(1)],
         )
-        .unwrap().unwrap();
-
+        .unwrap()
+        .unwrap();
 
     let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("out"));
     jvm.static_fields.insert(field_reference, stdout);
@@ -118,8 +114,19 @@ pub unsafe extern "C" fn hash_object(env: *mut JNIEnv, obj: jobject) -> jint {
     a ^ b
 }
 
-pub unsafe extern "C" fn array_copy(env: *mut JNIEnv, cls: jclass, src: jobject, src_pos: jint, dst: jobject, dst_pos: jint, length: jint) {
-    debug!("Got correct version of arraycopy with src: {:p} dst: {:p}", src, dst);
+pub unsafe extern "C" fn array_copy(
+    env: *mut JNIEnv,
+    cls: jclass,
+    src: jobject,
+    src_pos: jint,
+    dst: jobject,
+    dst_pos: jint,
+    length: jint,
+) {
+    debug!(
+        "Got correct version of arraycopy with src: {:p} dst: {:p}",
+        src, dst
+    );
     let cls_object = &*(cls as *const Rc<UnsafeCell<Object>>);
     debug!("Got class object: {:?}", cls_object);
 
@@ -128,12 +135,18 @@ pub unsafe extern "C" fn array_copy(env: *mut JNIEnv, cls: jclass, src: jobject,
 
     let src_vec = match &*src_object {
         Object::Array { values, .. } => values,
-        x => panic!("Attempted to call arraycopy with non array entries: {:?}", x),
+        x => panic!(
+            "Attempted to call arraycopy with non array entries: {:?}",
+            x
+        ),
     };
 
-    let dst_vec  = match &mut *dst_object {
+    let dst_vec = match &mut *dst_object {
         Object::Array { values, .. } => values,
-        x => panic!("Attempted to call arraycopy with non array entries: {:?}", x),
+        x => panic!(
+            "Attempted to call arraycopy with non array entries: {:?}",
+            x
+        ),
     };
 
     // Be lazy since we need to clone each element
@@ -142,11 +155,13 @@ pub unsafe extern "C" fn array_copy(env: *mut JNIEnv, cls: jclass, src: jobject,
     }
 }
 
-
 pub unsafe extern "C" fn empty(env: *mut JNIEnv, cls: jclass) {}
 
-
-pub unsafe extern "C" fn desired_assertions(env: *mut JNIEnv, cls: jclass, target: jclass) -> jboolean {
+pub unsafe extern "C" fn desired_assertions(
+    env: *mut JNIEnv,
+    cls: jclass,
+    target: jclass,
+) -> jboolean {
     0 // Don't do assertions, I don't need the extra work
 }
 
@@ -174,4 +189,3 @@ pub unsafe extern "C" fn get_class(env: *mut JNIEnv, cls: jclass, name: jstring)
 pub unsafe extern "C" fn print_stream_hook(env: *mut JNIEnv, obj: jobject, fd: jint, str: jstring) {
     println!("Got print to {}", fd);
 }
-

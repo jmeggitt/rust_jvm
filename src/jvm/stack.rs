@@ -4,7 +4,7 @@ use std::ffi::c_void;
 use std::mem::{forget, size_of, transmute, zeroed};
 use std::pin::Pin;
 
-use jni::sys::{JNIEnv, JNINativeInterface_, jobject, jvalue};
+use jni::sys::{jobject, jvalue, JNIEnv, JNINativeInterface_};
 
 use crate::jvm::interface::build_interface;
 

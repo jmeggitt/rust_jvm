@@ -19,25 +19,29 @@ pub struct CodeAttribute {
 }
 
 impl CodeAttribute {
-
-    pub fn attempt_catch(&self, pos: u64, class: &str, pool: &[Constant], jvm: &mut JVM) -> Option<u64> {
+    pub fn attempt_catch(
+        &self,
+        pos: u64,
+        class: &str,
+        pool: &[Constant],
+        jvm: &mut JVM,
+    ) -> Option<u64> {
         // I assume that the first one that fits is the one to use?
         for range in self.exception_table.iter().copied() {
             if pos < range.try_start as u64 || pos > range.try_end as u64 {
-                continue
+                continue;
             }
 
             let index = pool[range.catch_type as usize - 1].expect_class().unwrap();
             let catch_target = pool[index as usize - 1].expect_utf8().unwrap();
 
-            if jvm.instanceof(class, &catch_target) == Some(true){
-                return Some(range.catch_start as u64)
+            if jvm.instanceof(class, &catch_target) == Some(true) {
+                return Some(range.catch_start as u64);
             }
         }
 
         None
     }
-
 }
 
 impl BufferedRead for CodeAttribute {

@@ -21,8 +21,9 @@ base64 = "0.13.0"
 pretty_env_logger = "0.4.0"
 walkdir = "2.3.2"
 libloading = "0.7.0"
-
+libffi = "1.0.1"
 jni = "0.19.0"
+lazy_static = "1.4.0"
 
 
 [dependencies.tempfile]

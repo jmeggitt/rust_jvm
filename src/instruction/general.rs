@@ -8,9 +8,12 @@ use std::rc::Rc;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_traits::ToPrimitive;
 
-use crate::constant_pool::{Constant, ConstantClass, ConstantDouble, ConstantFloat, ConstantInteger, ConstantLong, ConstantMethodRef, ConstantString};
+use crate::constant_pool::{
+    Constant, ConstantClass, ConstantDouble, ConstantFloat, ConstantInteger, ConstantLong,
+    ConstantMethodRef, ConstantString,
+};
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
-use crate::jvm::{JVM, LocalVariable, Object, StackFrame};
+use crate::jvm::{LocalVariable, Object, StackFrame, JVM};
 use crate::types::FieldDescriptor;
 
 instruction! {athrow, 0xbf}
@@ -31,7 +34,6 @@ instruction! {ret, 0xa9, u8}
 // TODO: tableswitch
 // TODO: wide
 
-
 instruction! {@partial checkcast, 0xc0, u16}
 
 impl InstructionAction for checkcast {
@@ -47,7 +49,7 @@ impl InstructionAction for bipush {
         let bipush(value) = *self;
         // Be lazy and transmute the byte from unsigned to signed to avoid implementing another
         // pattern in the instruction macro
-        let signed = unsafe {::std::mem::transmute::<_, i8>(value)};
+        let signed = unsafe { ::std::mem::transmute::<_, i8>(value) };
         // Sign extend byte to int as specified in specification
         frame.stack.push(LocalVariable::Int(signed as _));
     }
@@ -62,7 +64,6 @@ impl InstructionAction for sipush {
         frame.stack.push(LocalVariable::Int(value as _));
     }
 }
-
 
 instruction! {@partial ldc, 0x12, u8}
 
@@ -128,7 +129,8 @@ impl InstructionAction for ldc2_w {
     fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
         let ldc2_w(index) = *self;
 
-        frame.stack
+        frame
+            .stack
             .push(match &frame.constants[index as usize - 1] {
                 Constant::Double(ConstantDouble { value }) => LocalVariable::Double(*value),
                 Constant::Long(ConstantLong { value }) => LocalVariable::Long(*value),
@@ -145,9 +147,6 @@ impl InstructionAction for goto {
         frame.branch_offset += offset as i64;
     }
 }
-
-
-
 
 instruction! {@partial ireturn, 0xac}
 instruction! {@partial lreturn, 0xad}
@@ -193,11 +192,10 @@ impl InstructionAction for r#return {
     }
 }
 
-
 // TODO: iinc, 0x84, u8, u8
 
 #[derive(Copy, Clone, Debug)]
-pub struct iinc (u8, i8);
+pub struct iinc(u8, i8);
 
 impl Instruction for iinc {
     fn write(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<()> {
@@ -206,7 +204,7 @@ impl Instruction for iinc {
         buffer.write_i8(self.1)
     }
 
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM){
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
         <Self as InstructionAction>::exec(self, frame, jvm);
     }
 }
@@ -231,7 +229,7 @@ impl InstructionAction for iinc {
                 } else {
                     *x -= val.abs() as u16;
                 }
-            },
+            }
             LocalVariable::Short(x) => *x += val as i16,
             LocalVariable::Int(x) => *x += val as i32,
             LocalVariable::Float(x) => *x += val as f32,
@@ -241,7 +239,3 @@ impl InstructionAction for iinc {
         }
     }
 }
-
-
-
-

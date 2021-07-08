@@ -35,7 +35,7 @@ impl Hash for Object {
         match self {
             Object::Instance { fields, class } => {
                 class.hash(state);
-                let mut keys: Vec<String> = fields.keys().map(|x|x.clone()).collect();
+                let mut keys: Vec<String> = fields.keys().map(|x| x.clone()).collect();
                 keys.sort();
                 for key in keys {
                     key.hash(state);
@@ -43,7 +43,10 @@ impl Hash for Object {
                 }
             }
             Object::Class(name) => name.hash(state),
-            Object::Array { values, element_type } => {
+            Object::Array {
+                values,
+                element_type,
+            } => {
                 element_type.hash(state);
                 values.hash(state);
             }
@@ -54,9 +57,9 @@ impl Hash for Object {
 
 impl Object {
     pub fn expect_string(&self) -> String {
-        if let Object::Instance {fields, class} = self {
+        if let Object::Instance { fields, class } = self {
             if let Some(LocalVariable::Reference(Some(data))) = fields.get("value") {
-                if let Object::Array {values, ..} = unsafe {&*data.get()} {
+                if let Object::Array { values, .. } = unsafe { &*data.get() } {
                     let mut bytes = Vec::with_capacity(values.len());
 
                     for val in values {
@@ -65,7 +68,7 @@ impl Object {
                         }
                     }
 
-                    return String::from_utf8(bytes).unwrap()
+                    return String::from_utf8(bytes).unwrap();
                 } else {
                     panic!("Data field of string was not an array")
                 }
@@ -85,9 +88,10 @@ impl Object {
             class: "java/lang/Class".to_string(),
         }));
 
-        jvm.exec_method(base_obj.clone(), "<init>", "()V", vec![]).unwrap();
-        if let Self::Instance { fields, .. } = unsafe {&mut *base_obj.get()} {
-            fields.insert("name".to_string(), jvm.build_string(name));
+        // jvm.exec_method(base_obj.clone(), "<init>", "()V", vec![])
+        //     .unwrap();
+        if let Self::Instance { fields, .. } = unsafe { &mut *base_obj.get() } {
+            fields.insert("name".to_string(), name.into());
             fields.insert("classLoader".to_string(), LocalVariable::Reference(None));
         }
         base_obj
@@ -97,7 +101,7 @@ impl Object {
         match self {
             Object::Instance { class, .. } => Some(class.to_string()),
             Object::Class(name) => Some(name.to_string()),
-            Object::Array {element_type, ..} => Some(format!("[{}", element_type.to_string())),
+            Object::Array { element_type, .. } => Some(format!("[{}", element_type.to_string())),
             _ => None,
         }
     }
@@ -163,7 +167,7 @@ impl Hash for LocalVariable {
             LocalVariable::Short(x) => x.hash(state),
             LocalVariable::Int(x) => x.hash(state),
             LocalVariable::Float(x) => unsafe { transmute_copy::<_, u32>(x).hash(state) },
-            LocalVariable::Reference(Some(reference)) => unsafe {(&*reference.get()).hash(state)},
+            LocalVariable::Reference(Some(reference)) => unsafe { (&*reference.get()).hash(state) },
             LocalVariable::Long(x) => x.hash(state),
             LocalVariable::Double(x) => unsafe { transmute_copy::<_, u64>(x).hash(state) },
             _ => {}
@@ -172,17 +176,16 @@ impl Hash for LocalVariable {
 }
 
 impl LocalVariable {
-
     /// Helper function for conversion during match operations
     pub fn as_int(&self) -> Option<i64> {
         Some(match self {
             LocalVariable::Byte(x) => *x as i64,
             // FIXME: I'm unsure if this is technically correct or not
-            LocalVariable::Char(x) => unsafe {::std::mem::transmute::<_, i16>(*x) as i64},
+            LocalVariable::Char(x) => unsafe { ::std::mem::transmute::<_, i16>(*x) as i64 },
             LocalVariable::Short(x) => *x as i64,
             LocalVariable::Int(x) => *x as i64,
             LocalVariable::Long(x) => *x as i64,
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -191,13 +194,13 @@ impl LocalVariable {
         Some(match self {
             LocalVariable::Byte(x) => *x as f64,
             // FIXME: I'm unsure if this is technically correct or not
-            LocalVariable::Char(x) => unsafe {::std::mem::transmute::<_, i16>(*x) as f64},
+            LocalVariable::Char(x) => unsafe { ::std::mem::transmute::<_, i16>(*x) as f64 },
             LocalVariable::Short(x) => *x as f64,
             LocalVariable::Int(x) => *x as f64,
             LocalVariable::Long(x) => *x as f64,
             LocalVariable::Float(x) => *x as f64,
             LocalVariable::Double(x) => *x as f64,
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -211,7 +214,7 @@ impl LocalVariable {
             LocalVariable::Float(x) => x.signum() as i32,
             LocalVariable::Long(x) => x.signum() as i32,
             LocalVariable::Double(x) => x.signum() as i32,
-            _ => return None
+            _ => return None,
         })
     }
 }
@@ -235,7 +238,6 @@ impl From<&str> for LocalVariable {
         fields.insert("hash".to_string(), LocalVariable::Int(0));
         fields.insert("hashIsZero".to_string(), LocalVariable::Byte(0));
 
-
         LocalVariable::Reference(Some(Rc::new(UnsafeCell::new(Object::Instance {
             fields,
             class: "java/lang/String".to_string(),
@@ -253,7 +255,7 @@ impl PartialEq for LocalVariable {
             (LocalVariable::Float(a), LocalVariable::Float(b)) => a.eq(b),
             (LocalVariable::Long(a), LocalVariable::Long(b)) => a.eq(b),
             (LocalVariable::Double(a), LocalVariable::Double(b)) => a.eq(b),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -270,9 +272,15 @@ impl PartialOrd for LocalVariable {
             (LocalVariable::Double(a), LocalVariable::Double(b)) => a.partial_cmp(b),
             (LocalVariable::Float(a), LocalVariable::Double(b)) => (*a as f64).partial_cmp(b),
             (LocalVariable::Double(a), LocalVariable::Float(b)) => a.partial_cmp(&(*b as f64)),
-            (LocalVariable::Reference(Some(a)), LocalVariable::Reference(Some(b))) => a.get().partial_cmp(&b.get()),
-            (LocalVariable::Reference(Some(_)), LocalVariable::Reference(_)) => Some(Ordering::Greater),
-            (LocalVariable::Reference(_), LocalVariable::Reference(Some(_))) => Some(Ordering::Less),
+            (LocalVariable::Reference(Some(a)), LocalVariable::Reference(Some(b))) => {
+                a.get().partial_cmp(&b.get())
+            }
+            (LocalVariable::Reference(Some(_)), LocalVariable::Reference(_)) => {
+                Some(Ordering::Greater)
+            }
+            (LocalVariable::Reference(_), LocalVariable::Reference(Some(_))) => {
+                Some(Ordering::Less)
+            }
             (LocalVariable::Reference(_), LocalVariable::Reference(_)) => Some(Ordering::Equal),
             (a, b) => match (a.as_int(), b.as_int()) {
                 (Some(x), Some(y)) => x.partial_cmp(&y),
@@ -298,7 +306,7 @@ impl Into<Option<jvalue>> for LocalVariable {
                             let object = v.get() as jobject;
                             forget(object);
                             object
-                        },
+                        }
                         // Some(v) => &v.as_ref() as *const _ as *mut _jobject,
                         None => null_mut(),
                     },

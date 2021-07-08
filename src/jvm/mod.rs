@@ -25,6 +25,8 @@ use crate::constant_pool::Constant;
 use crate::jvm::hooks::register_hooks;
 use crate::jvm::stack::OperandStack;
 use crate::types::FieldDescriptor;
+use crate::jvm::mem_rewrite::ClassSchema;
+use std::sync::Arc;
 
 macro_rules! fatal_error {
     ($($arg:tt),*) => {{
@@ -45,6 +47,7 @@ mod stack;
 
 #[cfg(unix)]
 mod exec;
+mod internals;
 mod mem_rewrite;
 
 pub struct StackFrame {
@@ -114,7 +117,11 @@ impl StackFrame {
         }
     }
 
-    pub fn exec(&mut self, jvm: &mut JVM, code: &CodeAttribute) -> Result<Option<LocalVariable>, LocalVariable> {
+    pub fn exec(
+        &mut self,
+        jvm: &mut JVM,
+        code: &CodeAttribute,
+    ) -> Result<Option<LocalVariable>, LocalVariable> {
         // let instructions = self.code.instructions.clone();
         for (offset, instruction) in &code.instructions {
             trace!("\t{}:\t{:?}", offset, instruction);
@@ -142,9 +149,10 @@ impl StackFrame {
 
                 // Determine exception type
                 let exception_class = match &exception {
-                    LocalVariable::Reference(Some(v)) => unsafe {(&*v.get()).expect_class()},
+                    LocalVariable::Reference(Some(v)) => unsafe { (&*v.get()).expect_class() },
                     _ => panic!("Unable to get class of exception"),
-                }.unwrap();
+                }
+                .unwrap();
 
                 // Figure out if can be caught or if it needs to propagate
                 let position = code.instructions[rip].0;
@@ -152,15 +160,17 @@ impl StackFrame {
                     Some(jump_dst) => {
                         debug!("Exception successfully caught, branching to catch block!");
                         self.branch_offset = jump_dst as i64 - position as i64;
-                    },
+                    }
                     None => {
-                        warn!("Raised exception from instruction {:?}", &code.instructions[rip]);
+                        warn!(
+                            "Raised exception from instruction {:?}",
+                            &code.instructions[rip]
+                        );
                         warn!("Exception not caught, Raising: {}", exception_class);
                         jvm.debug_print_call_stack();
                         return Err(exception);
                     }
                 }
-
             }
 
             if self.branch_offset == 0 {
@@ -206,7 +216,9 @@ pub struct JVM {
     pub linked_libraries: NativeManager,
     pub registered_classes: HashMap<String, Rc<UnsafeCell<Object>>>,
 
-    pub call_stack: Vec<String>,
+    pub call_stack: Vec<(Rc<UnsafeCell<Object>>, String)>,
+
+    schemas: HashMap<String, Arc<ClassSchema>>,
 }
 
 impl JVM {
@@ -220,6 +232,7 @@ impl JVM {
             // locals: vec![LocalVariable::Int(0); 255],
             registered_classes: HashMap::new(),
             call_stack: Vec::new(),
+            schemas: HashMap::new(),
         };
 
         unsafe {
@@ -236,6 +249,18 @@ impl JVM {
         jvm
     }
 
+    pub fn class_schema(&mut self, class: &str) -> Option<Arc<ClassSchema>> {
+        if !self.schemas.contains_key(class) {
+            let class_spec = self.expect_class(class).clone();
+
+            let schema = ClassSchema::build(&class_spec, self);
+            self.schemas.insert(class.to_string(), Arc::new(schema));
+
+        }
+
+        self.schemas.get(class).cloned()
+    }
+
     pub fn get_class_instance(&mut self, name: &str) -> Rc<UnsafeCell<Object>> {
         if let Some(class) = self.registered_classes.get(name) {
             return class.clone();
@@ -247,11 +272,7 @@ impl JVM {
         class
     }
 
-    pub fn instanceof(
-        &self,
-        instance: &str,
-        target: &str,
-    ) -> Option<bool> {
+    pub fn instanceof(&self, instance: &str, target: &str) -> Option<bool> {
         // If this is a regular object, we hit the base case
         if instance == "java/lang/Object" {
             return Some(false);
@@ -302,10 +323,10 @@ impl JVM {
 
         // We need to load this first since the following libraries depend on it
         #[cfg(unix)]
-            self.linked_libraries
+        self.linked_libraries
             .load_library(lib_dir.join("amd64/server/libjvm.so"))?;
         #[cfg(windows)]
-            self.linked_libraries
+        self.linked_libraries
             .load_library(lib_dir.join("bin/server/jvm.dll"))?;
 
         // Load includes in deterministic order to ensure regularity between runs
@@ -349,7 +370,8 @@ impl JVM {
             "([C)Ljava/lang/String;",
             args,
         )
-            .unwrap().unwrap()
+        .unwrap()
+        .unwrap()
     }
 
     fn expect_class(&mut self, class: &str) -> &Class {
@@ -360,7 +382,7 @@ impl JVM {
         debug!("Call stack:");
         let mut padding = String::new();
         for debug_str in &self.call_stack {
-            debug!("{}{}", &padding, debug_str);
+            debug!("{}{}", &padding, debug_str.1);
             padding.push_str("   ");
         }
     }
@@ -373,16 +395,17 @@ impl JVM {
         constants: Vec<Constant>,
         mut args: Vec<LocalVariable>,
     ) -> Result<Option<LocalVariable>, LocalVariable> {
-        let call_string = format!("{}::{} {}", class_name, method.name(&constants).unwrap(), method.descriptor(&constants).unwrap());
-        debug!(
-            "Executing method {} for target {:?}",
-            &call_string,
-            &target
+        let call_string = format!(
+            "{}::{} {}",
+            class_name,
+            method.name(&constants).unwrap(),
+            method.descriptor(&constants).unwrap()
         );
+        debug!("Executing method {} for target {:?}", &call_string, &target);
 
-        self.call_stack.push(call_string);
+        let target_class = self.get_class_instance(class_name);
+        self.call_stack.push((target_class, call_string));
         self.debug_print_call_stack();
-
 
         let ret = if method.access.contains(AccessFlags::NATIVE) {
             let fn_ptr = match self.linked_libraries.get_fn_ptr(
@@ -400,7 +423,7 @@ impl JVM {
             };
 
             if let Ok(FieldDescriptor::Method { returns, .. }) =
-            FieldDescriptor::read_str(&method.descriptor(&constants).unwrap())
+                FieldDescriptor::read_str(&method.descriptor(&constants).unwrap())
             {
                 let ret = unsafe {
                     debug!("Native method arguments:");
@@ -409,7 +432,9 @@ impl JVM {
                         .map(|x| {
                             debug!("\t{:?}", x);
                             match x {
-                                LocalVariable::Reference(Some(v)) => jvalue { l: v as *mut _ as jobject },
+                                LocalVariable::Reference(Some(v)) => jvalue {
+                                    l: v as *mut _ as jobject,
+                                },
                                 x => {
                                     let value: Option<jvalue> = x.clone().into();
                                     value.unwrap()
@@ -478,7 +503,6 @@ impl JVM {
         self.exec_method(target, method, desc, args)
     }
 
-
     // pub fn preload_class(&mut self, class: &str) {
     //     if !self.static_load.contains(class) {
     //         self.class_loader.attempt_load(class).unwrap();
@@ -514,7 +538,6 @@ impl JVM {
             class, &args
         );
 
-
         self.class_loader.attempt_load(class)?;
 
         // This really should be an instance of a 0 length array
@@ -524,7 +547,8 @@ impl JVM {
             element_type: FieldDescriptor::Object("java/lang/String".to_string()),
         }))));
 
-        self.exec_static(class, "main", "([Ljava/lang/String;)V", vec![arg]).unwrap();
+        self.exec_static(class, "main", "([Ljava/lang/String;)V", vec![arg])
+            .unwrap();
 
         Ok(())
     }
@@ -553,11 +577,14 @@ pub struct NativeManager {
 
 impl NativeManager {
     pub fn new() -> Self {
-        NativeManager {
+        let mut manager = NativeManager {
             libs: HashMap::new(),
             load_order: Vec::new(),
             loaded_fns: HashMap::new(),
-        }
+        };
+
+        internals::register_natives(&mut manager);
+        manager
     }
 
     pub fn load_library(&mut self, path: PathBuf) -> io::Result<()> {
@@ -598,6 +625,12 @@ impl NativeManager {
             clean_str(name),
             Self::clean_desc(desc).unwrap()
         );
+
+        if self.loaded_fns.contains_key(&long_name) {
+            error!("Failed to register native function! Already registered: {}", long_name);
+            return false;
+        }
+
         self.loaded_fns.insert(long_name, fn_ptr).is_none()
     }
 

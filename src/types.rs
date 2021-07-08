@@ -8,6 +8,7 @@ use jni::sys::jvalue;
 
 use crate::class::BufferedRead;
 use crate::jvm::{LocalVariable, Object};
+use libffi::middle::{Cif, Type};
 
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FieldDescriptor {
@@ -31,7 +32,6 @@ pub enum FieldDescriptor {
 }
 
 impl FieldDescriptor {
-
     pub fn to_string(&self) -> String {
         let mut string = String::new();
 
@@ -121,7 +121,7 @@ impl FieldDescriptor {
                         debug!("Got value {:?} from pointer", &out);
                         out
                     }
-                }
+                },
                 _ => return None,
             })
         }
@@ -176,3 +176,38 @@ impl BufferedRead for FieldDescriptor {
         })
     }
 }
+
+impl FieldDescriptor {
+    pub fn ffi_arg_type(&self) -> Type {
+        match self {
+            FieldDescriptor::Byte => Type::i8(),
+            FieldDescriptor::Char => Type::u16(),
+            FieldDescriptor::Double => Type::f64(),
+            FieldDescriptor::Float => Type::f32(),
+            FieldDescriptor::Int => Type::i32(),
+            FieldDescriptor::Long => Type::i64(),
+            FieldDescriptor::Short => Type::i16(),
+            FieldDescriptor::Boolean => Type::u8(),
+            FieldDescriptor::Void => Type::void(),
+            _ => Type::pointer(),
+        }
+    }
+
+    pub fn build_cif(&self) -> Cif {
+        if let FieldDescriptor::Method {args, returns} = self {
+            let mut cif = Cif::new(args.iter().map(Self::ffi_arg_type), returns.ffi_arg_type());
+
+            #[cfg(not(all(target_arch = "x86", windows)))]
+            cif.set_abi(libffi::raw::ffi_abi_FFI_DEFAULT_ABI);
+
+            // STDCALL is used on win32
+            #[cfg(all(target_arch = "x86", windows))]
+            cif.set_abi(libffi::raw::ffi_abi_FFI_STDCALL);
+
+            cif
+        } else {
+            panic!("Attempted to construct Cif from non-call descriptor!")
+        }
+    }
+}
+

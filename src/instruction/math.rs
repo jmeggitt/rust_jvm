@@ -1,7 +1,7 @@
 use num_traits::PrimInt;
 
 use crate::instruction::InstructionAction;
-use crate::jvm::{JVM, LocalVariable, StackFrame};
+use crate::jvm::{LocalVariable, StackFrame, JVM};
 
 macro_rules! math_instruction {
     ($name:ident, $inst:literal, $type:ident ($a:ident $(,$x:ident)*) => $res:expr) => {

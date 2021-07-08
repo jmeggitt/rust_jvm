@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::constant_pool::{Constant, ConstantClass};
 use crate::instruction::InstructionAction;
-use crate::jvm::{JVM, LocalVariable, Object, StackFrame};
+use crate::jvm::{LocalVariable, Object, StackFrame, JVM};
 use crate::types::FieldDescriptor;
 
 macro_rules! array_instruction {
@@ -18,7 +18,7 @@ macro_rules! array_instruction {
     (@load $frame:ident) => {
         let index = $frame.stack.pop().unwrap().as_int().unwrap() as usize;
         if let LocalVariable::Reference(Some(arr)) = $frame.stack.pop().unwrap() {
-            if let Object::Array {values, ..} = unsafe {&*arr.get()} {
+            if let Object::Array { values, .. } = unsafe { &*arr.get() } {
                 $frame.stack.push(values[index].clone());
             }
         }
@@ -28,7 +28,7 @@ macro_rules! array_instruction {
         let index = $frame.stack.pop().unwrap().as_int().unwrap() as usize;
 
         if let LocalVariable::Reference(Some(arr)) = $frame.stack.pop().unwrap() {
-            if let Object::Array {values, ..} = unsafe {&mut *arr.get()} {
+            if let Object::Array { values, .. } = unsafe { &mut *arr.get() } {
                 values[index] = value;
                 return;
             }
@@ -82,8 +82,6 @@ array_instruction! {@store sastore, 0x56}
 //         panic!("Attempted to store/load from non-array")
 //     }
 // }
-
-
 
 instruction! {@partial anewarray, 0xbd, u16}
 
@@ -158,7 +156,7 @@ instruction! {@partial arraylength, 0xbe}
 impl InstructionAction for arraylength {
     fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
         if let Some(LocalVariable::Reference(Some(val))) = frame.stack.pop() {
-            if let Object::Array { values, .. } = unsafe {&*val.get()} {
+            if let Object::Array { values, .. } = unsafe { &*val.get() } {
                 frame.stack.push(LocalVariable::Int(values.len() as i32));
             }
         }

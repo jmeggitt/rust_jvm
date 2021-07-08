@@ -1,6 +1,7 @@
 #![feature(str_split_once)]
 #![feature(drain_filter)]
-#![feature(asm)]
+// #![feature(asm)]
+#![feature(const_type_id)]
 // Ensure each result error is either unwrapped or returned
 #![deny(unused_must_use)]
 // TODO: Remove later
@@ -13,7 +14,6 @@ extern crate log;
 #[macro_use]
 extern crate num_derive;
 
-use std::env::set_current_dir;
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 
@@ -22,8 +22,6 @@ use pretty_env_logger::env_logger::Target;
 
 use crate::class::{ClassLoader, ClassPath};
 use crate::jvm::JVM;
-use crate::types::FieldDescriptor::Object;
-
 
 mod attribute;
 mod class;

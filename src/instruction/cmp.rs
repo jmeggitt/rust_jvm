@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use crate::instruction::InstructionAction;
-use crate::jvm::{JVM, LocalVariable, StackFrame};
+use crate::jvm::{LocalVariable, StackFrame, JVM};
 
 macro_rules! cmp_instruction {
     ($name:ident, $inst:literal, i16, $cond:expr) => {
@@ -15,9 +15,12 @@ macro_rules! cmp_instruction {
                 let val1 = frame.stack.pop().unwrap();
                 let order = match val1.partial_cmp(&val2) {
                     Some(v) => v,
-                    None => panic!("Unable to get ordering for branching between {:?} and {:?}", val1, val2),
+                    None => panic!(
+                        "Unable to get ordering for branching between {:?} and {:?}",
+                        val1, val2
+                    ),
                 };
-                  //  .expect("Unable to get ordering for branching");
+                //  .expect("Unable to get ordering for branching");
 
                 if $cond(order) {
                     debug!("Branching by {}", jmp);
@@ -78,7 +81,6 @@ cmp_instruction! {if_acmpne, 0xa6, i16, |x| x != Ordering::Equal}
 //     }
 // }
 
-
 cmp_zero_instruction! {ifeq, 0x99, i16, |x| x == 0}
 cmp_zero_instruction! {ifne, 0x9a, i16, |x| x != 0}
 cmp_zero_instruction! {iflt, 0x9b, i16, |x| x == -1}
@@ -86,10 +88,8 @@ cmp_zero_instruction! {ifge, 0x9c, i16, |x| x >= 0}
 cmp_zero_instruction! {ifgt, 0x9d, i16, |x| x == 1}
 cmp_zero_instruction! {ifle, 0x9e, i16, |x| x <= 0}
 
-
 instruction! {@partial ifnonnull, 0xc7, i16}
 instruction! {@partial ifnull, 0xc6, i16}
-
 
 impl InstructionAction for ifnonnull {
     fn exec(&self, frame: &mut StackFrame, _: &mut JVM) {
@@ -101,7 +101,6 @@ impl InstructionAction for ifnonnull {
         }
     }
 }
-
 
 impl InstructionAction for ifnull {
     fn exec(&self, frame: &mut StackFrame, _: &mut JVM) {

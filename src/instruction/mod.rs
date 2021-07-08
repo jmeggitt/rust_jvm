@@ -33,23 +33,22 @@ use math::*;
 use push_const::*;
 use stack::*;
 
-use crate::constant_pool::Constant;
-use crate::jvm::{JVM, LocalVariable, StackFrame};
+use crate::jvm::{LocalVariable, StackFrame, JVM};
 
 #[macro_use]
 mod macros;
 
+mod array;
 mod class;
 mod cmp;
+mod convert;
+mod exception;
 mod general;
 mod load_store;
 mod locals;
+mod math;
 mod push_const;
 mod stack;
-mod convert;
-mod math;
-mod array;
-mod exception;
 
 pub trait Instruction: Any + Debug {
     fn write(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<()>;
