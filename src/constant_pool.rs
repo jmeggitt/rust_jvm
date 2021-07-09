@@ -7,178 +7,72 @@ use num_traits::FromPrimitive;
 
 use crate::class::BufferedRead;
 use crate::version::ClassVersion;
+use std::ops::Index;
 
-#[derive(Debug)]
-pub struct ConstantPool {
-    pub items: Vec<Box<dyn Debug + 'static>>,
+#[repr(transparent)]
+pub struct ConstantPool<'a> {
+    pool: &'a [Constant],
 }
 
-impl ConstantPool {
-    pub fn read(version: ClassVersion, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        let len = buffer.read_u16::<BigEndian>()? - 1;
-        let mut tags = Vec::with_capacity(len as usize);
-        println!("Reading Constant Pool: {} tags", len);
-
-        for _ in 0..len {
-            let tag: Box<dyn Debug + 'static> = match buffer.read_u8()? {
-                ConstantUtf8Info::TAG => Box::new(ConstantUtf8Info::attempt_read(version, buffer)?),
-                ConstantInteger::TAG => Box::new(ConstantInteger::attempt_read(version, buffer)?),
-                ConstantFloat::TAG => Box::new(ConstantFloat::attempt_read(version, buffer)?),
-                ConstantLong::TAG => Box::new(ConstantLong::attempt_read(version, buffer)?),
-                ConstantDouble::TAG => Box::new(ConstantDouble::attempt_read(version, buffer)?),
-                ConstantClass::TAG => Box::new(ConstantClass::attempt_read(version, buffer)?),
-                ConstantString::TAG => Box::new(ConstantString::attempt_read(version, buffer)?),
-                ConstantFieldRef::TAG => Box::new(ConstantFieldRef::attempt_read(version, buffer)?),
-                ConstantMethodRef::TAG => {
-                    Box::new(ConstantMethodRef::attempt_read(version, buffer)?)
-                }
-                ConstantInterfaceMethodRef::TAG => {
-                    Box::new(ConstantInterfaceMethodRef::attempt_read(version, buffer)?)
-                }
-                ConstantNameAndType::TAG => {
-                    Box::new(ConstantNameAndType::attempt_read(version, buffer)?)
-                }
-                ConstantMethodHandle::TAG => {
-                    Box::new(ConstantMethodHandle::attempt_read(version, buffer)?)
-                }
-                ConstantMethodType::TAG => {
-                    Box::new(ConstantMethodType::attempt_read(version, buffer)?)
-                }
-                ConstantDynamic::TAG => Box::new(ConstantDynamic::attempt_read(version, buffer)?),
-                ConstantInvokeDynamic::TAG => {
-                    Box::new(ConstantInvokeDynamic::attempt_read(version, buffer)?)
-                }
-                ConstantModule::TAG => Box::new(ConstantModule::attempt_read(version, buffer)?),
-                ConstantPackage::TAG => Box::new(ConstantPackage::attempt_read(version, buffer)?),
-                x => panic!("Unknown tag: {}", x),
-            };
-
-            println!("\t{:?}", &tag);
-            tags.push(tag);
-        }
-
-        Ok(ConstantPool { items: tags })
+impl<'a> From<&'a [Constant]> for ConstantPool<'a> {
+    fn from(pool: &'a [Constant]) -> Self {
+        ConstantPool { pool }
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum SimplifiedConstant {
-    TextLiteral(String),
-    Int(i32),
-    Float(f32),
-    Long(i64),
-    Double(f64),
-    Class(String),
-    String(String),
-    FieldRef {
-        class: String,
-        field: String,
-        field_type: String,
-    },
-    MethodRef {
-        class: String,
-        field: String,
-        field_type: String,
-    },
-    InterfaceMethodRef {
-        class: String,
-        field: String,
-        field_type: String,
-    },
-    NameAndType {
-        name: String,
-        desc: String,
-    },
-}
+// TODO: Finish adding helper functions and use in main system
+impl<'a> ConstantPool<'a> {
+    pub fn text(&'a self, index: u16) -> &'a str {
+        match &self[index] {
+            Constant::Utf8(ConstantUtf8Info { text }) => text.as_ref(),
+            x => panic!("Expected Utf8 constant, but found {:?}", x)
+        }
+    }
 
-impl SimplifiedConstant {
-    fn extract_field_ref(
-        class_index: u16,
-        name_and_type_index: u16,
-        pool: &[Constant],
-    ) -> Option<(String, String, String)> {
-        let class_literal = match pool[class_index as usize - 1] {
-            Constant::Class(ConstantClass { name_index }) => name_index,
-            _ => return None,
+    pub fn class_name(&'a self, index: u16) -> &'a str {
+        match &self[index] {
+            Constant::Class(ConstantClass { name_index }) => self.text(*name_index),
+            x => panic!("Expected Class constant, but found {:?}", x),
+        }
+    }
+
+    pub fn name_and_type(&'a self, index: u16) -> (&'a str, &'a str) {
+        match &self[index] {
+            Constant::NameAndType(v) => {
+                let ConstantNameAndType { name_index, descriptor_index } = v;
+                (self.text(*name_index), self.text(*descriptor_index))
+            }
+            x => panic!("Expected NameAndType constant, but found {:?}", x)
+        }
+    }
+
+    pub fn class_element_ref(&'a self, index: u16) -> (&'a str, &'a str, &'a str) {
+        let (class_index, name_and_type) = match &self[index] {
+            Constant::FieldRef(v) => {
+                let ConstantFieldRef { class_index, name_and_type_index } = v;
+                (*class_index, *name_and_type_index)
+            }
+            Constant::MethodRef(v) => {
+                let ConstantMethodRef { class_index, name_and_type_index } = v;
+                (*class_index, *name_and_type_index)
+            }
+            Constant::InterfaceMethodRef(v) => {
+                let ConstantInterfaceMethodRef { class_index, name_and_type_index } = v;
+                (*class_index, *name_and_type_index)
+            }
+            x => panic!("Expected FieldRef/MethodRef/InterfaceMethodRef constant, but found {:?}", x)
         };
 
-        let field_type = pool[name_and_type_index as usize - 1].expect_name_and_type()?;
-        let class = pool[class_literal as usize - 1].expect_utf8()?;
-        let field = pool[field_type.name_index as usize - 1].expect_utf8()?;
-        let field_type = pool[field_type.descriptor_index as usize - 1].expect_utf8()?;
-
-        Some((class, field, field_type))
+        let (name, desc) = self.name_and_type(name_and_type);
+        (self.class_name(class_index), name, desc)
     }
+}
 
-    pub fn parse(x: &Constant, pool: &[Constant]) -> Option<Self> {
-        use SimplifiedConstant::*;
-        Some(match x {
-            Constant::Utf8(ConstantUtf8Info { text }) => TextLiteral(text.clone()),
-            Constant::Int(ConstantInteger { value }) => Int(*value),
-            Constant::Float(ConstantFloat { value }) => Float(*value),
-            Constant::Long(ConstantLong { value }) => Long(*value),
-            Constant::Double(ConstantDouble { value }) => Double(*value),
-            Constant::Class(ConstantClass { name_index }) => {
-                Class(pool[*name_index as usize - 1].expect_utf8()?)
-            }
-            Constant::String(ConstantString { string_index }) => {
-                String(pool[*string_index as usize - 1].expect_utf8()?)
-            }
-            Constant::FieldRef(ConstantFieldRef {
-                class_index,
-                name_and_type_index,
-            }) => {
-                let (class, field, field_type) = SimplifiedConstant::extract_field_ref(
-                    *class_index,
-                    *name_and_type_index,
-                    pool,
-                )?;
-                FieldRef {
-                    class,
-                    field,
-                    field_type,
-                }
-            }
-            Constant::MethodRef(ConstantMethodRef {
-                class_index,
-                name_and_type_index,
-            }) => {
-                let (class, field, field_type) = SimplifiedConstant::extract_field_ref(
-                    *class_index,
-                    *name_and_type_index,
-                    pool,
-                )?;
-                MethodRef {
-                    class,
-                    field,
-                    field_type,
-                }
-            }
-            Constant::InterfaceMethodRef(ConstantInterfaceMethodRef {
-                class_index,
-                name_and_type_index,
-            }) => {
-                let (class, field, field_type) = SimplifiedConstant::extract_field_ref(
-                    *class_index,
-                    *name_and_type_index,
-                    pool,
-                )?;
-                InterfaceMethodRef {
-                    class,
-                    field,
-                    field_type,
-                }
-            }
-            Constant::NameAndType(ConstantNameAndType {
-                name_index,
-                descriptor_index,
-            }) => {
-                let name = pool[*name_index as usize - 1].expect_utf8()?;
-                let desc = pool[*descriptor_index as usize - 1].expect_utf8()?;
-                NameAndType { name, desc }
-            }
-            _ => return None,
-        })
+impl<'a> Index<u16> for ConstantPool<'a> {
+    type Output = Constant;
+
+    fn index(&self, index: u16) -> &Self::Output {
+        &self.pool[index as usize - 1]
     }
 }
 
@@ -718,7 +612,7 @@ impl ConstantPoolTag for ConstantMethodHandle {
                     return Err(Error::new(
                         ErrorKind::Other,
                         "Reference kind value out of bounds!",
-                    ))
+                    ));
                 }
             },
             index: buffer.read_u16::<BigEndian>()?,

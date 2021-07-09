@@ -4,8 +4,6 @@
 #![feature(const_type_id)]
 // Ensure each result error is either unwrapped or returned
 #![deny(unused_must_use)]
-// TODO: Remove later
-#![allow(dead_code)]
 
 #[macro_use]
 extern crate bitflags;

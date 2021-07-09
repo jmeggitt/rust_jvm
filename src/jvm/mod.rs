@@ -175,11 +175,6 @@ impl StackFrame {
             // }
 
             while self.branch_offset != 0 {
-                debug!("Branch offset is {} and rip is {}", self.branch_offset, rip);
-                debug!(
-                    "Currently pointed at instruction {:?}",
-                    &code.instructions[rip]
-                );
                 let (current_pos, _) = code.instructions[rip];
                 if self.branch_offset > 0 {
                     rip += 1;
@@ -298,7 +293,7 @@ impl JVM {
             return Some((
                 class.to_string(),
                 main_method.clone(),
-                entry_class.constants().to_vec(),
+                entry_class.old_constants().to_vec(),
             ));
         }
 

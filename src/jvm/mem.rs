@@ -10,6 +10,7 @@ use jni::sys::{jobject, jvalue};
 
 use crate::jvm::JVM;
 use crate::types::FieldDescriptor;
+use std::fmt::{Debug, Formatter};
 
 #[derive(Debug, Clone)]
 pub enum Object {
@@ -137,7 +138,7 @@ impl<'a> Into<jobject> for &'a Object {
 }
 
 /// All distinct java values
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum LocalVariable {
     Byte(i8),
     Char(u16),
@@ -294,6 +295,21 @@ impl Into<jvalue> for LocalVariable {
             },
             LocalVariable::Long(x) => jvalue { j: x },
             LocalVariable::Double(x) => jvalue { d: x },
+        }
+    }
+}
+
+impl Debug for LocalVariable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LocalVariable::Byte(x) => write!(f, "{}", x),
+            LocalVariable::Char(x) => write!(f, "{:?}", std::char::from_u32(*x as u32).unwrap()),
+            LocalVariable::Short(x) => write!(f, "{}", x),
+            LocalVariable::Int(x) => write!(f, "{}", x),
+            LocalVariable::Float(x) => write!(f, "{}", x),
+            LocalVariable::Reference(x) => write!(f, "{:?}", x),
+            LocalVariable::Long(x) => write!(f, "{}", x),
+            LocalVariable::Double(x) => write!(f, "{}", x),
         }
     }
 }

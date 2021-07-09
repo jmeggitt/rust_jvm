@@ -4,14 +4,17 @@ use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::rc::Rc;
 
-use crate::class::Class;
+use crate::class::{Class, FieldInfo, AccessFlags, BufferedRead};
 use crate::jvm::{LocalVariable, JVM};
 use crate::types::FieldDescriptor;
 use hashbrown::HashMap;
-use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort, jvalue};
+use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort, jvalue, _jobject};
 use lazy_static::lazy_static;
 use std::mem::{size_of, transmute};
 use std::sync::Arc;
+use std::ptr::{null_mut, NonNull};
+use std::hash::{Hash, Hasher};
+use std::fmt::{Debug, Formatter};
 
 pub trait JavaPrimitive: 'static + Sized + Copy {
     fn pack(self) -> jvalue;
@@ -92,24 +95,25 @@ impl<T> Deref for ObjectWrapper<T> {
     }
 }
 
-// TODO: Impl Hash
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct ObjectHandle(jobject);
+pub struct ObjectHandle(NonNull<_jobject>);
 
-impl From<jobject> for ObjectHandle {
-    fn from(v: jobject) -> Self {
-        ObjectHandle(v)
-    }
-}
-
-impl JavaPrimitive for ObjectHandle {
+impl JavaPrimitive for Option<ObjectHandle> {
     fn pack(self) -> jvalue {
-        jvalue { l: self.0 }
+        match self {
+            Some(v) => jvalue { l: v.0.as_ptr() },
+            None => jvalue {l: null_mut() },
+        }
     }
 
     fn unpack(val: jvalue) -> Self {
-        unsafe { ObjectHandle(val.l) }
+        unsafe {
+            match NonNull::new(val.l) {
+                Some(v) => Some(ObjectHandle(v)),
+                None => None,
+            }
+        }
     }
 
     fn descriptor() -> FieldDescriptor {
@@ -118,10 +122,17 @@ impl JavaPrimitive for ObjectHandle {
 }
 
 impl ObjectHandle {
+    pub fn from_ptr(x: jobject) -> Option<Self> {
+        match NonNull::new(x) {
+            Some(v) => Some(ObjectHandle(v)),
+            None => None,
+        }
+    }
+
     #[inline]
     pub fn unwrap_unknown(self) -> ObjectWrapper<RawObject<()>> {
         let ObjectHandle(ptr) = self;
-        unsafe { ObjectWrapper::from_raw(ptr).unwrap() }
+        unsafe { ObjectWrapper::from_raw(ptr.as_ptr()).unwrap() }
     }
 
     pub fn expect_instance(self) -> ObjectWrapper<RawObject<Vec<jvalue>>> {
@@ -141,6 +152,13 @@ impl ObjectHandle {
     }
 }
 
+impl Hash for ObjectHandle {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let ptr = self.0.as_ptr();
+        ptr.hash(state);
+    }
+}
+
 impl ObjectReference for ObjectHandle {
     fn get_class_schema(&self) -> Arc<ClassSchema> {
         self.unwrap_unknown().get_class_schema()
@@ -150,6 +168,59 @@ impl ObjectReference for ObjectHandle {
 pub struct RawObject<T: ?Sized> {
     schema: Arc<ClassSchema>,
     fields: UnsafeCell<T>,
+}
+
+impl Debug for RawObject<Vec<jvalue>> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {{ ", &self.schema.name)?;
+
+        for field in &self.schema.field_lookup {
+            let value: LocalVariable = self.read_field(field.offset);
+            write!(f, "{}: {:?}, ", &field.name, value)?;
+        }
+
+        write!(f, "}}")
+    }
+}
+
+impl<T: JavaPrimitive + Debug> Debug for RawObject<Vec<T>>
+    where Self: ArrayReference<T> {
+
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match TypeId::of::<T>() {
+            jboolean::ID => write!(f, "boolean"),
+            jbyte::ID => write!(f, "byte"),
+            jchar::ID => write!(f, "char"),
+            jshort::ID => write!(f, "short"),
+            jint::ID => write!(f, "int"),
+            jlong::ID => write!(f, "long"),
+            jfloat::ID => write!(f, "float"),
+            jdouble::ID => write!(f, "double"),
+            ObjectHandle::ID => write!(f, "Object"),
+            _ => write!(f, "{}", type_name::<T>()),
+        }?;
+
+        unsafe { write!(f, "[{:?}]", &*self.fields.get()) }
+    }
+}
+
+impl Debug for ObjectHandle {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let owned = self.clone();
+        match self.memory_layout() {
+            ObjectType::Instance => owned.expect_instance().fmt(f),
+            ObjectType::Array(jboolean::ID) => owned.expect_array::<jboolean>().fmt(f),
+            ObjectType::Array(jbyte::ID) => owned.expect_array::<jbyte>().fmt(f),
+            ObjectType::Array(jchar::ID) => owned.expect_array::<jchar>().fmt(f),
+            ObjectType::Array(jshort::ID) => owned.expect_array::<jshort>().fmt(f),
+            ObjectType::Array(jint::ID) => owned.expect_array::<jint>().fmt(f),
+            ObjectType::Array(jlong::ID) => owned.expect_array::<jlong>().fmt(f),
+            ObjectType::Array(jfloat::ID) => owned.expect_array::<jfloat>().fmt(f),
+            ObjectType::Array(jdouble::ID) => owned.expect_array::<jdouble>().fmt(f),
+            ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => owned.expect_array::<Option<ObjectHandle>>().fmt(f),
+            x => panic!("Unable to hash object of type {:?}", x),
+        }
+    }
 }
 
 impl RawObject<Vec<jvalue>> {
@@ -163,6 +234,27 @@ impl RawObject<Vec<jvalue>> {
 
     pub fn field_offset<S: AsRef<str>>(&self, field: S) -> usize {
         self.schema.field_offset(field)
+    }
+}
+
+impl Hash for RawObject<Vec<jvalue>> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        assert!(self.memory_layout().is_instance());
+
+        for field in &self.schema.field_lookup {
+            let local: LocalVariable = self.read_field(field.offset);
+            local.hash(state);
+        }
+    }
+}
+
+impl<T: JavaPrimitive + Hash> Hash for RawObject<Vec<T>>
+    where Self: ArrayReference<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        unsafe {
+            let fields = &*self.fields.get();
+            fields.hash(state);
+        }
     }
 }
 
@@ -221,6 +313,19 @@ impl InstanceReference<jvalue> for RawObject<Vec<jvalue>> {
     }
 }
 
+impl InstanceReference<LocalVariable> for RawObject<Vec<jvalue>> {
+    fn write_field(&self, offset: usize, val: LocalVariable) {
+        let field = self.schema.get_field_from_offset(offset);
+        assert!(field.desc.matches(&val));
+        <Self as InstanceReference<jvalue>>::write_field(self, offset, val.into());
+    }
+
+    fn read_field(&self, offset: usize) -> LocalVariable {
+        let field = self.schema.get_field_from_offset(offset);
+        field.desc.cast(self.read_field(offset)).expect("field can not be cast to local")
+    }
+}
+
 impl<T: JavaPrimitive> InstanceReference<T> for RawObject<Vec<jvalue>> {
     fn write_field(&self, offset: usize, val: T) {
         self.write_field(offset, val.pack())
@@ -228,6 +333,25 @@ impl<T: JavaPrimitive> InstanceReference<T> for RawObject<Vec<jvalue>> {
 
     fn read_field(&self, offset: usize) -> T {
         T::unpack(self.read_field(offset))
+    }
+}
+
+/// Convenience trait to manually reading and writing fields by name without first getting the
+/// offsets.
+pub trait ManualInstanceReference<T>: InstanceReference<T> {
+    fn write_named_field<S: AsRef<str>>(&self, field: S, val: T);
+    fn read_named_field<S: AsRef<str>>(&self, field: S) -> T;
+}
+
+impl<P, T: InstanceReference<P>> ManualInstanceReference<P> for T {
+    fn write_named_field<S: AsRef<str>>(&self, field: S, val: P) {
+        let offset = self.get_class_schema().field_offset(field);
+        self.write_field(offset, val);
+    }
+
+    fn read_named_field<S: AsRef<str>>(&self, field: S) -> P {
+        let offset = self.get_class_schema().field_offset(field);
+        self.read_field(offset)
     }
 }
 
@@ -282,7 +406,7 @@ where
     }
 }
 
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum ObjectType {
     Instance,
     Array(TypeId),
@@ -305,26 +429,51 @@ impl ObjectType {
     }
 }
 
-// TODO: Add pseudo-vtable
+#[derive(Clone, Debug)]
+pub struct FieldSchema {
+    pub offset: usize,
+    pub name: String,
+    pub desc: FieldDescriptor,
+}
+
 pub struct ClassSchema {
     name: String,
     data_form: ObjectType,
     super_class: Option<Arc<ClassSchema>>,
-    field_offsets: HashMap<String, usize>,
+    field_offsets: HashMap<String, FieldSchema>,
+    field_lookup: Vec<FieldSchema>,
 }
 
 impl ClassSchema {
     pub fn build(class: &Class, jvm: &mut JVM) -> Self {
         let name = class.name();
-        let mut field_offsets = HashMap::new();
 
         let super_class = match name.as_ref() {
             "java/lang/Object" => None,
             _ => jvm.class_schema(&class.super_class()),
         };
 
-        if let Some(schema) = &super_class {
-            field_offsets.extend(schema.field_offsets.iter().map(|(x, y)| (x.clone(), *y)));
+        let (mut field_offsets, mut field_lookup) = match &super_class {
+           Some(v) => (v.field_offsets.clone(), v.field_lookup.clone()),
+            None => Default::default(),
+        };
+
+        let pool = class.constants();
+        for field in &class.fields {
+            if field.access.contains(AccessFlags::STATIC) {
+                continue;
+            }
+
+            let name = pool.text(field.name_index);
+            let desc = pool.text(field.descriptor_index);
+            let field = FieldSchema {
+                offset: field_offsets.len() * size_of::<jvalue>(),
+                name: name.to_string(),
+                desc: FieldDescriptor::read_str(desc).expect("Unable to parse FieldDescriptor"),
+            };
+
+            field_offsets.insert(name.to_string(), field.clone());
+            field_lookup.push(field);
         }
 
         ClassSchema {
@@ -332,6 +481,7 @@ impl ClassSchema {
             data_form: ObjectType::Instance,
             super_class,
             field_offsets,
+            field_lookup,
         }
     }
 
@@ -347,7 +497,7 @@ impl ClassSchema {
         assert!(self.is_instance());
 
         match self.field_offsets.get(field.as_ref()) {
-            Some(v) => *v,
+            Some(v) => v.offset,
             None => panic!(
                 "Object {} does not have field: {:?}",
                 self.name,
@@ -355,16 +505,12 @@ impl ClassSchema {
             ),
         }
     }
+
+    pub fn get_field_from_offset(&self, offset: usize) -> &FieldSchema {
+        assert_eq!(offset % size_of::<jvalue>(), 0);
+        &self.field_lookup[offset / size_of::<jvalue>()]
+    }
 }
-
-// Work around to implement for Rc<ClassSchema>
-// pub trait ObjectBuilder {
-//     fn new(&self) -> ObjectHandle;
-// }
-
-// impl ObjectBuilder for Arc<ClassSchema> {
-//
-// }
 
 impl ClassSchema {
     pub fn array_schema<T: JavaPrimitive>() -> Arc<ClassSchema> {
@@ -377,7 +523,7 @@ impl ClassSchema {
             jlong::ID => ARRAY_LONG_SCHEMA.clone(),
             jfloat::ID => ARRAY_FLOAT_SCHEMA.clone(),
             jdouble::ID => ARRAY_DOUBLE_SCHEMA.clone(),
-            ObjectHandle::ID => ARRAY_OBJECT_SCHEMA.clone(),
+            <Option<ObjectHandle>>::ID => ARRAY_OBJECT_SCHEMA.clone(),
             _ => panic!("Unable to get array schema for {}", type_name::<T>()),
         }
     }
@@ -388,6 +534,7 @@ impl ClassSchema {
             data_form: ObjectType::Array(TypeId::of::<T>()),
             super_class: Some(OBJECT_SCHEMA.clone()),
             field_offsets: HashMap::new(),
+            field_lookup: Vec::new(),
         }
     }
 }
@@ -398,6 +545,7 @@ lazy_static! {
         data_form: ObjectType::Instance,
         super_class: None,
         field_offsets: HashMap::new(),
+        field_lookup: Vec::new(),
     });
 }
 
@@ -409,6 +557,7 @@ macro_rules! array_schema {
                 data_form: ObjectType::Array(TypeId::of::<$type>()),
                 super_class: Some(OBJECT_SCHEMA.clone()),
                 field_offsets: HashMap::new(),
+                field_lookup: Vec::new(),
             });
         }
     };
@@ -422,7 +571,7 @@ array_schema!(ARRAY_INT_SCHEMA: jint, "[I");
 array_schema!(ARRAY_LONG_SCHEMA: jlong, "[J");
 array_schema!(ARRAY_FLOAT_SCHEMA: jfloat, "[F");
 array_schema!(ARRAY_DOUBLE_SCHEMA: jdouble, "[D");
-array_schema!(ARRAY_OBJECT_SCHEMA: ObjectHandle, "[Ljava/lang/Object;");
+array_schema!(ARRAY_OBJECT_SCHEMA: Option<ObjectHandle>, "[Ljava/lang/Object;");
 
 // Work around to match type ids
 trait ConstTypeId {
@@ -436,7 +585,11 @@ impl<T: ?Sized + 'static> ConstTypeId for T {
 impl ObjectHandle {
     /// Allocates a new zeroed object instance
     fn new(schema: Arc<ClassSchema>) -> ObjectHandle {
-        ObjectHandle(ObjectWrapper::new(RawObject::new(schema)).into_raw())
+        ObjectHandle(NonNull::new(ObjectWrapper::new(RawObject::new(schema)).into_raw()).unwrap())
+    }
+
+    fn new_array<T: JavaPrimitive + Default>(len: usize) -> ObjectHandle {
+        ObjectHandle::array_from_data(vec![T::default(); len])
     }
 
     pub fn array_from_data<T: JavaPrimitive>(arr: Vec<T>) -> ObjectHandle {
@@ -445,7 +598,7 @@ impl ObjectHandle {
             fields: UnsafeCell::new(arr),
         };
 
-        ObjectHandle(ObjectWrapper::new(raw).into_raw())
+        ObjectHandle(NonNull::new(ObjectWrapper::new(raw).into_raw()).unwrap())
     }
 
     pub fn from_fields<S: AsRef<str>>(
@@ -459,6 +612,6 @@ impl ObjectHandle {
             InstanceReference::<jvalue>::write_field(&raw, offset, value.into());
         }
 
-        ObjectHandle(ObjectWrapper::new(raw).into_raw())
+        ObjectHandle(NonNull::new(ObjectWrapper::new(raw).into_raw()).unwrap())
     }
 }

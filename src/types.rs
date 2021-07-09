@@ -60,43 +60,6 @@ impl Display for FieldDescriptor {
 }
 
 impl FieldDescriptor {
-    // pub fn to_string(&self) -> String {
-    //     let mut string = String::new();
-    //
-    //     match self {
-    //         FieldDescriptor::Byte => string.push('B'),
-    //         FieldDescriptor::Char => string.push('C'),
-    //         FieldDescriptor::Double => string.push('D'),
-    //         FieldDescriptor::Float => string.push('F'),
-    //         FieldDescriptor::Int => string.push('I'),
-    //         FieldDescriptor::Long => string.push('J'),
-    //         FieldDescriptor::Short => string.push('S'),
-    //         FieldDescriptor::Boolean => string.push('Z'),
-    //         FieldDescriptor::Object(name) => {
-    //             string.push('L');
-    //             string.push_str(name);
-    //             string.push(';');
-    //         }
-    //         FieldDescriptor::Array(entry) => {
-    //             string.push('[');
-    //             string.push_str(&entry.to_string());
-    //         }
-    //         FieldDescriptor::Void => string.push('V'),
-    //         FieldDescriptor::Method { args, returns } => {
-    //             string.push('(');
-    //
-    //             for arg in args {
-    //                 string.push_str(&arg.to_string());
-    //             }
-    //
-    //             string.push(')');
-    //             string.push_str(&returns.to_string());
-    //         }
-    //     }
-    //
-    //     string
-    // }
-
     pub fn class_usage(&self) -> HashSet<String> {
         let mut set = HashSet::new();
         match self {
@@ -125,6 +88,25 @@ impl FieldDescriptor {
             Self::Short => LocalVariable::Short(0),
             Self::Boolean => LocalVariable::Byte(0),
             _ => LocalVariable::Reference(None),
+        }
+    }
+
+    // Clippy tried to suggest replacing this match with a massive single line matches! macro, but I
+    // prefer the raw match.
+    #[allow(clippy::match_like_matches_macro)]
+    pub fn matches(&self, local: &LocalVariable) -> bool {
+        match (self, local) {
+            (FieldDescriptor::Byte, LocalVariable::Byte(_)) => true,
+            (FieldDescriptor::Boolean, LocalVariable::Byte(_)) => true,
+            (FieldDescriptor::Char, LocalVariable::Char(_)) => true,
+            (FieldDescriptor::Short, LocalVariable::Short(_)) => true,
+            (FieldDescriptor::Int, LocalVariable::Int(_)) => true,
+            (FieldDescriptor::Float, LocalVariable::Float(_)) => true,
+            (FieldDescriptor::Long, LocalVariable::Long(_)) => true,
+            (FieldDescriptor::Double, LocalVariable::Double(_)) => true,
+            (FieldDescriptor::Object(_), LocalVariable::Reference(_)) => true,
+            (FieldDescriptor::Array(_), LocalVariable::Reference(_)) => true,
+            _ => false,
         }
     }
 

@@ -11,7 +11,7 @@ use walkdir::WalkDir;
 use zip::ZipArchive;
 
 use crate::attribute::CodeAttribute;
-use crate::constant_pool::{Constant, ConstantClass, SimplifiedConstant};
+use crate::constant_pool::{Constant, ConstantClass, ConstantPool};
 use crate::jar::{unpack_jar, Jar, Manifest};
 use crate::jvm::Object;
 use crate::types::FieldDescriptor;
@@ -104,19 +104,24 @@ impl BufferedRead for AccessFlags {
 #[derive(Debug, Clone)]
 pub struct Class {
     version: ClassVersion,
-    constants: Vec<Constant>,
-    access_flags: AccessFlags,
+    pub constants: Vec<Constant>,
+    pub access_flags: AccessFlags,
     this_class: u16,
     super_class: u16,
     interfaces: Vec<u16>,
-    fields: Vec<FieldInfo>,
+    pub fields: Vec<FieldInfo>,
     methods: Vec<MethodInfo>,
     attributes: Vec<AttributeInfo>,
 }
 
 impl Class {
-    pub fn constants(&self) -> &[Constant] {
+    #[deprecated(since = "0.2.0", note = "Replace with new Class::constants method")]
+    pub fn old_constants(&self) -> &[Constant] {
         &self.constants
+    }
+
+    pub fn constants(&self) -> ConstantPool {
+        ConstantPool::from(&self.constants[..])
     }
 
     pub fn write(&self) -> io::Result<Vec<u8>> {
@@ -253,24 +258,6 @@ impl Class {
         ))
     }
 
-    pub fn build_simplified_constants(&self) -> Vec<SimplifiedConstant> {
-        let mut simplified = Vec::with_capacity(self.constants.len());
-
-        println!("\n\nAttempting to parse simplified constants:");
-
-        for constant in &self.constants {
-            match SimplifiedConstant::parse(constant, &self.constants) {
-                Some(v) => {
-                    println!("\t{:?}", &v);
-                    simplified.push(v);
-                }
-                None => println!("\t?"),
-            }
-        }
-
-        simplified
-    }
-
     pub fn print_method(&self) {
         for method in &self.methods {
             method.debug_print(&self.constants);
@@ -382,10 +369,10 @@ impl Class {
 
 #[derive(Debug, Clone)]
 pub struct FieldInfo {
-    access: AccessFlags,
-    name_index: u16,
-    descriptor_index: u16,
-    attributes: Vec<AttributeInfo>,
+    pub access: AccessFlags,
+    pub name_index: u16,
+    pub descriptor_index: u16,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 impl FieldInfo {
