@@ -36,8 +36,6 @@ mod hooks;
 mod interface;
 mod stack;
 
-#[cfg(unix)]
-mod exec;
 mod internals;
 mod mem_rewrite;
 

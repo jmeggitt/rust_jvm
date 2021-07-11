@@ -37,5 +37,4 @@ features = ["max_level_trace", "release_max_level_trace", "std", "serde"]
 
 
 [build-dependencies]
-nasm-rs = "0.2.0"
 walkdir = "2.3.2"

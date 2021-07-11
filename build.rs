@@ -3,16 +3,6 @@ use std::process::Command;
 use walkdir::WalkDir;
 
 pub fn main() {
-    println!("cargo:rerun-if-changed=src/**.asm");
-
-    // Because its a pain to compile on windows
-    #[cfg(unix)]
-    {
-        nasm_rs::compile_library("libexec.a", &["src/jvm/exec.asm"]).unwrap();
-        // nasm_rs::compile_library_args("libexec.a", &["src/jvm/exec.asm"], &["ineowef"]).unwrap();
-        println!("cargo:rustc-link-lib=exec");
-    }
-
     build_stdlib().unwrap();
 }
 

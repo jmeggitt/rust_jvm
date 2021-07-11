@@ -138,23 +138,8 @@ impl OperandStack {
         }
     }
 
-    #[cfg(not(unix))]
     pub unsafe fn perform_raw_call(&self, _: *const c_void) -> jvalue {
         unimplemented!("Raw function calls are only supported on unix systems!")
-    }
-
-    #[cfg(unix)]
-    pub unsafe fn perform_raw_call(&self, fn_ptr: *const c_void) -> jvalue {
-        use crate::jvm::exec::exec_x86_with_stack;
-
-        println!("About to perform call!");
-        let rsp = &self.stack[self.stack_top] as *const _ as *const c_void;
-        // let rbp = &self.stack[self.stack.len() - 1] as *const _ as *const c_void;
-        let rbp = self.stack.as_ptr().add(self.stack.len()) as *const c_void;
-        println!("rsp and rbp created!");
-        println!("Calling function at {:p}", fn_ptr);
-        // forget(rbp);
-        exec_x86_with_stack(fn_ptr, rbp, rsp)
     }
 
     pub unsafe fn native_static_call(
