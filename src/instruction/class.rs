@@ -8,7 +8,10 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use crate::class::BufferedRead;
 use crate::constant_pool::Constant;
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
-use crate::jvm::{clean_str, LocalVariable, Object, StackFrame, JVM};
+use crate::jvm::{
+    clean_str, LocalVariable, ManualInstanceReference, ObjectHandle, ObjectReference, StackFrame,
+    JVM,
+};
 use crate::types::FieldDescriptor;
 
 instruction! {@partial getstatic, 0xb2, u16}
@@ -212,12 +215,9 @@ impl InstructionAction for new {
 
         // jvm.init_class(&class_name);
         jvm.class_loader.attempt_load(&class_name).unwrap();
-        let object = jvm.class_loader.class(&class_name).unwrap().build_object();
-        frame
-            .stack
-            .push(LocalVariable::Reference(Some(Rc::new(UnsafeCell::new(
-                object,
-            )))));
+
+        let object = ObjectHandle::new(jvm.class_schema(&class_name));
+        frame.stack.push(LocalVariable::Reference(Some(object)));
         debug!("Pushed new instance of {} to the stack", class_name);
     }
 }
@@ -312,18 +312,21 @@ impl InstructionAction for getfield {
             .unwrap();
 
         if let Some(LocalVariable::Reference(Some(obj))) = frame.stack.pop() {
-            if let Object::Instance { fields, .. } = unsafe { &*obj.get() } {
-                if let Some(v) = fields.get(&field_name) {
-                    frame.stack.push(v.clone());
-                } else {
-                    panic!(
-                        "Attempted to get field that does not exist: {}",
-                        &field_name
-                    );
-                }
-            } else {
-                panic!("Attempted to get field from non-instance");
-            }
+            let instance = obj.expect_instance();
+            frame.stack.push(instance.read_named_field(&field_name));
+
+            // if let Object::Instance { fields, .. } = unsafe { &*obj.get() } {
+            //     if let Some(v) = fields.get(&field_name) {
+            //         frame.stack.push(v.clone());
+            //     } else {
+            //         panic!(
+            //             "Attempted to get field that does not exist: {}",
+            //             &field_name
+            //         );
+            //     }
+            // } else {
+            //     panic!("Attempted to get field from non-instance");
+            // }
         } else {
             raise_null_pointer_exception(frame, jvm);
         }
@@ -351,11 +354,13 @@ impl InstructionAction for putfield {
         let value = frame.stack.pop().unwrap();
 
         if let Some(LocalVariable::Reference(Some(obj))) = frame.stack.pop() {
-            if let Object::Instance { fields, .. } = unsafe { &mut *obj.get() } {
-                fields.insert(field_name, value);
-            } else {
-                panic!("Attempted to get field from non-instance");
-            }
+            let instance = obj.expect_instance();
+            instance.write_named_field(&field_name, value);
+            // if let Object::Instance { fields, .. } = unsafe { &mut *obj.get() } {
+            //     fields.insert(field_name, value);
+            // } else {
+            //     panic!("Attempted to get field from non-instance");
+            // }
         } else {
             raise_null_pointer_exception(frame, jvm);
         }
@@ -465,14 +470,14 @@ impl InstructionAction for instanceof {
         let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
 
         let target = match frame.stack.pop() {
-            Some(LocalVariable::Reference(Some(v))) => unsafe { (&*v.get()).expect_class() },
+            // Some(LocalVariable::Reference(Some(v))) => unsafe { (&*v.get()).expect_class() },
+            Some(LocalVariable::Reference(Some(v))) => v.get_class(),
             Some(LocalVariable::Reference(None)) => {
                 frame.stack.push(LocalVariable::Byte(0));
                 return;
             }
             _ => panic!("Attempted to run instanceof, but did not find target object!"),
-        }
-        .unwrap();
+        };
 
         if class_name == target {
             frame.stack.push(LocalVariable::Byte(1));
@@ -489,12 +494,6 @@ pub fn raise_null_pointer_exception(frame: &mut StackFrame, jvm: &mut JVM) {
     jvm.init_class("java/lang/NullPointerException");
 
     warn!("Throwing java/lang/NullPointerException!");
-    let object = jvm
-        .class_loader
-        .class("java/lang/NullPointerException")
-        .unwrap()
-        .build_object();
-    frame.throws = Some(LocalVariable::Reference(Some(Rc::new(UnsafeCell::new(
-        object,
-    )))));
+    let object = ObjectHandle::new(jvm.class_schema("java/lang/NullPointerException"));
+    frame.throws = Some(LocalVariable::Reference(Some(object)));
 }

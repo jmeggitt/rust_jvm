@@ -196,23 +196,23 @@ impl Default for OperandStack {
     }
 }
 
-#[test]
-pub fn basic_functionality() {
-    println!("Testing basic_functionality");
-    extern "C" fn subtract(a: i32, b: i32) -> i32 {
-        println!("A: {}, B: {}", a, b);
-        a - b
-    }
-
-    unsafe {
-        let mut stack = OperandStack::default();
-        let args = vec![jvalue { i: 7 }, jvalue { i: 13 }];
-        let fn_ptr = subtract as *const c_void;
-
-        let result = stack.native_call(fn_ptr, args);
-        assert_eq!(result.i, -6);
-    }
-}
+// #[test]
+// pub fn basic_functionality() {
+//     println!("Testing basic_functionality");
+//     extern "C" fn subtract(a: i32, b: i32) -> i32 {
+//         println!("A: {}, B: {}", a, b);
+//         a - b
+//     }
+//
+//     unsafe {
+//         let mut stack = OperandStack::default();
+//         let args = vec![jvalue { i: 7 }, jvalue { i: 13 }];
+//         let fn_ptr = subtract as *const c_void;
+//
+//         let result = stack.native_call(fn_ptr, args);
+//         assert_eq!(result.i, -6);
+//     }
+// }
 
 // #[test]
 // pub fn many_args() {

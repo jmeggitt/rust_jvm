@@ -7,11 +7,11 @@ use hashbrown::HashSet;
 use jni::sys::jvalue;
 
 use crate::class::BufferedRead;
-use crate::jvm::{LocalVariable, Object};
+use crate::jvm::{LocalVariable, ObjectHandle};
 use libffi::middle::{Cif, Type};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum FieldDescriptor {
     Byte,
     Char,
@@ -30,6 +30,12 @@ pub enum FieldDescriptor {
         args: Vec<FieldDescriptor>,
         returns: Box<FieldDescriptor>,
     },
+}
+
+impl Debug for FieldDescriptor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        <Self as Display>::fmt(self, f)
+    }
 }
 
 impl Display for FieldDescriptor {
@@ -91,6 +97,10 @@ impl FieldDescriptor {
         }
     }
 
+    pub fn is_object(&self) -> bool {
+        matches!(self, FieldDescriptor::Object(_) | FieldDescriptor::Array(_))
+    }
+
     // Clippy tried to suggest replacing this match with a massive single line matches! macro, but I
     // prefer the raw match.
     #[allow(clippy::match_like_matches_macro)]
@@ -122,15 +132,16 @@ impl FieldDescriptor {
                 FieldDescriptor::Short => LocalVariable::Short(value.s),
                 FieldDescriptor::Boolean => LocalVariable::Byte(value.z as i8),
                 FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => {
-                    if value.l.is_null() {
-                        LocalVariable::Reference(None)
-                    } else {
-                        debug!("Attempting to clone Rc through pointer!");
-                        let reference = &*(value.l as *const Rc<UnsafeCell<Object>>);
-                        let out = LocalVariable::Reference(Some(reference.clone()));
-                        debug!("Got value {:?} from pointer", &out);
-                        out
-                    }
+                    LocalVariable::Reference(ObjectHandle::from_ptr(value.l))
+                    // if value.l.is_null() {
+                    //     LocalVariable::Reference(None)
+                    // } else {
+                    //     debug!("Attempting to clone Rc through pointer!");
+                    //     let reference = &*(value.l as *const Rc<UnsafeCell<Object>>);
+                    //     let out = LocalVariable::Reference(Some(reference.clone()));
+                    //     debug!("Got value {:?} from pointer", &out);
+                    //     out
+                    // }
                 }
                 _ => return None,
             })

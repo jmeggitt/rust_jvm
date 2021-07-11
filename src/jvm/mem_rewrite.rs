@@ -4,17 +4,22 @@ use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::rc::Rc;
 
-use crate::class::{Class, FieldInfo, AccessFlags, BufferedRead};
+use crate::class::{AccessFlags, BufferedRead, Class, FieldInfo};
+use crate::jvm::interface::GLOBAL_JVM;
 use crate::jvm::{LocalVariable, JVM};
 use crate::types::FieldDescriptor;
+use gc::{Finalize, Gc, Trace};
 use hashbrown::HashMap;
-use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort, jvalue, _jobject};
+use jni::sys::{
+    _jobject, jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort, jvalue,
+};
 use lazy_static::lazy_static;
-use std::mem::{size_of, transmute};
-use std::sync::Arc;
-use std::ptr::{null_mut, NonNull};
-use std::hash::{Hash, Hasher};
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
+use std::iter::FromIterator;
+use std::mem::{size_of, transmute, ManuallyDrop};
+use std::ptr::{null_mut, NonNull};
+use std::sync::Arc;
 
 pub trait JavaPrimitive: 'static + Sized + Copy {
     fn pack(self) -> jvalue;
@@ -49,25 +54,86 @@ define_primitive!(jlong: j, Long);
 define_primitive!(jfloat: f, Float);
 define_primitive!(jdouble: d, Double);
 
-#[derive(Clone)]
-pub struct ObjectWrapper<T> {
-    ptr: Pin<Rc<T>>,
+macro_rules! typed_handle {
+    (|$handle:ident -> $out:ident| $action:stmt) => {
+        match $handle.memory_layout() {
+            ObjectType::Instance => {
+                let $out = $handle.expect_instance();
+                $action
+            }
+            ObjectType::Array(jboolean::ID) => {
+                let $out = $handle.expect_array::<jboolean>();
+                $action
+            }
+            ObjectType::Array(jbyte::ID) => {
+                let $out = $handle.expect_array::<jbyte>();
+                $action
+            }
+            ObjectType::Array(jchar::ID) => {
+                let $out = $handle.expect_array::<jchar>();
+                $action
+            }
+            ObjectType::Array(jshort::ID) => {
+                let $out = $handle.expect_array::<jshort>();
+                $action
+            }
+            ObjectType::Array(jint::ID) => {
+                let $out = $handle.expect_array::<jint>();
+                $action
+            }
+            ObjectType::Array(jlong::ID) => {
+                let $out = $handle.expect_array::<jlong>();
+                $action
+            }
+            ObjectType::Array(jfloat::ID) => {
+                let $out = $handle.expect_array::<jfloat>();
+                $action
+            }
+            ObjectType::Array(jdouble::ID) => {
+                let $out = $handle.expect_array::<jdouble>();
+                $action
+            }
+            ObjectType::Array(<Option<ObjectHandle>>::ID) => {
+                let $out = $handle.expect_array::<Option<ObjectHandle>>();
+                $action
+            }
+            _ => {}
+        }
+    };
 }
 
-impl<T> ObjectWrapper<T> {
+#[derive(Clone)]
+#[repr(transparent)]
+pub struct ObjectWrapper<T: 'static + Trace> {
+    // ptr: Pin<Rc<T>>,
+    ptr: ManuallyDrop<Gc<T>>,
+}
+
+impl<T: Trace> ObjectWrapper<T> {
     fn new(val: T) -> Self {
-        ObjectWrapper { ptr: Rc::pin(val) }
+        let ptr = Gc::new(val);
+
+        // Make secondary
+        // std::mem::forget(ptr.clone());
+        // ObjectWrapper { ptr: Rc::pin(val) }
+        ObjectWrapper {
+            ptr: ManuallyDrop::new(ptr),
+        }
     }
 
     #[inline]
     pub fn into_raw(self) -> jobject {
-        unsafe { Rc::into_raw(Pin::into_inner_unchecked(self.ptr)) as jobject }
+        unsafe { Gc::into_raw(ManuallyDrop::into_inner(self.ptr)) as jobject }
+        // unsafe { Rc::into_raw(Pin::into_inner_unchecked(self.ptr)) as jobject }
     }
 
     #[inline]
     pub unsafe fn from_raw_unchecked(ptr: jobject) -> Self {
+        let ptr = Gc::from_raw(ptr as _);
+        // <Gc<T> as Trace>::root(&ptr);
         ObjectWrapper {
-            ptr: Pin::new_unchecked(Rc::from_raw(ptr as _)),
+            ptr: ManuallyDrop::new(ptr),
+            // ptr: Pin::new_unchecked(Rc::from_raw(ptr as _)),
         }
     }
 
@@ -81,13 +147,16 @@ impl<T> ObjectWrapper<T> {
     }
 }
 
-impl<T> ObjectReference for ObjectWrapper<RawObject<T>> {
+impl<T> ObjectReference for ObjectWrapper<RawObject<T>>
+where
+    RawObject<T>: Trace,
+{
     fn get_class_schema(&self) -> Arc<ClassSchema> {
         self.ptr.schema.clone()
     }
 }
 
-impl<T> Deref for ObjectWrapper<T> {
+impl<T: Trace> Deref for ObjectWrapper<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -99,11 +168,72 @@ impl<T> Deref for ObjectWrapper<T> {
 #[repr(transparent)]
 pub struct ObjectHandle(NonNull<_jobject>);
 
+impl Finalize for ObjectHandle {}
+
+unsafe impl Trace for ObjectHandle {
+    unsafe fn trace(&self) {
+        typed_handle!(|self -> out| out.ptr.trace());
+        // match self.memory_layout() {
+        //     ObjectType::Instance => self.expect_instance().ptr.trace(),
+        //     ObjectType::Array(jboolean::ID) => self.expect_array::<jboolean>().ptr.trace(),
+        //     ObjectType::Array(jbyte::ID) => self.expect_array::<jbyte>().ptr.trace(),
+        //     ObjectType::Array(jchar::ID) => self.expect_array::<jchar>().ptr.trace(),
+        //     ObjectType::Array(jshort::ID) => self.expect_array::<jshort>().ptr.trace(),
+        //     ObjectType::Array(jint::ID) => self.expect_array::<jint>().ptr.trace(),
+        //     ObjectType::Array(jlong::ID) => self.expect_array::<jlong>().ptr.trace(),
+        //     ObjectType::Array(jfloat::ID) => self.expect_array::<jfloat>().ptr.trace(),
+        //     ObjectType::Array(jdouble::ID) => self.expect_array::<jdouble>().ptr.trace(),
+        //     ObjectType::Array(<Option<ObjectHandle>>::ID) => self.expect_array::<Option<ObjectHandle>>().ptr.trace(),
+        //     _ => {},
+        // }
+    }
+
+    unsafe fn root(&self) {
+        typed_handle!(|self -> out| out.ptr.root());
+
+        // match self.memory_layout() {
+        //     ObjectType::Instance => self.expect_instance().ptr.root(),
+        //     ObjectType::Array(jboolean::ID) => self.expect_array::<jboolean>().ptr.root(),
+        //     ObjectType::Array(jbyte::ID) => self.expect_array::<jbyte>().ptr.root(),
+        //     ObjectType::Array(jchar::ID) => self.expect_array::<jchar>().ptr.root(),
+        //     ObjectType::Array(jshort::ID) => self.expect_array::<jshort>().ptr.root(),
+        //     ObjectType::Array(jint::ID) => self.expect_array::<jint>().ptr.root(),
+        //     ObjectType::Array(jlong::ID) => self.expect_array::<jlong>().ptr.root(),
+        //     ObjectType::Array(jfloat::ID) => self.expect_array::<jfloat>().ptr.root(),
+        //     ObjectType::Array(jdouble::ID) => self.expect_array::<jdouble>().ptr.root(),
+        //     ObjectType::Array(<Option<ObjectHandle>>::ID) => self.expect_array::<Option<ObjectHandle>>().ptr.root(),
+        //     _ => {},
+        // }
+    }
+
+    unsafe fn unroot(&self) {
+        typed_handle!(|self -> out| out.ptr.unroot());
+
+        // match self.memory_layout() {
+        //     ObjectType::Instance => self.expect_instance().ptr.root(),
+        //     ObjectType::Array(jboolean::ID) => self.expect_array::<jboolean>().ptr.root(),
+        //     ObjectType::Array(jbyte::ID) => self.expect_array::<jbyte>().ptr.root(),
+        //     ObjectType::Array(jchar::ID) => self.expect_array::<jchar>().ptr.root(),
+        //     ObjectType::Array(jshort::ID) => self.expect_array::<jshort>().ptr.root(),
+        //     ObjectType::Array(jint::ID) => self.expect_array::<jint>().ptr.root(),
+        //     ObjectType::Array(jlong::ID) => self.expect_array::<jlong>().ptr.root(),
+        //     ObjectType::Array(jfloat::ID) => self.expect_array::<jfloat>().ptr.root(),
+        //     ObjectType::Array(jdouble::ID) => self.expect_array::<jdouble>().ptr.root(),
+        //     ObjectType::Array(<Option<ObjectHandle>>::ID) => self.expect_array::<Option<ObjectHandle>>().ptr.root(),
+        //     _ => {},
+        // }
+    }
+
+    fn finalize_glue(&self) {
+        typed_handle!(|self -> out| out.ptr.finalize_glue());
+    }
+}
+
 impl JavaPrimitive for Option<ObjectHandle> {
     fn pack(self) -> jvalue {
         match self {
             Some(v) => jvalue { l: v.0.as_ptr() },
-            None => jvalue {l: null_mut() },
+            None => jvalue { l: null_mut() },
         }
     }
 
@@ -135,20 +265,41 @@ impl ObjectHandle {
         unsafe { ObjectWrapper::from_raw(ptr.as_ptr()).unwrap() }
     }
 
-    pub fn expect_instance(self) -> ObjectWrapper<RawObject<Vec<jvalue>>> {
+    pub fn expect_instance(&self) -> ObjectWrapper<RawObject<Vec<jvalue>>> {
         if self.memory_layout() != ObjectType::Instance {
             panic!("Expected invalid primitive array");
         }
 
-        unsafe { transmute(self.unwrap_unknown()) }
+        unsafe { transmute(self.clone().unwrap_unknown()) }
     }
 
-    pub fn expect_array<T: JavaPrimitive>(self) -> ObjectWrapper<RawObject<Vec<T>>> {
+    pub fn expect_array<T: JavaPrimitive>(&self) -> ObjectWrapper<RawObject<Vec<T>>>
+    where
+        RawObject<Vec<T>>: Trace,
+    {
         if self.memory_layout() != ObjectType::Array(TypeId::of::<T>()) {
             panic!("Expected invalid primitive array");
         }
 
-        unsafe { transmute(self.unwrap_unknown()) }
+        unsafe { transmute(self.clone().unwrap_unknown()) }
+    }
+
+    /// Get array length for an array of unknown type
+    pub fn unknown_array_length(&self) -> Option<usize> {
+        Some(match self.memory_layout() {
+            ObjectType::Array(jboolean::ID) => self.expect_array::<jboolean>().array_length(),
+            ObjectType::Array(jbyte::ID) => self.expect_array::<jbyte>().array_length(),
+            ObjectType::Array(jchar::ID) => self.expect_array::<jchar>().array_length(),
+            ObjectType::Array(jshort::ID) => self.expect_array::<jshort>().array_length(),
+            ObjectType::Array(jint::ID) => self.expect_array::<jint>().array_length(),
+            ObjectType::Array(jlong::ID) => self.expect_array::<jlong>().array_length(),
+            ObjectType::Array(jfloat::ID) => self.expect_array::<jfloat>().array_length(),
+            ObjectType::Array(jdouble::ID) => self.expect_array::<jdouble>().array_length(),
+            ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => {
+                self.expect_array::<Option<ObjectHandle>>().array_length()
+            }
+            _ => return None,
+        })
     }
 }
 
@@ -165,10 +316,134 @@ impl ObjectReference for ObjectHandle {
     }
 }
 
+// #[repr(C, align(8))]
 pub struct RawObject<T: ?Sized> {
     schema: Arc<ClassSchema>,
     fields: UnsafeCell<T>,
 }
+
+pub struct GcIter<T: ?Sized> {
+    index: usize,
+    inner: T,
+}
+
+impl<'a> Iterator for GcIter<&'a RawObject<Vec<jvalue>>> {
+    type Item = ObjectHandle;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.index >= self.inner.schema.field_lookup.len() {
+                return None;
+            }
+
+            if self.inner.schema.field_lookup[self.index].desc.is_object() {
+                let ret: Option<ObjectHandle> = self
+                    .inner
+                    .read_field(self.inner.schema.field_lookup[self.index].offset);
+                if let Some(v) = ret {
+                    self.index += 1;
+                    return Some(v);
+                }
+            }
+
+            self.index += 1;
+        }
+    }
+}
+
+impl<'a> Iterator for GcIter<&'a RawObject<Vec<Option<ObjectHandle>>>> {
+    type Item = ObjectHandle;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.index >= self.inner.array_length() {
+                return None;
+            }
+
+            let obj = self.inner.read_array(self.index);
+            self.index += 1;
+            if let Some(v) = obj {
+                return Some(v);
+            }
+        }
+    }
+}
+
+pub trait IntoGcIter {
+    fn gc_iter(&self) -> GcIter<&Self>;
+}
+
+impl IntoGcIter for RawObject<Vec<jvalue>> {
+    fn gc_iter(&self) -> GcIter<&Self> {
+        GcIter {
+            inner: self,
+            index: 0,
+        }
+    }
+}
+
+impl IntoGcIter for RawObject<Vec<Option<ObjectHandle>>> {
+    fn gc_iter(&self) -> GcIter<&Self> {
+        GcIter {
+            inner: self,
+            index: 0,
+        }
+    }
+}
+
+impl<T> Finalize for RawObject<T> {}
+
+unsafe impl<T> Trace for RawObject<T>
+where
+    Self: IntoGcIter,
+    for<'a> GcIter<&'a Self>: Iterator<Item = ObjectHandle>,
+{
+    unsafe fn trace(&self) {
+        for obj in self.gc_iter() {
+            obj.trace();
+        }
+    }
+
+    unsafe fn root(&self) {
+        for obj in self.gc_iter() {
+            obj.root();
+        }
+    }
+
+    unsafe fn unroot(&self) {
+        for obj in self.gc_iter() {
+            obj.unroot();
+        }
+    }
+
+    fn finalize_glue(&self) {
+        for obj in self.gc_iter() {
+            obj.finalize_glue();
+        }
+    }
+}
+
+macro_rules! empty_trace {
+    ($type:ty) => {
+        unsafe impl Trace for $type {
+            unsafe fn trace(&self) {}
+            unsafe fn root(&self) {}
+            unsafe fn unroot(&self) {}
+            fn finalize_glue(&self) {}
+        }
+    };
+}
+
+// These types have no further sub-objects, but I still need to implement Trace for them
+empty_trace!(RawObject<Vec<jboolean>>);
+empty_trace!(RawObject<Vec<jbyte>>);
+empty_trace!(RawObject<Vec<jchar>>);
+empty_trace!(RawObject<Vec<jshort>>);
+empty_trace!(RawObject<Vec<jint>>);
+empty_trace!(RawObject<Vec<jlong>>);
+empty_trace!(RawObject<Vec<jfloat>>);
+empty_trace!(RawObject<Vec<jdouble>>);
+empty_trace!(RawObject<()>);
 
 impl Debug for RawObject<Vec<jvalue>> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -184,8 +459,9 @@ impl Debug for RawObject<Vec<jvalue>> {
 }
 
 impl<T: JavaPrimitive + Debug> Debug for RawObject<Vec<T>>
-    where Self: ArrayReference<T> {
-
+where
+    Self: ArrayReference<T>,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match TypeId::of::<T>() {
             jboolean::ID => write!(f, "boolean"),
@@ -217,7 +493,9 @@ impl Debug for ObjectHandle {
             ObjectType::Array(jlong::ID) => owned.expect_array::<jlong>().fmt(f),
             ObjectType::Array(jfloat::ID) => owned.expect_array::<jfloat>().fmt(f),
             ObjectType::Array(jdouble::ID) => owned.expect_array::<jdouble>().fmt(f),
-            ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => owned.expect_array::<Option<ObjectHandle>>().fmt(f),
+            ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => {
+                owned.expect_array::<Option<ObjectHandle>>().fmt(f)
+            }
             x => panic!("Unable to hash object of type {:?}", x),
         }
     }
@@ -225,7 +503,7 @@ impl Debug for ObjectHandle {
 
 impl RawObject<Vec<jvalue>> {
     pub fn new(schema: Arc<ClassSchema>) -> Self {
-        assert!(schema.data_form == ObjectType::Instance);
+        assert_eq!(schema.data_form, ObjectType::Instance);
         RawObject {
             fields: UnsafeCell::new(vec![jvalue { j: 0 }; schema.field_offsets.len()]),
             schema,
@@ -249,7 +527,9 @@ impl Hash for RawObject<Vec<jvalue>> {
 }
 
 impl<T: JavaPrimitive + Hash> Hash for RawObject<Vec<T>>
-    where Self: ArrayReference<T> {
+where
+    Self: ArrayReference<T>,
+{
     fn hash<H: Hasher>(&self, state: &mut H) {
         unsafe {
             let fields = &*self.fields.get();
@@ -322,7 +602,10 @@ impl InstanceReference<LocalVariable> for RawObject<Vec<jvalue>> {
 
     fn read_field(&self, offset: usize) -> LocalVariable {
         let field = self.schema.get_field_from_offset(offset);
-        field.desc.cast(self.read_field(offset)).expect("field can not be cast to local")
+        field
+            .desc
+            .cast(self.read_field(offset))
+            .expect("field can not be cast to local")
     }
 }
 
@@ -386,6 +669,26 @@ impl<T: JavaPrimitive> ArrayReference<T> for RawObject<Vec<T>> {
     }
 }
 
+impl<T: JavaPrimitive> RawObject<Vec<T>>
+where
+    Self: Trace,
+{
+    pub fn array_copy(&self, dst: ObjectHandle, src_pos: usize, dst_pos: usize, len: usize) {
+        let dst_array = dst.expect_array::<T>();
+
+        unsafe {
+            let src_vec = &*self.fields.get();
+            let dst_vec = &mut *dst_array.deref().fields.get();
+            dst_vec[dst_pos..dst_pos + len].copy_from_slice(&src_vec[src_pos..src_pos + len]);
+        }
+
+        //
+        // for offset in 0..length as usize {
+        //     dst_vec[dst_pos as usize + offset] = src_vec[src_pos as usize + offset].clone();
+        // }
+    }
+}
+
 impl<T: JavaPrimitive> Deref for RawObject<Vec<T>>
 where
     RawObject<Vec<T>>: ArrayReference<T>,
@@ -406,10 +709,30 @@ where
     }
 }
 
-#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone)]
 pub enum ObjectType {
     Instance,
     Array(TypeId),
+}
+
+impl Debug for ObjectType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ObjectType::Instance => write!(f, "Instance"),
+            ObjectType::Array(jboolean::ID) => write!(f, "Array(jboolean)"),
+            ObjectType::Array(jbyte::ID) => write!(f, "Array(jbyte)"),
+            ObjectType::Array(jchar::ID) => write!(f, "Array(jchar)"),
+            ObjectType::Array(jshort::ID) => write!(f, "Array(jshort)"),
+            ObjectType::Array(jint::ID) => write!(f, "Array(jint)"),
+            ObjectType::Array(jlong::ID) => write!(f, "Array(jlong)"),
+            ObjectType::Array(jfloat::ID) => write!(f, "Array(jfloat)"),
+            ObjectType::Array(jdouble::ID) => write!(f, "Array(jdouble)"),
+            ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => {
+                write!(f, "Array(jobject)")
+            }
+            ObjectType::Array(x) => write!(f, "Array({:?})", x),
+        }
+    }
 }
 
 impl ObjectType {
@@ -436,6 +759,7 @@ pub struct FieldSchema {
     pub desc: FieldDescriptor,
 }
 
+#[derive(Debug)]
 pub struct ClassSchema {
     name: String,
     data_form: ObjectType,
@@ -447,14 +771,15 @@ pub struct ClassSchema {
 impl ClassSchema {
     pub fn build(class: &Class, jvm: &mut JVM) -> Self {
         let name = class.name();
+        debug!("Building new schema for {}", &name);
 
         let super_class = match name.as_ref() {
             "java/lang/Object" => None,
-            _ => jvm.class_schema(&class.super_class()),
+            _ => Some(jvm.class_schema(&class.super_class())),
         };
 
         let (mut field_offsets, mut field_lookup) = match &super_class {
-           Some(v) => (v.field_offsets.clone(), v.field_lookup.clone()),
+            Some(v) => (v.field_offsets.clone(), v.field_lookup.clone()),
             None => Default::default(),
         };
 
@@ -494,7 +819,8 @@ impl ClassSchema {
     }
 
     pub fn field_offset<S: AsRef<str>>(&self, field: S) -> usize {
-        assert!(self.is_instance());
+        // assert_eq!(self.data_form, ObjectType::Instance);
+        // assert!(self.is_instance());
 
         match self.field_offsets.get(field.as_ref()) {
             Some(v) => v.offset,
@@ -547,6 +873,12 @@ lazy_static! {
         field_offsets: HashMap::new(),
         field_lookup: Vec::new(),
     });
+    pub static ref STRING_SCHEMA: Arc<ClassSchema> = unsafe {
+        GLOBAL_JVM
+            .as_mut()
+            .unwrap()
+            .class_schema("java/lang/String")
+    };
 }
 
 macro_rules! array_schema {
@@ -571,10 +903,13 @@ array_schema!(ARRAY_INT_SCHEMA: jint, "[I");
 array_schema!(ARRAY_LONG_SCHEMA: jlong, "[J");
 array_schema!(ARRAY_FLOAT_SCHEMA: jfloat, "[F");
 array_schema!(ARRAY_DOUBLE_SCHEMA: jdouble, "[D");
-array_schema!(ARRAY_OBJECT_SCHEMA: Option<ObjectHandle>, "[Ljava/lang/Object;");
+array_schema!(
+    ARRAY_OBJECT_SCHEMA: Option<ObjectHandle>,
+    "[Ljava/lang/Object;"
+);
 
 // Work around to match type ids
-trait ConstTypeId {
+pub trait ConstTypeId {
     const ID: TypeId;
 }
 
@@ -584,15 +919,22 @@ impl<T: ?Sized + 'static> ConstTypeId for T {
 
 impl ObjectHandle {
     /// Allocates a new zeroed object instance
-    fn new(schema: Arc<ClassSchema>) -> ObjectHandle {
+    pub fn new(schema: Arc<ClassSchema>) -> ObjectHandle {
         ObjectHandle(NonNull::new(ObjectWrapper::new(RawObject::new(schema)).into_raw()).unwrap())
     }
 
-    fn new_array<T: JavaPrimitive + Default>(len: usize) -> ObjectHandle {
+    // FIXME: Option<ObjectHandle> may not be restricted to a single pointer!
+    pub fn new_array<T: JavaPrimitive + Default>(len: usize) -> ObjectHandle
+    where
+        RawObject<Vec<T>>: Trace,
+    {
         ObjectHandle::array_from_data(vec![T::default(); len])
     }
 
-    pub fn array_from_data<T: JavaPrimitive>(arr: Vec<T>) -> ObjectHandle {
+    pub fn array_from_data<T: JavaPrimitive>(arr: Vec<T>) -> ObjectHandle
+    where
+        RawObject<Vec<T>>: Trace,
+    {
         let raw = RawObject {
             schema: ClassSchema::array_schema::<T>(),
             fields: UnsafeCell::new(arr),
@@ -614,4 +956,93 @@ impl ObjectHandle {
 
         ObjectHandle(NonNull::new(ObjectWrapper::new(raw).into_raw()).unwrap())
     }
+}
+
+impl ObjectHandle {
+    pub fn expect_string(&self) -> String {
+        // FIXME: This check does not check if a class extends string
+        assert_eq!(&self.get_class_schema().name, "java/lang/String");
+
+        println!("Unwrapping: {:?}", self);
+        let instance = self.expect_instance();
+        let data: Option<ObjectHandle> = instance.read_named_field("value");
+        let chars = data.unwrap().expect_array::<jchar>();
+
+        println!("Gonna do unsafe stuff");
+        unsafe {
+            // FIXME: I'm probably messing up the encoding
+            let arr = &*chars.fields.get();
+            // let array: Vec<char> = arr.iter().map(|x| std::char::from_u32(*x as u32)).collect();
+            String::from_iter(arr.iter().map(|x| std::char::from_u32(*x as u32).unwrap()))
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::jvm::{ClassSchema, FieldSchema, ObjectHandle, ObjectReference, ObjectType};
+    use crate::types::FieldDescriptor;
+    use gc::{Gc, Trace};
+    use hashbrown::HashMap;
+    use jni::sys::jint;
+    use std::sync::Arc;
+
+    pub fn string_schema() -> Arc<ClassSchema> {
+        let mut fields = HashMap::new();
+        fields.insert(
+            "hash".to_string(),
+            FieldSchema {
+                offset: 8,
+                name: "hash".to_string(),
+                desc: FieldDescriptor::Int,
+            },
+        );
+        fields.insert(
+            "value".to_string(),
+            FieldSchema {
+                offset: 0,
+                name: "value".to_string(),
+                desc: FieldDescriptor::Array(Box::new(FieldDescriptor::Char)),
+            },
+        );
+
+        Arc::new(ClassSchema {
+            name: "java/lang/String".to_string(),
+            data_form: ObjectType::Instance,
+            super_class: Some(Arc::new(ClassSchema {
+                name: "java/lang/Object".to_string(),
+                data_form: ObjectType::Instance,
+                super_class: None,
+                field_offsets: HashMap::new(),
+                field_lookup: Vec::new(),
+            })),
+            field_offsets: fields,
+            field_lookup: vec![
+                FieldSchema {
+                    offset: 0,
+                    name: "value".into(),
+                    desc: FieldDescriptor::Array(Box::new(FieldDescriptor::Char)),
+                },
+                FieldSchema {
+                    offset: 8,
+                    name: "hash".into(),
+                    desc: FieldDescriptor::Int,
+                },
+            ],
+        })
+    }
+
+    #[test]
+    pub fn build_simple() {
+        ObjectHandle::new_array::<jint>(234);
+    }
+
+    #[test]
+    pub fn empty_string() {
+        let empty_string = ObjectHandle::new(string_schema());
+        assert_eq!(empty_string.memory_layout(), ObjectType::Instance);
+        assert_eq!(empty_string.expect_string(), "");
+    }
+
+    pub fn check_array() {}
 }

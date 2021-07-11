@@ -1,4 +1,3 @@
-#![feature(str_split_once)]
 #![feature(drain_filter)]
 // #![feature(asm)]
 #![feature(const_type_id)]
@@ -80,8 +79,9 @@ fn main() {
 
     let mut jvm = JVM::new(class_loader);
 
-    let print_class = jvm::Object::build_class(&mut jvm, "jvm/hooks/PrintStreamHook");
-    println!("{:?}", print_class);
+    jvm.init_class("java/lang/Class");
+    // let print_class = jvm::Object::build_class(&mut jvm, "jvm/hooks/PrintStreamHook");
+    // println!("{:?}", print_class);
 
     // jvm.entry_point("Simple", Vec::new()).unwrap();
 

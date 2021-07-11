@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use jni::sys::{jclass, jint, JNIEnv, JNINativeInterface_, JNINativeMethod};
 
-use crate::jvm::{Object, JVM};
+use crate::jvm::{ObjectHandle, JVM};
 
 pub static mut GLOBAL_JVM: Option<Box<JVM>> = None;
 
@@ -17,10 +17,13 @@ pub unsafe extern "system" fn register_natives(
     num_methods: jint,
 ) -> jint {
     debug!("Calling JNIEnv::RegisterNatives");
-    // let class = &*(clazz as *const String);
-    let class_object = &*(clazz as *const Rc<UnsafeCell<Object>>);
-    let class = (&*class_object.get()).expect_class().unwrap();
 
+    let class_object = ObjectHandle::from_ptr(clazz).unwrap();
+    let class = class_object.expect_string();
+
+    // let class_object = &*(clazz as *const Rc<UnsafeCell<Object>>);
+    // let class = (&*class_object.get()).expect_class().unwrap();
+    //
     let mut registered = 0;
 
     for method in

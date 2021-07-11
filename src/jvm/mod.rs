@@ -8,17 +8,17 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use hashbrown::{HashMap, HashSet};
-use jni::sys::{jobject, jvalue};
+use jni::sys::{jchar, jobject, jvalue};
 use libloading::Library;
 use walkdir::WalkDir;
 
 pub use mem::*;
+pub use mem_rewrite::*;
 
 use crate::attribute::CodeAttribute;
 use crate::class::{AccessFlags, BufferedRead, Class, ClassLoader, MethodInfo};
 use crate::constant_pool::Constant;
 use crate::jvm::hooks::register_hooks;
-use crate::jvm::mem_rewrite::ClassSchema;
 use crate::jvm::stack::OperandStack;
 use crate::types::FieldDescriptor;
 use std::sync::Arc;
@@ -29,10 +29,6 @@ macro_rules! fatal_error {
         panic!($($arg),*);
     }};
 }
-
-// This was generated from jni.h so allow any variations
-// #[allow(warnings)]
-// pub mod bindings;
 
 mod mem;
 
@@ -47,7 +43,7 @@ mod mem_rewrite;
 
 pub struct StackFrame {
     // Either an object or class
-    pub target: Rc<UnsafeCell<Object>>,
+    pub target: ObjectHandle,
     // Comparable to the .text section of a binary
     pub constants: Vec<Constant>,
     // Values treated as registers
@@ -67,13 +63,14 @@ pub struct StackFrame {
 
 impl StackFrame {
     pub fn new(
-        target: Rc<UnsafeCell<Object>>,
+        target: ObjectHandle,
         max_locals: usize,
         max_stack: usize,
         constants: Vec<Constant>,
         args: Vec<LocalVariable>,
     ) -> Self {
-        let mut locals = vec![LocalVariable::Int(0); max_locals];
+        // FIXME: Something is pushing an extra argument to the stack which should be removed
+        let mut locals = vec![LocalVariable::Int(0); max_locals.max(args.len())];
         for (idx, value) in args.into_iter().enumerate() {
             locals[idx] = value;
         }
@@ -83,7 +80,6 @@ impl StackFrame {
             constants,
             locals,
             stack: Vec::with_capacity(max_stack),
-            // rip: 0,
             branch_offset: 0,
             returns: None,
             throws: None,
@@ -94,7 +90,6 @@ impl StackFrame {
         debug!("Stack Frame Debug:");
         debug!("\tTarget: {:?}", &self.target);
         debug!("\tBranching Offset: {:?}", self.branch_offset);
-        // debug!("\tInstruction Pointer: {:?}", self.rip);
         debug!("\tReturn Slot: {:?}", &self.returns);
 
         debug!("\tLocal Variables: {}", self.locals.len());
@@ -142,10 +137,10 @@ impl StackFrame {
 
                 // Determine exception type
                 let exception_class = match &exception {
-                    LocalVariable::Reference(Some(v)) => unsafe { (&*v.get()).expect_class() },
+                    LocalVariable::Reference(Some(v)) => v.get_class(),
+                    // LocalVariable::Reference(Some(v)) => unsafe { (&*v.get()).expect_class() },
                     _ => panic!("Unable to get class of exception"),
-                }
-                .unwrap();
+                };
 
                 // Figure out if can be caught or if it needs to propagate
                 let position = code.instructions[rip].0;
@@ -202,9 +197,9 @@ pub struct JVM {
     pub static_load: HashSet<String>,
     pub native_stack: OperandStack,
     pub linked_libraries: NativeManager,
-    pub registered_classes: HashMap<String, Rc<UnsafeCell<Object>>>,
+    pub registered_classes: HashMap<String, ObjectHandle>,
 
-    pub call_stack: Vec<(Rc<UnsafeCell<Object>>, String)>,
+    pub call_stack: Vec<(ObjectHandle, String)>,
 
     schemas: HashMap<String, Arc<ClassSchema>>,
 }
@@ -234,10 +229,14 @@ impl JVM {
         jvm.load_core_libs().unwrap();
         register_hooks(&mut jvm);
 
+        // prevent circular dependency
+        // jvm.class_schema("java/lang/String");
+        // jvm.class_schema("java/lang/Class");
+
         jvm
     }
 
-    pub fn class_schema(&mut self, class: &str) -> Option<Arc<ClassSchema>> {
+    pub fn class_schema(&mut self, class: &str) -> Arc<ClassSchema> {
         if !self.schemas.contains_key(class) {
             let class_spec = self.expect_class(class).clone();
 
@@ -245,15 +244,20 @@ impl JVM {
             self.schemas.insert(class.to_string(), Arc::new(schema));
         }
 
-        self.schemas.get(class).cloned()
+        self.schemas.get(class).cloned().unwrap()
     }
 
-    pub fn get_class_instance(&mut self, name: &str) -> Rc<UnsafeCell<Object>> {
+    pub fn get_class_instance(&mut self, name: &str) -> ObjectHandle {
         if let Some(class) = self.registered_classes.get(name) {
             return class.clone();
         }
 
-        let class = Object::build_class(self, name);
+        let schema = self.class_schema("java/lang/Class");
+        let class = ObjectHandle::new(schema);
+        let instance = class.expect_instance();
+
+        instance.write_named_field("name", self.build_string(name));
+
         self.registered_classes
             .insert(name.to_string(), class.clone());
         class
@@ -345,23 +349,43 @@ impl JVM {
     }
 
     pub fn build_string(&mut self, string: &str) -> LocalVariable {
-        let char_array =
-            LocalVariable::Reference(Some(Rc::new(UnsafeCell::new(Object::from(string)))));
-        // self.init_class("java/lang/String");
-        self.class_loader.attempt_load("java/lang/String").unwrap();
+        let mut handle = ObjectHandle::new(STRING_SCHEMA.clone());
+        debug!("{:?}", STRING_SCHEMA.clone());
+        let object = handle.expect_instance();
 
-        let args = vec![char_array];
-        self.exec_static(
-            "java/lang/String",
-            "valueOf",
-            "([C)Ljava/lang/String;",
-            args,
-        )
-        .unwrap()
-        .unwrap()
+        let char_array = string
+            .chars()
+            .map(|x| x as u32 as jchar)
+            .collect::<Vec<jchar>>();
+
+        object.write_named_field("value", Some(ObjectHandle::array_from_data(char_array)));
+        // object.write_named_field("value", Some(ObjectHandle::array_from_data(string.bytes().map(|x| x as jbyte).collect::<Vec<jbyte>>())));
+        LocalVariable::Reference(Some(handle))
+
+        // let array = LocalVariable::Reference(Some(ObjectHandle::array_from_data(char_array)));
+        //
+        // self.class_loader.attempt_load("java/lang/String").unwrap();
+        //
+        // self.exec_static(
+        //     "java/lang/String",
+        //     "valueOf",
+        //     "([C)Ljava/lang/String;",
+        //     vec![array],
+        // )
+        // .unwrap()
+        // .unwrap()
     }
 
     fn expect_class(&mut self, class: &str) -> &Class {
+        // debug!("expecting class {}", class);
+        //
+        // if class == "java/lang/Object" {
+        //     panic!()
+        // }
+        // if !self.class_loader.is_loaded(class) {
+        self.class_loader.attempt_load(class).unwrap();
+        // }
+
         self.class_loader.class(class).unwrap()
     }
 
@@ -376,7 +400,7 @@ impl JVM {
 
     pub fn exec(
         &mut self,
-        target: Rc<UnsafeCell<Object>>,
+        target: ObjectHandle,
         class_name: &str,
         method: MethodInfo,
         constants: Vec<Constant>,
@@ -412,39 +436,40 @@ impl JVM {
             if let Ok(FieldDescriptor::Method { returns, .. }) =
                 FieldDescriptor::read_str(&method.descriptor(&constants).unwrap())
             {
-                let ret = unsafe {
-                    debug!("Native method arguments:");
-                    let raw_args = args
-                        .iter_mut()
-                        .map(|x| {
-                            debug!("\t{:?}", x);
-                            match x {
-                                LocalVariable::Reference(Some(v)) => jvalue {
-                                    l: v as *mut _ as jobject,
-                                },
-                                x => {
-                                    let value: jvalue = x.clone().into();
-                                    value
-                                }
-                            }
-                        })
-                        .collect();
-
-                    self.native_stack.native_method_call(
-                        fn_ptr,
-                        &target as *const _ as jobject,
-                        raw_args,
-                    )
-                };
-
-                Ok(returns.cast(ret))
+                unimplemented!(
+                    "Native methods will be implemented once libffi integration is completed"
+                )
+                // let ret = unsafe {
+                //     debug!("Native method arguments:");
+                //     let raw_args = args
+                //         .iter_mut()
+                //         .map(|x| {
+                //             debug!("\t{:?}", x);
+                //             match x {
+                //                 LocalVariable::Reference(Some(v)) => jvalue {
+                //                     l: v as *mut _ as jobject,
+                //                 },
+                //                 x => {
+                //                     let value: jvalue = x.clone().into();
+                //                     value
+                //                 }
+                //             }
+                //         })
+                //         .collect();
+                //
+                //     self.native_stack.native_method_call(
+                //         fn_ptr,
+                //         &target as *const _ as jobject,
+                //         raw_args,
+                //     )
+                // };
+                //
+                // Ok(returns.cast(ret))
             } else {
                 panic!("Method descriptor can not be correctly parsed")
             }
         } else {
-            if let Object::Instance { .. } = unsafe { &*target.get() } {
-                args.insert(0, LocalVariable::Reference(Some(target.clone())));
-            }
+            args.insert(0, LocalVariable::Reference(Some(target.clone())));
             let code = method.code(&constants);
             let mut frame = StackFrame::new(
                 target,
@@ -462,13 +487,12 @@ impl JVM {
 
     pub fn exec_method(
         &mut self,
-        target: Rc<UnsafeCell<Object>>,
+        target: ObjectHandle,
         method: &str,
         desc: &str,
         args: Vec<LocalVariable>,
     ) -> Result<Option<LocalVariable>, LocalVariable> {
-        let lock = unsafe { &*target.get() };
-        let class = lock.expect_class().unwrap();
+        let class = target.get_class();
 
         let (class_name, main_method, constants) =
             match self.find_instance_method(&class, method, desc) {
@@ -486,21 +510,9 @@ impl JVM {
         desc: &str,
         args: Vec<LocalVariable>,
     ) -> Result<Option<LocalVariable>, LocalVariable> {
-        let target = Rc::new(UnsafeCell::new(Object::Class(class.to_string())));
+        let target = self.get_class_instance(class);
         self.exec_method(target, method, desc, args)
     }
-
-    // pub fn preload_class(&mut self, class: &str) {
-    //     if !self.static_load.contains(class) {
-    //         self.class_loader.attempt_load(class).unwrap();
-    //         self.static_load.insert(class.to_string());
-    //
-    //         if class != "java/lang/Object" {
-    //             let super_class = self.class_loader.class(class).unwrap().super_class();
-    //             self.preload_class(&super_class);
-    //         }
-    //     }
-    // }
 
     pub fn init_class(&mut self, class: &str) {
         if !self.static_load.contains(class) {
@@ -527,13 +539,8 @@ impl JVM {
 
         self.class_loader.attempt_load(class)?;
 
-        // This really should be an instance of a 0 length array
-        // LocalVariable::Reference(None));
-        let arg = LocalVariable::Reference(Some(Rc::new(UnsafeCell::new(Object::Array {
-            values: vec![],
-            element_type: FieldDescriptor::Object("java/lang/String".to_string()),
-        }))));
-
+        let arg =
+            LocalVariable::Reference(Some(ObjectHandle::new_array::<Option<ObjectHandle>>(0)));
         self.exec_static(class, "main", "([Ljava/lang/String;)V", vec![arg])
             .unwrap();
 

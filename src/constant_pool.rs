@@ -25,7 +25,7 @@ impl<'a> ConstantPool<'a> {
     pub fn text(&'a self, index: u16) -> &'a str {
         match &self[index] {
             Constant::Utf8(ConstantUtf8Info { text }) => text.as_ref(),
-            x => panic!("Expected Utf8 constant, but found {:?}", x)
+            x => panic!("Expected Utf8 constant, but found {:?}", x),
         }
     }
 
@@ -39,28 +39,43 @@ impl<'a> ConstantPool<'a> {
     pub fn name_and_type(&'a self, index: u16) -> (&'a str, &'a str) {
         match &self[index] {
             Constant::NameAndType(v) => {
-                let ConstantNameAndType { name_index, descriptor_index } = v;
+                let ConstantNameAndType {
+                    name_index,
+                    descriptor_index,
+                } = v;
                 (self.text(*name_index), self.text(*descriptor_index))
             }
-            x => panic!("Expected NameAndType constant, but found {:?}", x)
+            x => panic!("Expected NameAndType constant, but found {:?}", x),
         }
     }
 
     pub fn class_element_ref(&'a self, index: u16) -> (&'a str, &'a str, &'a str) {
         let (class_index, name_and_type) = match &self[index] {
             Constant::FieldRef(v) => {
-                let ConstantFieldRef { class_index, name_and_type_index } = v;
+                let ConstantFieldRef {
+                    class_index,
+                    name_and_type_index,
+                } = v;
                 (*class_index, *name_and_type_index)
             }
             Constant::MethodRef(v) => {
-                let ConstantMethodRef { class_index, name_and_type_index } = v;
+                let ConstantMethodRef {
+                    class_index,
+                    name_and_type_index,
+                } = v;
                 (*class_index, *name_and_type_index)
             }
             Constant::InterfaceMethodRef(v) => {
-                let ConstantInterfaceMethodRef { class_index, name_and_type_index } = v;
+                let ConstantInterfaceMethodRef {
+                    class_index,
+                    name_and_type_index,
+                } = v;
                 (*class_index, *name_and_type_index)
             }
-            x => panic!("Expected FieldRef/MethodRef/InterfaceMethodRef constant, but found {:?}", x)
+            x => panic!(
+                "Expected FieldRef/MethodRef/InterfaceMethodRef constant, but found {:?}",
+                x
+            ),
         };
 
         let (name, desc) = self.name_and_type(name_and_type);

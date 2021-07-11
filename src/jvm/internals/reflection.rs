@@ -3,7 +3,6 @@ use jni::JNIEnv;
 use jni::objects::JClass;
 
 use crate::jvm::interface::GLOBAL_JVM;
-use crate::jvm::Object;
 use jni::sys::{jclass, jint};
 use std::cell::UnsafeCell;
 use std::rc::Rc;
@@ -35,7 +34,8 @@ pub unsafe extern "system" fn Java_sun_reflect_Reflection_getCallerClass__(
     // FIXME: Make explicit memory leak because current value is stored on the stack and we can't
     // make a policy of freeing results since it wont apply in all cases. It could be solved by a
     // reference table, but that does not work well with rust.
-    Box::leak(Box::new(class)) as *mut Rc<UnsafeCell<Object>> as jclass
+    // Box::leak(Box::new(class)) as *mut Rc<UnsafeCell<Object>> as jclass
+    class.unwrap_unknown().into_raw()
 }
 
 // JNIEXPORT jclass JNICALL Java_sun_reflect_Reflection_getCallerClass__

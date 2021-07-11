@@ -25,6 +25,7 @@ libffi = "1.0.1"
 jni = "0.19.0"
 lazy_static = "1.4.0"
 
+gc = "0.4.1"
 
 [dependencies.tempfile]
 version = "3.2.0"

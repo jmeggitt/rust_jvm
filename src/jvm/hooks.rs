@@ -7,11 +7,16 @@ use std::hash::{Hash, Hasher};
 use std::mem::transmute;
 use std::rc::Rc;
 
-use jni::sys::{jboolean, jclass, jint, jobject, jstring, JNIEnv};
+use jni::sys::{
+    jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jobject, jshort, jstring, JNIEnv,
+};
 use walkdir::WalkDir;
 
 use crate::jvm::interface::GLOBAL_JVM;
-use crate::jvm::{clean_str, LocalVariable, Object, JVM};
+use crate::jvm::{
+    clean_str, ConstTypeId, JavaPrimitive, LocalVariable, ObjectHandle, ObjectReference,
+    ObjectType, JVM,
+};
 
 pub fn register_hooks(jvm: &mut JVM) {
     // Load classes since they are outside the class loaders visiblity
@@ -75,6 +80,7 @@ pub fn register_hooks(jvm: &mut JVM) {
     );
 
     // jvm.locals[0] = LocalVariable::Int(0);
+    jvm.init_class("jvm/hooks/PrintStreamHook");
     let stdout = jvm
         .exec_static(
             "jvm/hooks/PrintStreamHook",
@@ -102,16 +108,18 @@ pub fn register_hooks(jvm: &mut JVM) {
     jvm.static_fields.insert(field_reference, stderr);
 }
 
-pub unsafe extern "C" fn hash_object(_env: *mut JNIEnv, obj: jobject) -> jint {
+pub unsafe extern "system" fn hash_object(_env: *mut JNIEnv, obj: jobject) -> jint {
     let mut hasher = DefaultHasher::new();
-    let name_object = &*(obj as *const Rc<UnsafeCell<Object>>);
-    (&*name_object.get()).hash(&mut hasher);
-    let result = hasher.finish();
-    let [a, b] = transmute::<_, [i32; 2]>(result);
-    a ^ b
+    ObjectHandle::from_ptr(obj).unwrap().hash(&mut hasher);
+    hasher.finish() as jint
+    // let name_object = &*(obj as *const Rc<UnsafeCell<Object>>);
+    // (&*name_object.get()).hash(&mut hasher);
+    // let result = hasher.finish();
+    // let [a, b] = transmute::<_, [i32; 2]>(result);
+    // a ^ b
 }
 
-pub unsafe extern "C" fn array_copy(
+pub unsafe extern "system" fn array_copy(
     _env: *mut JNIEnv,
     cls: jclass,
     src: jobject,
@@ -124,37 +132,105 @@ pub unsafe extern "C" fn array_copy(
         "Got correct version of arraycopy with src: {:p} dst: {:p}",
         src, dst
     );
-    let cls_object = &*(cls as *const Rc<UnsafeCell<Object>>);
-    debug!("Got class object: {:?}", cls_object);
 
-    let src_object = &*(&*(src as *const Rc<UnsafeCell<Object>>)).get();
-    let dst_object = &mut *(&*(dst as *const Rc<UnsafeCell<Object>>)).get();
+    let src_object = ObjectHandle::from_ptr(src).unwrap();
+    let dst_object = ObjectHandle::from_ptr(dst).unwrap();
 
-    let src_vec = match &*src_object {
-        Object::Array { values, .. } => values,
-        x => panic!(
-            "Attempted to call arraycopy with non array entries: {:?}",
-            x
-        ),
-    };
-
-    let dst_vec = match &mut *dst_object {
-        Object::Array { values, .. } => values,
-        x => panic!(
-            "Attempted to call arraycopy with non array entries: {:?}",
-            x
-        ),
-    };
-
-    // Be lazy since we need to clone each element
-    for offset in 0..length as usize {
-        dst_vec[dst_pos as usize + offset] = src_vec[src_pos as usize + offset].clone();
+    if src_object.memory_layout() != dst_object.memory_layout() {
+        panic!("Attempted arraycopy with different typed arrays!");
     }
+
+    match src_object.memory_layout() {
+        ObjectType::Array(jboolean::ID) => src_object.expect_array::<jboolean>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jbyte::ID) => src_object.expect_array::<jbyte>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jchar::ID) => src_object.expect_array::<jchar>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jshort::ID) => src_object.expect_array::<jshort>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jint::ID) => src_object.expect_array::<jint>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jlong::ID) => src_object.expect_array::<jlong>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jfloat::ID) => src_object.expect_array::<jfloat>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jdouble::ID) => src_object.expect_array::<jdouble>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(<Option<ObjectHandle>>::ID) => src_object
+            .expect_array::<Option<ObjectHandle>>()
+            .array_copy(
+                dst_object,
+                src_pos as usize,
+                dst_pos as usize,
+                length as usize,
+            ),
+        x => panic!("Array copy can not be preformed with type {:?}", x),
+    };
+
+    // let cls_object = &*(cls as *const Rc<UnsafeCell<Object>>);
+    // debug!("Got class object: {:?}", cls_object);
+    //
+    // let src_object = &*(&*(src as *const Rc<UnsafeCell<Object>>)).get();
+    // let dst_object = &mut *(&*(dst as *const Rc<UnsafeCell<Object>>)).get();
+    //
+    // let src_vec = match &*src_object {
+    //     Object::Array { values, .. } => values,
+    //     x => panic!(
+    //         "Attempted to call arraycopy with non array entries: {:?}",
+    //         x
+    //     ),
+    // };
+    //
+    // let dst_vec = match &mut *dst_object {
+    //     Object::Array { values, .. } => values,
+    //     x => panic!(
+    //         "Attempted to call arraycopy with non array entries: {:?}",
+    //         x
+    //     ),
+    // };
+    //
+    // // Be lazy since we need to clone each element
+    // for offset in 0..length as usize {
+    //     dst_vec[dst_pos as usize + offset] = src_vec[src_pos as usize + offset].clone();
+    // }
 }
 
-pub unsafe extern "C" fn empty(_env: *mut JNIEnv, _cls: jclass) {}
+pub unsafe extern "system" fn empty(_env: *mut JNIEnv, _cls: jclass) {}
 
-pub unsafe extern "C" fn desired_assertions(
+pub unsafe extern "system" fn desired_assertions(
     _env: *mut JNIEnv,
     _cls: jclass,
     _target: jclass,
@@ -162,21 +238,29 @@ pub unsafe extern "C" fn desired_assertions(
     0 // Don't do assertions, I don't need the extra work
 }
 
-pub unsafe extern "C" fn get_class(_env: *mut JNIEnv, _cls: jclass, name: jstring) -> jclass {
+pub unsafe extern "system" fn get_class(_env: *mut JNIEnv, _cls: jclass, name: jstring) -> jclass {
     debug!("Executing getPrimitiveClass");
-    let name_object = &*(name as *const Rc<UnsafeCell<Object>>);
-    debug!("Received object: {:p}", name);
-    debug!("Object: {:p}, debug: {:?}", name, name_object);
+    // TODO: use call to JNIEnv to read string
+    let name_object = ObjectHandle::from_ptr(name);
+    let name_string = name_object.unwrap().expect_string();
 
-    let name = (&*name_object.get()).expect_string();
-    info!("Getting class named {:?}", name);
+    // let name_object = &*(name as *const Rc<UnsafeCell<Object>>);
+    // debug!("Received object: {:p}", name);
+    // debug!("Object: {:p}, debug: {:?}", name, name_object);
 
-    let class = GLOBAL_JVM.as_mut().unwrap().get_class_instance(&name);
+    // let name = (&*name_object.get()).expect_string();
+    // info!("Getting class named {:?}", name);
+
+    let class = GLOBAL_JVM
+        .as_mut()
+        .unwrap()
+        .get_class_instance(&name_string);
 
     // FIXME: Make explicit memory leak because current value is stored on the stack and we can't
     // make a policy of freeing results since it wont apply in all cases. It could be solved by a
     // reference table, but that does not work well with rust.
-    Box::leak(Box::new(class)) as *mut Rc<UnsafeCell<Object>> as jclass
+    // Box::leak(Box::new(class)) as *mut Rc<UnsafeCell<Object>> as jclass
+    class.unwrap_unknown().into_raw()
 }
 
 pub unsafe extern "C" fn print_stream_hook(

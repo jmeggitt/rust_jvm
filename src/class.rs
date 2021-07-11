@@ -13,7 +13,6 @@ use zip::ZipArchive;
 use crate::attribute::CodeAttribute;
 use crate::constant_pool::{Constant, ConstantClass, ConstantPool};
 use crate::jar::{unpack_jar, Jar, Manifest};
-use crate::jvm::Object;
 use crate::types::FieldDescriptor;
 use crate::version::{check_magic_number, ClassVersion};
 
@@ -335,20 +334,20 @@ impl Class {
         self.constants[name_idx as usize - 1].expect_utf8().unwrap()
     }
 
-    pub fn build_object(&self) -> Object {
-        let mut field_map = HashMap::new();
-
-        for field in &self.fields {
-            let name = field.name(&self.constants).unwrap();
-            let value = field.field_type(&self.constants).unwrap().initial_local();
-            field_map.insert(name, value);
-        }
-
-        Object::Instance {
-            fields: field_map,
-            class: self.name(),
-        }
-    }
+    // pub fn build_object(&self) -> Object {
+    //     let mut field_map = HashMap::new();
+    //
+    //     for field in &self.fields {
+    //         let name = field.name(&self.constants).unwrap();
+    //         let value = field.field_type(&self.constants).unwrap().initial_local();
+    //         field_map.insert(name, value);
+    //     }
+    //
+    //     Object::Instance {
+    //         fields: field_map,
+    //         class: self.name(),
+    //     }
+    // }
 
     /// Get list of interface classes for checking instanceof
     pub fn interfaces(&self) -> Vec<String> {
