@@ -3,9 +3,10 @@ use std::rc::Rc;
 
 use crate::constant_pool::{Constant, ConstantClass};
 use crate::instruction::InstructionAction;
-use crate::jvm::ArrayReference;
-use crate::jvm::{LocalVariable, ObjectHandle, StackFrame, JVM};
-use crate::types::FieldDescriptor;
+use crate::jvm::mem::ArrayReference;
+use crate::jvm::mem::{LocalVariable, ObjectHandle};
+use crate::jvm::mem::FieldDescriptor;
+use crate::jvm::{StackFrame, JVM};
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
 
 macro_rules! array_instruction {

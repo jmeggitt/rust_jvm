@@ -1,4 +1,4 @@
-use crate::jvm::LocalVariable;
+use crate::jvm::mem::LocalVariable;
 
 macro_rules! const_instruction {
     ($name:ident, $inst:literal, $value:expr) => {

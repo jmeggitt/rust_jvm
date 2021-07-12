@@ -12,15 +12,12 @@ use jni::sys::{jchar, jobject, jvalue};
 use libloading::Library;
 use walkdir::WalkDir;
 
-pub use mem::*;
-pub use mem_rewrite::*;
-
 use crate::attribute::CodeAttribute;
 use crate::class::{AccessFlags, BufferedRead, Class, ClassLoader, MethodInfo};
 use crate::constant_pool::Constant;
 use crate::jvm::hooks::register_hooks;
 use crate::jvm::stack::OperandStack;
-use crate::types::FieldDescriptor;
+use crate::jvm::mem::{FieldDescriptor, ObjectHandle, LocalVariable, ClassSchema, ManualInstanceReference, ObjectReference, STRING_SCHEMA};
 use std::sync::Arc;
 
 macro_rules! fatal_error {
@@ -30,14 +27,14 @@ macro_rules! fatal_error {
     }};
 }
 
-mod mem;
+pub mod mem;
 
 mod hooks;
 mod interface;
 mod stack;
 
 mod internals;
-mod mem_rewrite;
+mod call;
 
 pub struct StackFrame {
     // Either an object or class

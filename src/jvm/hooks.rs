@@ -13,10 +13,8 @@ use jni::sys::{
 use walkdir::WalkDir;
 
 use crate::jvm::interface::GLOBAL_JVM;
-use crate::jvm::{
-    clean_str, ConstTypeId, JavaPrimitive, LocalVariable, ObjectHandle, ObjectReference,
-    ObjectType, JVM,
-};
+use crate::jvm::mem::{ConstTypeId, JavaPrimitive, LocalVariable, ObjectHandle, ObjectReference, ObjectType};
+use crate::jvm::{clean_str, JVM};
 
 pub fn register_hooks(jvm: &mut JVM) {
     // Load classes since they are outside the class loaders visiblity

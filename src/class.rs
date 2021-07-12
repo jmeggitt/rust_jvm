@@ -13,7 +13,7 @@ use zip::ZipArchive;
 use crate::attribute::CodeAttribute;
 use crate::constant_pool::{Constant, ConstantClass, ConstantPool};
 use crate::jar::{unpack_jar, Jar, Manifest};
-use crate::types::FieldDescriptor;
+use crate::jvm::mem::FieldDescriptor;
 use crate::version::{check_magic_number, ClassVersion};
 
 bitflags! {

@@ -26,7 +26,6 @@ mod constant_pool;
 mod instruction;
 mod jar;
 mod jvm;
-mod types;
 mod version;
 
 pub fn read_file(path: &str) -> io::Result<Vec<u8>> {

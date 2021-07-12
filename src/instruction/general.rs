@@ -10,7 +10,8 @@ use crate::constant_pool::{
     ConstantString,
 };
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
-use crate::jvm::{LocalVariable, StackFrame, JVM};
+use crate::jvm::{StackFrame, JVM};
+use crate::jvm::mem::LocalVariable;
 
 instruction! {athrow, 0xbf}
 instruction! {dcmpg, 0x98}

@@ -1,5 +1,6 @@
 use crate::instruction::InstructionAction;
-use crate::jvm::{LocalVariable, StackFrame, JVM};
+use crate::jvm::{StackFrame, JVM};
+use crate::jvm::mem::LocalVariable;
 
 macro_rules! convert_instruction {
     ($name:ident, $inst:literal, $from:ident -> $to:ident) => {

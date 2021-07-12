@@ -8,11 +8,9 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use crate::class::BufferedRead;
 use crate::constant_pool::Constant;
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
-use crate::jvm::{
-    clean_str, LocalVariable, ManualInstanceReference, ObjectHandle, ObjectReference, StackFrame,
-    JVM,
-};
-use crate::types::FieldDescriptor;
+use crate::jvm::{clean_str, StackFrame, JVM, };
+use crate::jvm::mem::{LocalVariable, ManualInstanceReference, ObjectHandle, ObjectReference};
+use crate::jvm::mem::FieldDescriptor;
 
 instruction! {@partial getstatic, 0xb2, u16}
 
