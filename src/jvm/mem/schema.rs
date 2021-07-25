@@ -1,14 +1,14 @@
-use crate::jvm::mem::{FieldDescriptor, ObjectHandle, ConstTypeId, JavaPrimitive};
-use std::fmt::{Debug, Formatter};
-use jni::sys::{jboolean, jbyte, jchar, jshort, jint, jlong, jfloat, jdouble, jvalue};
-use std::any::{TypeId, type_name};
-use std::sync::Arc;
+use crate::class::{AccessFlags, BufferedRead, Class};
+// use crate::jvm::call::interface::GLOBAL_JVM;
+use crate::jvm::mem::{ConstTypeId, FieldDescriptor, JavaPrimitive, ObjectHandle};
+use crate::jvm::JavaEnv;
 use hashbrown::HashMap;
-use crate::class::{Class, AccessFlags, BufferedRead};
-use crate::jvm::interface::GLOBAL_JVM;
-use crate::jvm::JVM;
-use std::mem::size_of;
+use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
 use lazy_static::lazy_static;
+use std::any::{type_name, TypeId};
+use std::fmt::{Debug, Formatter};
+use std::mem::size_of;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct FieldSchema {
@@ -60,7 +60,6 @@ impl ObjectType {
     }
 }
 
-
 #[derive(Debug)]
 pub struct ClassSchema {
     pub name: String,
@@ -71,7 +70,7 @@ pub struct ClassSchema {
 }
 
 impl ClassSchema {
-    pub fn build(class: &Class, jvm: &mut JVM) -> Self {
+    pub fn build(class: &Class, jvm: &mut JavaEnv) -> Self {
         let name = class.name();
         debug!("Building new schema for {}", &name);
 
@@ -175,12 +174,12 @@ lazy_static! {
         field_offsets: HashMap::new(),
         field_lookup: Vec::new(),
     });
-    pub static ref STRING_SCHEMA: Arc<ClassSchema> = unsafe {
-        GLOBAL_JVM
-            .as_mut()
-            .unwrap()
-            .class_schema("java/lang/String")
-    };
+    // pub static ref STRING_SCHEMA: Arc<ClassSchema> = unsafe {
+    //     GLOBAL_JVM
+    //         .as_mut()
+    //         .unwrap()
+    //         .class_schema("java/lang/String")
+    // };
 }
 
 macro_rules! array_schema {

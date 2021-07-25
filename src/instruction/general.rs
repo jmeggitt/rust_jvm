@@ -10,8 +10,9 @@ use crate::constant_pool::{
     ConstantString,
 };
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
-use crate::jvm::{StackFrame, JVM};
-use crate::jvm::mem::LocalVariable;
+use crate::jvm::mem::JavaValue;
+use crate::jvm::JavaEnv;
+use crate::jvm::call::{StackFrame, FlowControl};
 
 instruction! {athrow, 0xbf}
 instruction! {dcmpg, 0x98}
@@ -34,45 +35,48 @@ instruction! {ret, 0xa9, u8}
 instruction! {@partial checkcast, 0xc0, u16}
 
 impl InstructionAction for checkcast {
-    fn exec(&self, _frame: &mut StackFrame, _jvm: &mut JVM) {
+    fn exec(&self, _frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         warn!("Skipped cast check as exceptions are not implemented yet!");
+        Ok(())
     }
 }
 
 instruction! {@partial bipush, 0x10, u8}
 
 impl InstructionAction for bipush {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let bipush(value) = *self;
         // Be lazy and transmute the byte from unsigned to signed to avoid implementing another
         // pattern in the instruction macro
         let signed = unsafe { ::std::mem::transmute::<_, i8>(value) };
         // Sign extend byte to int as specified in specification
-        frame.stack.push(LocalVariable::Int(signed as _));
+        frame.stack.push(JavaValue::Int(signed as _));
+        Ok(())
     }
 }
 
 instruction! {@partial sipush, 0x11, i16}
 
 impl InstructionAction for sipush {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let sipush(value) = *self;
         // Sign extend short to int as specified in specification
-        frame.stack.push(LocalVariable::Int(value as _));
+        frame.stack.push(JavaValue::Int(value as _));
+        Ok(())
     }
 }
 
 instruction! {@partial ldc, 0x12, u8}
 
 impl InstructionAction for ldc {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let ldc(index) = *self;
 
         frame
             .stack
             .push(match &frame.constants[index as usize - 1] {
-                Constant::Int(ConstantInteger { value }) => LocalVariable::Int(*value),
-                Constant::Float(ConstantFloat { value }) => LocalVariable::Float(*value),
+                Constant::Int(ConstantInteger { value }) => JavaValue::Int(*value),
+                Constant::Float(ConstantFloat { value }) => JavaValue::Float(*value),
                 Constant::String(ConstantString { string_index }) => {
                     let text = frame.constants[*string_index as usize - 1]
                         .expect_utf8()
@@ -83,25 +87,26 @@ impl InstructionAction for ldc {
                     let name = frame.constants[*name_index as usize - 1]
                         .expect_utf8()
                         .unwrap();
-                    LocalVariable::Reference(Some(jvm.get_class_instance(&name)))
-                    // LocalVariable::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
+                    JavaValue::Reference(Some(jvm.class_instance(&name)))
+                    // JavaValue::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
                 }
                 x => panic!("Attempted to push {:?} to the stack", x),
             });
+        Ok(())
     }
 }
 
 instruction! {@partial ldc_w, 0x13, u16}
 
 impl InstructionAction for ldc_w {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let ldc_w(index) = *self;
 
         frame
             .stack
             .push(match &frame.constants[index as usize - 1] {
-                Constant::Int(ConstantInteger { value }) => LocalVariable::Int(*value),
-                Constant::Float(ConstantFloat { value }) => LocalVariable::Float(*value),
+                Constant::Int(ConstantInteger { value }) => JavaValue::Int(*value),
+                Constant::Float(ConstantFloat { value }) => JavaValue::Float(*value),
                 Constant::String(ConstantString { string_index }) => {
                     let text = frame.constants[*string_index as usize - 1]
                         .expect_utf8()
@@ -112,36 +117,39 @@ impl InstructionAction for ldc_w {
                     let name = frame.constants[*name_index as usize - 1]
                         .expect_utf8()
                         .unwrap();
-                    LocalVariable::Reference(Some(jvm.get_class_instance(&name)))
-                    // LocalVariable::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
+                    JavaValue::Reference(Some(jvm.class_instance(&name)))
+                    // JavaValue::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
                 }
                 x => panic!("Attempted to push {:?} to the stack", x),
             });
+        Ok(())
     }
 }
 
 instruction! {@partial ldc2_w, 0x14, u16}
 
 impl InstructionAction for ldc2_w {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let ldc2_w(index) = *self;
 
         frame
             .stack
             .push(match &frame.constants[index as usize - 1] {
-                Constant::Double(ConstantDouble { value }) => LocalVariable::Double(*value),
-                Constant::Long(ConstantLong { value }) => LocalVariable::Long(*value),
+                Constant::Double(ConstantDouble { value }) => JavaValue::Double(*value),
+                Constant::Long(ConstantLong { value }) => JavaValue::Long(*value),
                 x => panic!("Attempted to push {:?} to the stack", x),
             });
+        Ok(())
     }
 }
 
 instruction! {@partial goto, 0xa7, i16}
 
 impl InstructionAction for goto {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let goto(offset) = *self;
-        frame.branch_offset += offset as i64;
+        // frame.branch_offset += offset as i64;
+        Err(FlowControl::Branch(offset as i64))
     }
 }
 
@@ -152,40 +160,40 @@ instruction! {@partial dreturn, 0xaf}
 instruction! {@partial areturn, 0xb0}
 
 impl InstructionAction for ireturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
-        frame.returns = Some(frame.stack.pop());
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+        Err(FlowControl::Return(frame.stack.pop()))
     }
 }
 
 impl InstructionAction for lreturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
-        frame.returns = Some(frame.stack.pop());
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+        Err(FlowControl::Return(frame.stack.pop()))
     }
 }
 
 impl InstructionAction for freturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
-        frame.returns = Some(frame.stack.pop());
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+        Err(FlowControl::Return(frame.stack.pop()))
     }
 }
 
 impl InstructionAction for dreturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
-        frame.returns = Some(frame.stack.pop());
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+        Err(FlowControl::Return(frame.stack.pop()))
     }
 }
 
 impl InstructionAction for areturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
-        frame.returns = Some(frame.stack.pop());
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+        Err(FlowControl::Return(frame.stack.pop()))
     }
 }
 
 instruction! {@partial r#return, 0xb1}
 
 impl InstructionAction for r#return {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
-        frame.returns = Some(None);
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl>  {
+        Err(FlowControl::Return(None))
     }
 }
 
@@ -201,8 +209,8 @@ impl Instruction for iinc {
         buffer.write_i8(self.1)
     }
 
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
-        <Self as InstructionAction>::exec(self, frame, jvm);
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+        <Self as InstructionAction>::exec(self, frame, jvm)
     }
 }
 
@@ -215,24 +223,25 @@ impl StaticInstruct for iinc {
 }
 
 impl InstructionAction for iinc {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let iinc(index, val) = *self;
 
         match &mut frame.locals[index as usize] {
-            LocalVariable::Byte(x) => *x += val,
-            LocalVariable::Char(x) => {
+            JavaValue::Byte(x) => *x += val,
+            JavaValue::Char(x) => {
                 if val > 0 {
                     *x += val as u16;
                 } else {
                     *x -= val.abs() as u16;
                 }
             }
-            LocalVariable::Short(x) => *x += val as i16,
-            LocalVariable::Int(x) => *x += val as i32,
-            LocalVariable::Float(x) => *x += val as f32,
-            LocalVariable::Long(x) => *x += val as i64,
-            LocalVariable::Double(x) => *x += val as f64,
+            JavaValue::Short(x) => *x += val as i16,
+            JavaValue::Int(x) => *x += val as i32,
+            JavaValue::Float(x) => *x += val as f32,
+            JavaValue::Long(x) => *x += val as i64,
+            JavaValue::Double(x) => *x += val as f64,
             x => panic!("can not call iinc on {:?}", x),
         }
+        Ok(())
     }
 }

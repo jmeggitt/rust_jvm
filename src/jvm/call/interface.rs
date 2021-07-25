@@ -1,14 +1,14 @@
-use std::cell::UnsafeCell;
-use std::ffi::CString;
+use std::ffi::{CString, c_void};
 use std::mem::forget;
 use std::ptr::null_mut;
-use std::rc::Rc;
 
 use jni::sys::{jclass, jint, JNIEnv, JNINativeInterface_, JNINativeMethod};
 
-use crate::jvm::{ObjectHandle, JVM};
+use crate::jvm::{ObjectHandle, JavaEnv};
+use crate::jvm::mem::ManualInstanceReference;
 
-pub static mut GLOBAL_JVM: Option<Box<JVM>> = None;
+// #[deprecated(note="Switch to storing JVM ptr in JNIEnv::reserved0")]
+// pub static mut GLOBAL_JVM: Option<Box<JavaEnv>> = None;
 
 pub unsafe extern "system" fn register_natives(
     _env: *mut JNIEnv,
@@ -17,13 +17,12 @@ pub unsafe extern "system" fn register_natives(
     num_methods: jint,
 ) -> jint {
     debug!("Calling JNIEnv::RegisterNatives");
+    let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
+    let name_obj: Option<ObjectHandle> = a.read_named_field("name");
+    let class = name_obj.unwrap().expect_string();
+    // let class_object = ObjectHandle::from_ptr(clazz).unwrap();
+    // let class = class_object.expect_string();
 
-    let class_object = ObjectHandle::from_ptr(clazz).unwrap();
-    let class = class_object.expect_string();
-
-    // let class_object = &*(clazz as *const Rc<UnsafeCell<Object>>);
-    // let class = (&*class_object.get()).expect_class().unwrap();
-    //
     let mut registered = 0;
 
     for method in
@@ -32,7 +31,8 @@ pub unsafe extern "system" fn register_natives(
         let name = CString::from_raw(method.name);
         let desc = CString::from_raw(method.signature);
 
-        if GLOBAL_JVM.as_mut().unwrap().linked_libraries.register_fn(
+        let jvm = (&**_env).reserved0 as *mut JavaEnv;
+        if (&mut *jvm).linked_libraries.register_fn(
             &class,
             name.to_str().unwrap(),
             desc.to_str().unwrap(),
@@ -50,9 +50,9 @@ pub unsafe extern "system" fn register_natives(
 }
 
 #[inline]
-pub fn build_interface() -> JNINativeInterface_ {
+pub fn build_interface(jvm: &mut JavaEnv) -> JNINativeInterface_ {
     JNINativeInterface_ {
-        reserved0: null_mut(),
+        reserved0: jvm as *mut JavaEnv as *mut c_void,
         reserved1: null_mut(),
         reserved2: null_mut(),
         reserved3: null_mut(),

@@ -1,35 +1,36 @@
 use num_traits::PrimInt;
 
 use crate::instruction::InstructionAction;
-use crate::jvm::{StackFrame, JVM};
-use crate::jvm::mem::LocalVariable;
-
+use crate::jvm::mem::JavaValue;
+use crate::jvm::JavaEnv;
+use crate::jvm::call::{StackFrame, FlowControl};
 
 macro_rules! math_instruction {
     ($name:ident, $inst:literal, $type:ident ($a:ident $(,$x:ident)*) => $res:expr) => {
         instruction! {@partial $name, $inst}
 
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, _: &mut JVM) {
+            fn exec(&self, frame: &mut StackFrame, _: &mut JavaEnv) -> Result<(), FlowControl> {
                 math_instruction!(@impl $type frame ($($x,)* $a) => $res);
+                Ok(())
             }
         }
     };
     (@impl Long $frame:ident ($($x:ident),+) => $res:expr) => {
         $(math_instruction!(@pop_int $frame $x -> i64);)+
-        $frame.stack.push(LocalVariable::Long($res));
+        $frame.stack.push(JavaValue::Long($res));
     };
     (@impl Int $frame:ident ($($x:ident),+) => $res:expr) => {
         $(math_instruction!(@pop_int $frame $x -> i32);)+
-        $frame.stack.push(LocalVariable::Int($res));
+        $frame.stack.push(JavaValue::Int($res));
     };
     (@impl Double $frame:ident ($($x:ident),+) => $res:expr) => {
         $(math_instruction!(@pop_float $frame $x -> f64);)+
-        $frame.stack.push(LocalVariable::Double($res));
+        $frame.stack.push(JavaValue::Double($res));
     };
     (@impl Float $frame:ident ($($x:ident),+) => $res:expr) => {
         $(math_instruction!(@pop_float $frame $x -> f32);)+
-        $frame.stack.push(LocalVariable::Float($res));
+        $frame.stack.push(JavaValue::Float($res));
     };
     (@pop_int $frame:ident $x:ident -> $type:ty) => {
         let a = $frame.stack.pop().unwrap();

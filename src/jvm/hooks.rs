@@ -1,22 +1,22 @@
 //! TODO: Split into seperate crate for shared library object
 
-use std::cell::UnsafeCell;
 use std::collections::hash_map::DefaultHasher;
 use std::ffi::c_void;
 use std::hash::{Hash, Hasher};
-use std::mem::transmute;
-use std::rc::Rc;
 
 use jni::sys::{
     jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jobject, jshort, jstring, JNIEnv,
 };
 use walkdir::WalkDir;
 
-use crate::jvm::interface::GLOBAL_JVM;
-use crate::jvm::mem::{ConstTypeId, JavaPrimitive, LocalVariable, ObjectHandle, ObjectReference, ObjectType};
-use crate::jvm::{clean_str, JVM};
+use crate::jvm::mem::{
+    ConstTypeId, JavaValue, ObjectHandle, ObjectReference, ObjectType,
+};
+use crate::jvm::JavaEnv;
+use crate::jvm::call::clean_str;
+use crate::constant_pool::ClassElement;
 
-pub fn register_hooks(jvm: &mut JVM) {
+pub fn register_hooks(jvm: &mut JavaEnv) {
     // Load classes since they are outside the class loaders visiblity
     // TODO: Maybe swap to a -cpstd/out/
     for entry in WalkDir::new("std/out") {
@@ -77,24 +77,17 @@ pub fn register_hooks(jvm: &mut JVM) {
         print_fn,
     );
 
-    // jvm.locals[0] = LocalVariable::Int(0);
     jvm.init_class("jvm/hooks/PrintStreamHook");
+    let method = ClassElement::new("jvm/hooks/PrintStreamHook", "buildStream", "(I)Ljava/io/PrintStream;");
     let stdout = jvm
-        .exec_static(
-            "jvm/hooks/PrintStreamHook",
-            "buildStream",
-            "(I)Ljava/io/PrintStream;",
-            vec![LocalVariable::Int(0)],
-        )
+        .invoke_static(method.clone(), vec![JavaValue::Int(0)])
         .unwrap()
         .unwrap();
-    // jvm.locals[0] = LocalVariable::Int(1);
+    // jvm.locals[0] = JavaValue::Int(1);
     let stderr = jvm
-        .exec_static(
-            "jvm/hooks/PrintStreamHook",
-            "buildStream",
-            "(I)Ljava/io/PrintStream;",
-            vec![LocalVariable::Int(1)],
+        .invoke_static(
+            method,
+            vec![JavaValue::Int(1)],
         )
         .unwrap()
         .unwrap();
@@ -236,7 +229,7 @@ pub unsafe extern "system" fn desired_assertions(
     0 // Don't do assertions, I don't need the extra work
 }
 
-pub unsafe extern "system" fn get_class(_env: *mut JNIEnv, _cls: jclass, name: jstring) -> jclass {
+pub unsafe extern "system" fn get_class(env: *mut JNIEnv, _cls: jclass, name: jstring) -> jclass {
     debug!("Executing getPrimitiveClass");
     // TODO: use call to JNIEnv to read string
     let name_object = ObjectHandle::from_ptr(name);
@@ -248,11 +241,8 @@ pub unsafe extern "system" fn get_class(_env: *mut JNIEnv, _cls: jclass, name: j
 
     // let name = (&*name_object.get()).expect_string();
     // info!("Getting class named {:?}", name);
-
-    let class = GLOBAL_JVM
-        .as_mut()
-        .unwrap()
-        .get_class_instance(&name_string);
+    let jvm = &mut *((&**env).reserved0 as *mut JavaEnv);
+    let class = jvm.class_instance(&name_string);
 
     // FIXME: Make explicit memory leak because current value is stored on the stack and we can't
     // make a policy of freeing results since it wont apply in all cases. It could be solved by a

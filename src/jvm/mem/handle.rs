@@ -1,26 +1,21 @@
-use std::any::{type_name, TypeId};
-use std::cell::UnsafeCell;
-use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
-use std::rc::Rc;
+use std::any::TypeId;
+use std::ops::Deref;
 
-use crate::class::{AccessFlags, BufferedRead, Class, FieldInfo};
-use crate::jvm::interface::GLOBAL_JVM;
-use crate::jvm::JVM;
-use crate::jvm::mem::FieldDescriptor;
+use crate::jvm::mem::{
+    ArrayReference, ClassSchema, ConstTypeId, InstanceReference, JavaPrimitive, JavaValue,
+    ManualInstanceReference, ObjectReference, ObjectType, RawObject,
+};
 use gc::{Finalize, Gc, Trace};
 use hashbrown::HashMap;
 use jni::sys::{
     _jobject, jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort, jvalue,
 };
-use lazy_static::lazy_static;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
-use std::mem::{size_of, transmute, ManuallyDrop};
-use std::ptr::{null_mut, NonNull};
+use std::mem::{transmute, ManuallyDrop};
+use std::ptr::NonNull;
 use std::sync::Arc;
-use crate::jvm::mem::{ObjectReference, RawObject, ClassSchema, ObjectType, JavaPrimitive, ConstTypeId, ArrayReference, LocalVariable, ManualInstanceReference, InstanceReference};
 
 macro_rules! typed_handle {
     (|$handle:ident -> $out:ident| $action:stmt) => {
@@ -116,8 +111,8 @@ impl<T: Trace> ObjectWrapper<T> {
 }
 
 impl<T> ObjectReference for ObjectWrapper<RawObject<T>>
-    where
-        RawObject<T>: Trace,
+where
+    RawObject<T>: Trace,
 {
     fn get_class_schema(&self) -> Arc<ClassSchema> {
         self.ptr.schema.clone()
@@ -183,8 +178,8 @@ impl ObjectHandle {
     }
 
     pub fn expect_array<T: JavaPrimitive>(&self) -> ObjectWrapper<RawObject<Vec<T>>>
-        where
-            RawObject<Vec<T>>: Trace,
+    where
+        RawObject<Vec<T>>: Trace,
     {
         if self.memory_layout() != ObjectType::Array(TypeId::of::<T>()) {
             panic!("Expected invalid primitive array");
@@ -246,7 +241,6 @@ impl Debug for ObjectHandle {
     }
 }
 
-
 impl ObjectHandle {
     /// Allocates a new zeroed object instance
     pub fn new(schema: Arc<ClassSchema>) -> ObjectHandle {
@@ -255,15 +249,15 @@ impl ObjectHandle {
 
     // FIXME: Option<ObjectHandle> may not be restricted to a single pointer!
     pub fn new_array<T: JavaPrimitive + Default>(len: usize) -> ObjectHandle
-        where
-            RawObject<Vec<T>>: Trace,
+    where
+        RawObject<Vec<T>>: Trace,
     {
         ObjectHandle::array_from_data(vec![T::default(); len])
     }
 
     pub fn array_from_data<T: JavaPrimitive>(arr: Vec<T>) -> ObjectHandle
-        where
-            RawObject<Vec<T>>: Trace,
+    where
+        RawObject<Vec<T>>: Trace,
     {
         let raw = RawObject::build_raw(ClassSchema::array_schema::<T>(), arr);
         ObjectHandle(NonNull::new(ObjectWrapper::new(raw).into_raw()).unwrap())
@@ -271,7 +265,7 @@ impl ObjectHandle {
 
     pub fn from_fields<S: AsRef<str>>(
         schema: Arc<ClassSchema>,
-        fields: HashMap<S, LocalVariable>,
+        fields: HashMap<S, JavaValue>,
     ) -> ObjectHandle {
         let raw = RawObject::new(schema);
 
@@ -287,7 +281,7 @@ impl ObjectHandle {
 impl ObjectHandle {
     pub fn expect_string(&self) -> String {
         // FIXME: This check does not check if a class extends string
-        assert_eq!(&self.get_class_schema().name, "java/lang/String");
+        assert_eq!(&self.get_class(), "java/lang/String");
 
         println!("Unwrapping: {:?}", self);
         let instance = self.expect_instance();
@@ -306,13 +300,15 @@ impl ObjectHandle {
 
 #[cfg(test)]
 mod test {
+    use crate::jvm::mem::{
+        ClassSchema, FieldDescriptor, FieldSchema, ObjectHandle, ObjectReference, ObjectType,
+    };
     use crate::jvm::{ClassSchema, FieldSchema, ObjectHandle, ObjectReference, ObjectType};
     use crate::types::FieldDescriptor;
     use gc::{Gc, Trace};
     use hashbrown::HashMap;
     use jni::sys::jint;
     use std::sync::Arc;
-    use crate::jvm::mem::{ClassSchema, FieldSchema, FieldDescriptor, ObjectType, ObjectHandle, ObjectReference};
 
     pub fn string_schema() -> Arc<ClassSchema> {
         let mut fields = HashMap::new();

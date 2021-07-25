@@ -1,10 +1,11 @@
-use crate::jvm::NativeManager;
+use crate::jvm::call::NativeManager;
 use jni::objects::JClass;
 use jni::JNIEnv;
 use std::ffi::c_void;
 
 pub mod reflection;
 mod system;
+mod java_unsafe;
 
 // TODO: mod java_unsafe;
 
@@ -43,6 +44,27 @@ pub fn register_natives(natives: &mut NativeManager) {
         "registerNatives",
         "()V",
         empty as *mut c_void,
+    );
+
+    natives.register_fn(
+        "sun/misc/Unsafe",
+        "arrayBaseOffset",
+        "(Ljava/lang/Class;)I",
+        java_unsafe::Java_sun_misc_Unsafe_arrayBaseOffset as *mut c_void,
+    );
+
+    natives.register_fn(
+        "sun/misc/Unsafe",
+        "arrayIndexScale",
+        "(Ljava/lang/Class;)I",
+        java_unsafe::Java_sun_misc_Unsafe_arrayIndexScale as *mut c_void,
+    );
+
+    natives.register_fn(
+        "sun/misc/Unsafe",
+        "addressSize",
+        "()I",
+        java_unsafe::Java_sun_misc_Unsafe_addressSize as *mut c_void,
     );
 }
 

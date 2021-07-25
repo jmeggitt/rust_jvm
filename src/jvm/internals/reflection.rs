@@ -1,11 +1,9 @@
-use jni::JNIEnv;
+use jni::sys::JNIEnv;
 
 use jni::objects::JClass;
 
-use crate::jvm::interface::GLOBAL_JVM;
 use jni::sys::{jclass, jint};
-use std::cell::UnsafeCell;
-use std::rc::Rc;
+use crate::jvm::JavaEnv;
 
 /*
  * Class:     sun_reflect_Reflection
@@ -14,10 +12,11 @@ use std::rc::Rc;
  */
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_reflect_Reflection_getCallerClass__(
-    _env: JNIEnv,
+    env: *mut JNIEnv,
     _class: JClass,
 ) -> jclass {
-    let jvm = GLOBAL_JVM.as_mut().unwrap();
+    // let jvm = GLOBAL_JavaEnv.as_mut().unwrap();
+    let jvm = &*((&**env).reserved0 as *mut JavaEnv);
 
     let len = jvm.call_stack.len();
 

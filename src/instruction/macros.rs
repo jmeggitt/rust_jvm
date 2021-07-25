@@ -39,8 +39,8 @@ macro_rules! instruction {
     (@writeb $name:ident, $self:ident, $buffer:ident, $x:block) => {
         impl crate::instruction::Instruction for $name {
             fn write(&$self, $buffer: &mut std::io::Cursor<Vec<u8>>) -> std::io::Result<()> { $x }
-            fn exec(&self, stack: &mut crate::jvm::StackFrame, jvm: &mut crate::jvm::JVM){
-                <Self as crate::instruction::InstructionAction>::exec(self, stack, jvm);
+            fn exec(&self, stack: &mut crate::jvm::call::StackFrame, jvm: &mut crate::jvm::JavaEnv) -> Result<(), crate::jvm::call::FlowControl> {
+                <Self as crate::instruction::InstructionAction>::exec(self, stack, jvm)
             }
         }
     };

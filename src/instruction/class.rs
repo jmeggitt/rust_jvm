@@ -1,21 +1,20 @@
-use std::cell::UnsafeCell;
 use std::io;
 use std::io::Cursor;
-use std::rc::Rc;
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::class::BufferedRead;
-use crate::constant_pool::Constant;
+use crate::constant_pool::{Constant, ClassElement};
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
-use crate::jvm::{clean_str, StackFrame, JVM, };
-use crate::jvm::mem::{LocalVariable, ManualInstanceReference, ObjectHandle, ObjectReference};
 use crate::jvm::mem::FieldDescriptor;
+use crate::jvm::mem::{JavaValue, ManualInstanceReference, ObjectHandle, ObjectReference};
+use crate::jvm::JavaEnv;
+use crate::jvm::call::{StackFrame, clean_str, FlowControl};
 
 instruction! {@partial getstatic, 0xb2, u16}
 
 impl InstructionAction for getstatic {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let getstatic(field) = *self;
 
         if let Constant::FieldRef(reference) = &frame.constants[field as usize - 1] {
@@ -49,13 +48,14 @@ impl InstructionAction for getstatic {
         } else {
             panic!("Error in getstatic");
         }
+        Ok(())
     }
 }
 
 instruction! {@partial invokestatic, 0xb8, u16}
 
 impl InstructionAction for invokestatic {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let invokestatic(field) = *self;
 
         let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
@@ -88,10 +88,11 @@ impl InstructionAction for invokestatic {
                 frame.stack.pop();
             }
 
-            match jvm.exec_static(&class_name, &field_name, &descriptor, stack_args) {
+            let method = ClassElement::new(class_name, field_name, descriptor);
+            match jvm.invoke_static(method, stack_args) {
                 Ok(Some(v)) => frame.stack.push(v),
-                Err(e) => frame.throws = Some(e),
-                _ => {}
+                Ok(None) => {}
+                Err(e) => return Err(e),
             }
         } else {
             panic!(
@@ -99,13 +100,14 @@ impl InstructionAction for invokestatic {
                 &class_name, &field_name, &descriptor
             );
         }
+        Ok(())
     }
 }
 
 instruction! {@partial putstatic, 0xb3, u16}
 
 impl InstructionAction for putstatic {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let putstatic(field) = *self;
 
         let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
@@ -136,13 +138,14 @@ impl InstructionAction for putstatic {
         );
         let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
         jvm.static_fields.insert(field_reference, value);
+        Ok(())
     }
 }
 
 instruction! {@partial invokevirtual, 0xb6, u16}
 
 impl InstructionAction for invokevirtual {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let invokevirtual(field) = *self;
 
         let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
@@ -175,22 +178,24 @@ impl InstructionAction for invokevirtual {
             }
 
             let target = match frame.stack.pop() {
-                Some(LocalVariable::Reference(Some(v))) => v,
+                Some(JavaValue::Reference(Some(v))) => v,
                 _ => {
-                    raise_null_pointer_exception(frame, jvm);
-                    warn!(
-                        "Raised NullPointerException while trying to call {}::{} {}",
-                        &class_name, &field_name, &descriptor
-                    );
-                    return;
+                    // raise_null_pointer_exception(frame, jvm);
+                    // warn!(
+                    //     "Raised NullPointerException while trying to call {}::{} {}",
+                    //     &class_name, &field_name, &descriptor
+                    // );
+                    // return;
+                    return Err(FlowControl::throw("java/lang/NullPointerException"))
                 } // x => panic!("Attempted to run invokevirtual, but did not find target object: {:?}", x),
             };
 
-            // stack_args.insert(0, LocalVariable::Reference(Some(target.clone())));
-            match jvm.exec_method(target, &field_name, &descriptor, stack_args) {
+            // stack_args.insert(0, JavaValue::Reference(Some(target.clone())));
+            let method = ClassElement::new(class_name, field_name, descriptor);
+            match jvm.invoke_virtual(method, target, stack_args) {
                 Ok(Some(v)) => frame.stack.push(v),
-                Err(e) => frame.throws = Some(e),
-                _ => {}
+                Ok(None) => {}
+                Err(e) => return Err(e),
             }
         } else {
             panic!(
@@ -198,13 +203,14 @@ impl InstructionAction for invokevirtual {
                 &class_name, &field_name, &descriptor
             );
         }
+        Ok(())
     }
 }
 
 instruction! {@partial new, 0xbb, u16}
 
 impl InstructionAction for new {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let new(field) = *self;
         let class = frame.constants[field as usize - 1]
             .expect_class()
@@ -215,15 +221,16 @@ impl InstructionAction for new {
         jvm.class_loader.attempt_load(&class_name).unwrap();
 
         let object = ObjectHandle::new(jvm.class_schema(&class_name));
-        frame.stack.push(LocalVariable::Reference(Some(object)));
+        frame.stack.push(JavaValue::Reference(Some(object)));
         debug!("Pushed new instance of {} to the stack", class_name);
+        Ok(())
     }
 }
 
 instruction! {@partial invokespecial, 0xb7, u16}
 
 impl InstructionAction for invokespecial {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let invokespecial(field) = *self;
 
         let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
@@ -265,22 +272,23 @@ impl InstructionAction for invokespecial {
             }
 
             let target = match frame.stack.pop() {
-                Some(LocalVariable::Reference(Some(v))) => v,
+                Some(JavaValue::Reference(Some(v))) => v,
                 _ => {
-                    raise_null_pointer_exception(frame, jvm);
                     warn!(
                         "Raised NullPointerException while trying to call {}::{} {}",
                         &class_name, &field_name, &descriptor
                     );
-                    return;
+                    return Err(FlowControl::throw("java/lang/NullPointerException"));
                 }
             };
 
-            // stack_args.insert(0, LocalVariable::Reference(Some(target.clone())));
-            match jvm.exec(target, &method_class, main_method, constants, stack_args) {
+            // stack_args.insert(0, JavaValue::Reference(Some(target.clone())));
+            let method = ClassElement::new(method_class, field_name, descriptor);
+            match jvm.invoke_special(method, target, stack_args) {
+            // match jvm.exec(target, &method_class, main_method, constants, stack_args) {
                 Ok(Some(v)) => frame.stack.push(v),
-                Err(e) => frame.throws = Some(e),
-                _ => {}
+                Ok(None) => {}
+                Err(e) => return Err(e),
             }
         } else {
             panic!(
@@ -288,13 +296,14 @@ impl InstructionAction for invokespecial {
                 &class_name, &field_name, &descriptor
             );
         }
+        Ok(())
     }
 }
 
 instruction! {@partial getfield, 0xb4, u16}
 
 impl InstructionAction for getfield {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let getfield(field) = *self;
 
         let (_, desc_index) = match &frame.constants[field as usize - 1] {
@@ -309,7 +318,7 @@ impl InstructionAction for getfield {
             .expect_utf8()
             .unwrap();
 
-        if let Some(LocalVariable::Reference(Some(obj))) = frame.stack.pop() {
+        if let Some(JavaValue::Reference(Some(obj))) = frame.stack.pop() {
             let instance = obj.expect_instance();
             frame.stack.push(instance.read_named_field(&field_name));
 
@@ -325,8 +334,10 @@ impl InstructionAction for getfield {
             // } else {
             //     panic!("Attempted to get field from non-instance");
             // }
+            Ok(())
         } else {
-            raise_null_pointer_exception(frame, jvm);
+            // raise_null_pointer_exception(frame, jvm);
+            Err(FlowControl::throw("java/lang/NullPointerException"))
         }
     }
 }
@@ -334,7 +345,7 @@ impl InstructionAction for getfield {
 instruction! {@partial putfield, 0xb5, u16}
 
 impl InstructionAction for putfield {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let putfield(field) = *self;
 
         let (_, desc_index) = match &frame.constants[field as usize - 1] {
@@ -351,7 +362,7 @@ impl InstructionAction for putfield {
 
         let value = frame.stack.pop().unwrap();
 
-        if let Some(LocalVariable::Reference(Some(obj))) = frame.stack.pop() {
+        if let Some(JavaValue::Reference(Some(obj))) = frame.stack.pop() {
             let instance = obj.expect_instance();
             instance.write_named_field(&field_name, value);
             // if let Object::Instance { fields, .. } = unsafe { &mut *obj.get() } {
@@ -359,8 +370,10 @@ impl InstructionAction for putfield {
             // } else {
             //     panic!("Attempted to get field from non-instance");
             // }
+            Ok(())
         } else {
-            raise_null_pointer_exception(frame, jvm);
+            // raise_null_pointer_exception(frame, jvm);
+            Err(FlowControl::throw("java/lang/NullPointerException"))
         }
     }
 }
@@ -378,8 +391,8 @@ impl Instruction for invokeinterface {
         buffer.write_u8(self.count)?;
         buffer.write_u8(0)
     }
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
-        <Self as InstructionAction>::exec(self, frame, jvm);
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+        <Self as InstructionAction>::exec(self, frame, jvm)
     }
 }
 
@@ -397,7 +410,7 @@ impl StaticInstruct for invokeinterface {
 }
 
 impl InstructionAction for invokeinterface {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let invokeinterface { index, .. } = *self;
 
         let (class_index, desc_index) = match &frame.constants[index as usize - 1] {
@@ -430,22 +443,23 @@ impl InstructionAction for invokeinterface {
             }
 
             let target = match frame.stack.pop() {
-                Some(LocalVariable::Reference(Some(v))) => v,
+                Some(JavaValue::Reference(Some(v))) => v,
                 _ => {
-                    raise_null_pointer_exception(frame, jvm);
+                    // raise_null_pointer_exception(frame, jvm);
                     warn!(
                         "Raised NullPointerException while trying to call {}::{} {}",
                         &class_name, &field_name, &descriptor
                     );
-                    return;
+                    return Err(FlowControl::throw("java/lang/NullPointerException"));
                 }
             };
 
-            // stack_args.insert(0, LocalVariable::Reference(Some(target.clone())));
-            match jvm.exec_method(target, &field_name, &descriptor, stack_args) {
+            // stack_args.insert(0, JavaValue::Reference(Some(target.clone())));
+            let method = ClassElement::new(class_name, field_name, descriptor);
+            match jvm.invoke_virtual(method, target, stack_args) {
                 Ok(Some(v)) => frame.stack.push(v),
-                Err(e) => frame.throws = Some(e),
-                _ => {}
+                Ok(None) => {}
+                Err(e) => return Err(e),
             }
         } else {
             panic!(
@@ -453,13 +467,14 @@ impl InstructionAction for invokeinterface {
                 &class_name, &field_name, &descriptor
             );
         }
+        Ok(())
     }
 }
 
 instruction! {@partial instanceof, 0xc1, u16}
 
 impl InstructionAction for instanceof {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         let instanceof(class_index) = *self;
 
         let class = frame.constants[class_index as usize - 1]
@@ -468,30 +483,31 @@ impl InstructionAction for instanceof {
         let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
 
         let target = match frame.stack.pop() {
-            // Some(LocalVariable::Reference(Some(v))) => unsafe { (&*v.get()).expect_class() },
-            Some(LocalVariable::Reference(Some(v))) => v.get_class(),
-            Some(LocalVariable::Reference(None)) => {
-                frame.stack.push(LocalVariable::Byte(0));
-                return;
+            // Some(JavaValue::Reference(Some(v))) => unsafe { (&*v.get()).expect_class() },
+            Some(JavaValue::Reference(Some(v))) => v.get_class(),
+            Some(JavaValue::Reference(None)) => {
+                frame.stack.push(JavaValue::Byte(0));
+                return Ok(());
             }
             _ => panic!("Attempted to run instanceof, but did not find target object!"),
         };
 
         if class_name == target {
-            frame.stack.push(LocalVariable::Byte(1));
-            return;
+            frame.stack.push(JavaValue::Byte(1));
+            return Ok(());
         }
 
-        frame.stack.push(LocalVariable::Byte(
+        frame.stack.push(JavaValue::Byte(
             jvm.instanceof(&target, &class_name).unwrap() as _,
         ));
+        Ok(())
     }
 }
 
-pub fn raise_null_pointer_exception(frame: &mut StackFrame, jvm: &mut JVM) {
-    jvm.init_class("java/lang/NullPointerException");
-
-    warn!("Throwing java/lang/NullPointerException!");
-    let object = ObjectHandle::new(jvm.class_schema("java/lang/NullPointerException"));
-    frame.throws = Some(LocalVariable::Reference(Some(object)));
-}
+// pub fn raise_null_pointer_exception(frame: &mut StackFrame, jvm: &mut JavaEnv) {
+//     jvm.init_class("java/lang/NullPointerException");
+//
+//     warn!("Throwing java/lang/NullPointerException!");
+//     let object = ObjectHandle::new(jvm.class_schema("java/lang/NullPointerException"));
+//     frame.throws = Some(JavaValue::Reference(Some(object)));
+// }

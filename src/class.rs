@@ -787,15 +787,21 @@ impl ClassPath {
             warn!("Unable to find JAVA_HOME");
         }
 
-        let search_dir = if cfg!(windows) {
-            PathBuf::from("C:\\Program Files\\Java")
+        if cfg!(windows) {
+            if let Ok(v) = ClassPath::search_dir_for_rt(PathBuf::from("C:\\Program Files\\Java")) {
+                return Ok(v)
+            }
+
+            ClassPath::search_dir_for_rt(PathBuf::from("C:\\Program Files (x86)\\Java"))
         } else if cfg!(unix) {
-            PathBuf::from("/usr/lib/jvm")
+            ClassPath::search_dir_for_rt(PathBuf::from("/usr/lib/jvm"))
         } else {
             warn!("Unknown platform! Unsure where to search for java installation!");
-            return Err(Error::new(ErrorKind::Other, "Unable to find rt.jar"));
-        };
+            Err(Error::new(ErrorKind::Other, "Unable to find rt.jar"))
+        }
+    }
 
+    pub fn search_dir_for_rt(search_dir: PathBuf) -> io::Result<PathBuf> {
         info!(
             "Searching for java installation in {}",
             search_dir.display()
@@ -813,7 +819,7 @@ impl ClassPath {
         Err(Error::new(ErrorKind::Other, "Unable to find rt.jar"))
     }
 
-    fn check_lib_for_rt(path: &PathBuf) -> Option<PathBuf> {
+        fn check_lib_for_rt(path: &PathBuf) -> Option<PathBuf> {
         let jdk_lib = path.join("jre/lib/rt.jar");
         if jdk_lib.exists() && jdk_lib.is_file() {
             return Some(jdk_lib.parent()?.to_path_buf());

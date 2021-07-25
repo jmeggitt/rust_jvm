@@ -6,7 +6,7 @@ use std::pin::Pin;
 
 use jni::sys::{jobject, jvalue, JNIEnv, JNINativeInterface_, _jobject};
 
-use crate::jvm::interface::build_interface;
+use crate::jvm::call::interface::build_interface;
 
 pub struct OperandStack {
     stack: Vec<jvalue>,

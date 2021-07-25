@@ -18,7 +18,8 @@ use math::*;
 use push_const::*;
 use stack::*;
 
-use crate::jvm::{StackFrame, JVM};
+use crate::jvm::JavaEnv;
+use crate::jvm::call::{StackFrame, FlowControl};
 
 #[macro_use]
 mod macros;
@@ -36,7 +37,7 @@ mod stack;
 pub trait Instruction: Any + Debug {
     fn write(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<()>;
 
-    fn exec(&self, _stack: &mut StackFrame, _jvm: &mut JVM) {
+    fn exec(&self, _stack: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         panic!("Instruction not implemented for {:?}", self);
     }
 }
@@ -49,7 +50,7 @@ pub trait StaticInstruct: Instruction {
 }
 
 pub trait InstructionAction: Any {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM);
+    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl>;
 }
 
 pub struct InstructionReader {

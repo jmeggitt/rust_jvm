@@ -1,16 +1,18 @@
 use crate::instruction::InstructionAction;
-use crate::jvm::{StackFrame, JVM};
-use crate::jvm::mem::LocalVariable;
+use crate::jvm::mem::JavaValue;
+use crate::jvm::JavaEnv;
+use crate::jvm::call::{StackFrame, FlowControl};
 
 macro_rules! convert_instruction {
     ($name:ident, $inst:literal, $from:ident -> $to:ident) => {
         instruction! {@partial $name, $inst}
 
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, _jvm: &mut JVM) {
+            fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
                 let popped = frame.stack.pop().unwrap();
-                if let LocalVariable::$from(x) = popped {
-                    frame.stack.push(LocalVariable::$to(x as _));
+                if let JavaValue::$from(x) = popped {
+                    frame.stack.push(JavaValue::$to(x as _));
+                    Ok(())
                 } else {
                     panic!("Could not perform {:?} for {:?}", self, popped);
                 }
@@ -36,10 +38,10 @@ convert_instruction! {l2f, 0x89, Long -> Float}
 convert_instruction! {l2i, 0x88, Long -> Int}
 
 // impl InstructionAction for d2f {
-//     fn exec(&self, frame: &mut StackFrame, jvm: &mut JVM) {
+//     fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) {
 //         let popped = frame.stack.pop().unwrap();
-//         if let LocalVariable::Double(x) = popped {
-//             frame.stack.push(LocalVariable::Float(x as _));
+//         if let JavaValue::Double(x) = popped {
+//             frame.stack.push(JavaValue::Float(x as _));
 //         } else {
 //             panic!("Could not perform {:?} for {:?}", self, popped);
 //         }

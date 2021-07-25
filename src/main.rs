@@ -18,7 +18,7 @@ use log::LevelFilter;
 use pretty_env_logger::env_logger::Target;
 
 use crate::class::{ClassLoader, ClassPath};
-use crate::jvm::JVM;
+use crate::jvm::JavaEnv;
 
 mod attribute;
 mod class;
@@ -76,9 +76,9 @@ fn main() {
 
     class_loader.load_new(&"Simple.class".into()).unwrap();
 
-    let mut jvm = JVM::new(class_loader);
+    let mut jvm = JavaEnv::new(class_loader);
 
-    jvm.init_class("java/lang/Class");
+    // jvm.init_class("java/lang/Class");
     // let print_class = jvm::Object::build_class(&mut jvm, "jvm/hooks/PrintStreamHook");
     // println!("{:?}", print_class);
 

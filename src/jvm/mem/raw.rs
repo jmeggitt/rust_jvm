@@ -1,27 +1,14 @@
 use std::any::{type_name, TypeId};
 use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
-use std::rc::Rc;
 
-use crate::class::{AccessFlags, BufferedRead, Class, FieldInfo};
-use crate::jvm::interface::GLOBAL_JVM;
-use crate::jvm::JVM;
-use crate::jvm::mem::FieldDescriptor;
-use gc::{Finalize, Gc, Trace};
-use hashbrown::HashMap;
-use jni::sys::{
-    _jobject, jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort, jvalue,
-};
-use lazy_static::lazy_static;
+use crate::jvm::mem::{ClassSchema, JavaPrimitive, JavaValue, ObjectHandle, ObjectType};
+use gc::{Finalize, Trace};
+use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::iter::FromIterator;
-use std::mem::{size_of, transmute, ManuallyDrop};
-use std::ptr::{null_mut, NonNull};
+use std::mem::size_of;
 use std::sync::Arc;
-use crate::jvm::mem::{ClassSchema, ObjectHandle, LocalVariable, JavaPrimitive, ObjectType};
-
 
 // #[repr(C, align(8))]
 pub struct RawObject<T: ?Sized> {
@@ -114,9 +101,9 @@ impl IntoGcIter for RawObject<Vec<Option<ObjectHandle>>> {
 impl<T> Finalize for RawObject<T> {}
 
 unsafe impl<T> Trace for RawObject<T>
-    where
-        Self: IntoGcIter,
-        for<'a> GcIter<&'a Self>: Iterator<Item = ObjectHandle>,
+where
+    Self: IntoGcIter,
+    for<'a> GcIter<&'a Self>: Iterator<Item = ObjectHandle>,
 {
     unsafe fn trace(&self) {
         for obj in self.gc_iter() {
@@ -167,20 +154,34 @@ empty_trace!(RawObject<()>);
 
 impl Debug for RawObject<Vec<jvalue>> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {{ ", &self.schema.name)?;
+        if self.get_class() == "java/lang/String" {
+            let data: Option<ObjectHandle> = self.read_named_field("value");
+            if let Some(arr) = data.map(|x|x.expect_array::<jchar>()) {
+                let len = arr.array_length();
+                let mut out = String::new();
+                for idx in 0..len {
+                    out.push(std::char::from_u32(arr.read_array(idx) as u32).unwrap());
+                }
+                write!(f, "{:?}", out)
+            } else {
+                write!(f, "String Error")
+            }
+        } else {
+            write!(f, "{} {{ ", &self.schema.name)?;
 
-        for field in &self.schema.field_lookup {
-            let value: LocalVariable = self.read_field(field.offset);
-            write!(f, "{}: {:?}, ", &field.name, value)?;
+            for field in &self.schema.field_lookup {
+                let value: JavaValue = self.read_field(field.offset);
+                write!(f, "{}: {:?}, ", &field.name, value)?;
+            }
+
+            write!(f, "}}")
         }
-
-        write!(f, "}}")
     }
 }
 
 impl<T: JavaPrimitive + Debug> Debug for RawObject<Vec<T>>
-    where
-        Self: ArrayReference<T>,
+where
+    Self: ArrayReference<T>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match TypeId::of::<T>() {
@@ -199,8 +200,6 @@ impl<T: JavaPrimitive + Debug> Debug for RawObject<Vec<T>>
         unsafe { write!(f, "[{:?}]", &*self.fields.get()) }
     }
 }
-
-
 
 impl RawObject<Vec<jvalue>> {
     pub fn new(schema: Arc<ClassSchema>) -> Self {
@@ -221,15 +220,15 @@ impl Hash for RawObject<Vec<jvalue>> {
         assert!(self.memory_layout().is_instance());
 
         for field in &self.schema.field_lookup {
-            let local: LocalVariable = self.read_field(field.offset);
+            let local: JavaValue = self.read_field(field.offset);
             local.hash(state);
         }
     }
 }
 
 impl<T: JavaPrimitive + Hash> Hash for RawObject<Vec<T>>
-    where
-        Self: ArrayReference<T>,
+where
+    Self: ArrayReference<T>,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         unsafe {
@@ -286,14 +285,17 @@ impl InstanceReference<jvalue> for RawObject<Vec<jvalue>> {
     }
 }
 
-impl InstanceReference<LocalVariable> for RawObject<Vec<jvalue>> {
-    fn write_field(&self, offset: usize, val: LocalVariable) {
+impl InstanceReference<JavaValue> for RawObject<Vec<jvalue>> {
+    fn write_field(&self, offset: usize, val: JavaValue) {
         let field = self.schema.get_field_from_offset(offset);
-        assert!(field.desc.matches(&val));
+        if !field.desc.matches(&val) {
+            panic!("{:?} does not match {:?}", field.desc, val);
+        }
+        // assert!(field.desc.matches(&val));
         <Self as InstanceReference<jvalue>>::write_field(self, offset, val.into());
     }
 
-    fn read_field(&self, offset: usize) -> LocalVariable {
+    fn read_field(&self, offset: usize) -> JavaValue {
         let field = self.schema.get_field_from_offset(offset);
         field
             .desc
@@ -363,8 +365,8 @@ impl<T: JavaPrimitive> ArrayReference<T> for RawObject<Vec<T>> {
 }
 
 impl<T: JavaPrimitive> RawObject<Vec<T>>
-    where
-        Self: Trace,
+where
+    Self: Trace,
 {
     pub fn array_copy(&self, dst: ObjectHandle, src_pos: usize, dst_pos: usize, len: usize) {
         let dst_array = dst.expect_array::<T>();
@@ -383,8 +385,8 @@ impl<T: JavaPrimitive> RawObject<Vec<T>>
 }
 
 impl<T: JavaPrimitive> Deref for RawObject<Vec<T>>
-    where
-        RawObject<Vec<T>>: ArrayReference<T>,
+where
+    RawObject<Vec<T>>: ArrayReference<T>,
 {
     type Target = [T];
 
@@ -394,14 +396,13 @@ impl<T: JavaPrimitive> Deref for RawObject<Vec<T>>
 }
 
 impl<T: JavaPrimitive> DerefMut for RawObject<Vec<T>>
-    where
-        RawObject<Vec<T>>: ArrayReference<T>,
+where
+    RawObject<Vec<T>>: ArrayReference<T>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.fields.get() }
     }
 }
-
 
 /// Utility trait to match type ids
 pub trait ConstTypeId {

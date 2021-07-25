@@ -7,7 +7,7 @@ use crate::class::{AttributeInfo, BufferedRead};
 use crate::constant_pool::Constant;
 use crate::instruction::Instruction;
 use crate::instruction::InstructionReader;
-use crate::jvm::JVM;
+use crate::jvm::JavaEnv;
 
 #[derive(Debug)]
 pub struct CodeAttribute {
@@ -24,7 +24,7 @@ impl CodeAttribute {
         pos: u64,
         class: &str,
         pool: &[Constant],
-        jvm: &mut JVM,
+        jvm: &mut JavaEnv,
     ) -> Option<u64> {
         // I assume that the first one that fits is the one to use?
         for range in self.exception_table.iter().copied() {

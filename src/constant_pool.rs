@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::io::{self, Cursor, Error, ErrorKind, Read, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -8,6 +8,7 @@ use num_traits::FromPrimitive;
 use crate::class::BufferedRead;
 use crate::version::ClassVersion;
 use std::ops::Index;
+use crate::jvm::mem::FieldDescriptor;
 
 #[repr(transparent)]
 pub struct ConstantPool<'a> {
@@ -49,6 +50,7 @@ impl<'a> ConstantPool<'a> {
         }
     }
 
+    // TODO: Deprecate in favor of class_element_desc?
     pub fn class_element_ref(&'a self, index: u16) -> (&'a str, &'a str, &'a str) {
         let (class_index, name_and_type) = match &self[index] {
             Constant::FieldRef(v) => {
@@ -81,6 +83,11 @@ impl<'a> ConstantPool<'a> {
         let (name, desc) = self.name_and_type(name_and_type);
         (self.class_name(class_index), name, desc)
     }
+
+    pub fn class_element_desc(&self, index: u16) -> ClassElement {
+        let (class, element, desc) = self.class_element_ref(index);
+        ClassElement::new(class, element, desc)
+    }
 }
 
 impl<'a> Index<u16> for ConstantPool<'a> {
@@ -88,6 +95,36 @@ impl<'a> Index<u16> for ConstantPool<'a> {
 
     fn index(&self, index: u16) -> &Self::Output {
         &self.pool[index as usize - 1]
+    }
+}
+
+#[derive(Clone)]
+pub struct ClassElement {
+    pub class: String,
+    pub element: String,
+    pub desc: String,
+}
+
+impl ClassElement {
+    pub fn new<S: ToString>(class: S, element: S, desc: S) -> Self {
+        ClassElement {
+            class: class.to_string(),
+            element: element.to_string(),
+            desc: desc.to_string()
+        }
+    }
+
+    pub fn build_desc(&self) -> FieldDescriptor {
+        match FieldDescriptor::read_str(&self.desc) {
+            Ok(v) => v,
+            Err(e) => panic!("Expected FieldDescriptor: {:?}", e),
+        }
+    }
+}
+
+impl Debug for ClassElement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}::{} {}", &self.class, &self.element, &self.desc)
     }
 }
 

@@ -1,19 +1,15 @@
-use std::cell::UnsafeCell;
 use std::io::{self, Cursor, Error, ErrorKind, Seek, SeekFrom};
-use std::rc::Rc;
 
 use byteorder::ReadBytesExt;
 use hashbrown::HashSet;
 use jni::sys::jvalue;
 
 use crate::class::BufferedRead;
-use crate::jvm::{LocalVariable, ObjectHandle};
+use crate::jvm::{JavaValue, ObjectHandle};
+use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort};
 use libffi::middle::{Cif, Type};
 use std::fmt::{Debug, Display, Formatter};
-use std::ptr::{NonNull, null_mut};
-use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort};
-
-
+use std::ptr::null_mut;
 
 pub trait JavaPrimitive: 'static + Sized + Copy {
     fn pack(self) -> jvalue;
@@ -57,9 +53,7 @@ impl JavaPrimitive for Option<ObjectHandle> {
     }
 
     fn unpack(val: jvalue) -> Self {
-        unsafe {
-            ObjectHandle::from_ptr(val.l)
-        }
+        unsafe { ObjectHandle::from_ptr(val.l) }
     }
 
     fn descriptor() -> FieldDescriptor {
@@ -139,17 +133,17 @@ impl FieldDescriptor {
         set
     }
 
-    pub fn initial_local(&self) -> LocalVariable {
+    pub fn initial_local(&self) -> JavaValue {
         match self {
-            Self::Byte => LocalVariable::Byte(0),
-            Self::Char => LocalVariable::Char(0),
-            Self::Double => LocalVariable::Double(0.0),
-            Self::Float => LocalVariable::Float(0.0),
-            Self::Int => LocalVariable::Int(0),
-            Self::Long => LocalVariable::Long(0),
-            Self::Short => LocalVariable::Short(0),
-            Self::Boolean => LocalVariable::Byte(0),
-            _ => LocalVariable::Reference(None),
+            Self::Byte => JavaValue::Byte(0),
+            Self::Char => JavaValue::Char(0),
+            Self::Double => JavaValue::Double(0.0),
+            Self::Float => JavaValue::Float(0.0),
+            Self::Int => JavaValue::Int(0),
+            Self::Long => JavaValue::Long(0),
+            Self::Short => JavaValue::Short(0),
+            Self::Boolean => JavaValue::Byte(0),
+            _ => JavaValue::Reference(None),
         }
     }
 
@@ -160,41 +154,44 @@ impl FieldDescriptor {
     // Clippy tried to suggest replacing this match with a massive single line matches! macro, but I
     // prefer the raw match.
     #[allow(clippy::match_like_matches_macro)]
-    pub fn matches(&self, local: &LocalVariable) -> bool {
+    pub fn matches(&self, local: &JavaValue) -> bool {
         match (self, local) {
-            (FieldDescriptor::Byte, LocalVariable::Byte(_)) => true,
-            (FieldDescriptor::Boolean, LocalVariable::Byte(_)) => true,
-            (FieldDescriptor::Char, LocalVariable::Char(_)) => true,
-            (FieldDescriptor::Short, LocalVariable::Short(_)) => true,
-            (FieldDescriptor::Int, LocalVariable::Int(_)) => true,
-            (FieldDescriptor::Float, LocalVariable::Float(_)) => true,
-            (FieldDescriptor::Long, LocalVariable::Long(_)) => true,
-            (FieldDescriptor::Double, LocalVariable::Double(_)) => true,
-            (FieldDescriptor::Object(_), LocalVariable::Reference(_)) => true,
-            (FieldDescriptor::Array(_), LocalVariable::Reference(_)) => true,
+            (FieldDescriptor::Byte, JavaValue::Byte(_)) => true,
+            (FieldDescriptor::Boolean, JavaValue::Byte(_)) => true,
+            (FieldDescriptor::Boolean, JavaValue::Short(_)) => true,
+            (FieldDescriptor::Boolean, JavaValue::Int(_)) => true,
+            (FieldDescriptor::Boolean, JavaValue::Long(_)) => true,
+            (FieldDescriptor::Char, JavaValue::Char(_)) => true,
+            (FieldDescriptor::Short, JavaValue::Short(_)) => true,
+            (FieldDescriptor::Int, JavaValue::Int(_)) => true,
+            (FieldDescriptor::Float, JavaValue::Float(_)) => true,
+            (FieldDescriptor::Long, JavaValue::Long(_)) => true,
+            (FieldDescriptor::Double, JavaValue::Double(_)) => true,
+            (FieldDescriptor::Object(_), JavaValue::Reference(_)) => true,
+            (FieldDescriptor::Array(_), JavaValue::Reference(_)) => true,
             _ => false,
         }
     }
 
-    pub fn cast(&self, value: jvalue) -> Option<LocalVariable> {
+    pub fn cast(&self, value: jvalue) -> Option<JavaValue> {
         unsafe {
             Some(match self {
-                FieldDescriptor::Byte => LocalVariable::Byte(value.b),
-                FieldDescriptor::Char => LocalVariable::Char(value.c),
-                FieldDescriptor::Double => LocalVariable::Double(value.d),
-                FieldDescriptor::Float => LocalVariable::Float(value.f),
-                FieldDescriptor::Int => LocalVariable::Int(value.i),
-                FieldDescriptor::Long => LocalVariable::Long(value.j as i64),
-                FieldDescriptor::Short => LocalVariable::Short(value.s),
-                FieldDescriptor::Boolean => LocalVariable::Byte(value.z as i8),
+                FieldDescriptor::Byte => JavaValue::Byte(value.b),
+                FieldDescriptor::Char => JavaValue::Char(value.c),
+                FieldDescriptor::Double => JavaValue::Double(value.d),
+                FieldDescriptor::Float => JavaValue::Float(value.f),
+                FieldDescriptor::Int => JavaValue::Int(value.i),
+                FieldDescriptor::Long => JavaValue::Long(value.j as i64),
+                FieldDescriptor::Short => JavaValue::Short(value.s),
+                FieldDescriptor::Boolean => JavaValue::Byte(value.z as i8),
                 FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => {
-                    LocalVariable::Reference(ObjectHandle::from_ptr(value.l))
+                    JavaValue::Reference(ObjectHandle::from_ptr(value.l))
                     // if value.l.is_null() {
-                    //     LocalVariable::Reference(None)
+                    //     JavaValue::Reference(None)
                     // } else {
                     //     debug!("Attempting to clone Rc through pointer!");
                     //     let reference = &*(value.l as *const Rc<UnsafeCell<Object>>);
-                    //     let out = LocalVariable::Reference(Some(reference.clone()));
+                    //     let out = JavaValue::Reference(Some(reference.clone()));
                     //     debug!("Got value {:?} from pointer", &out);
                     //     out
                     // }
@@ -272,14 +269,16 @@ impl FieldDescriptor {
 
     pub fn build_cif(&self) -> Cif {
         if let FieldDescriptor::Method { args, returns } = self {
-            let mut cif = Cif::new(args.iter().map(Self::ffi_arg_type), returns.ffi_arg_type());
+            let mut ffi_args = vec![Type::pointer(), Type::pointer()];
+            ffi_args.extend(args.iter().map(Self::ffi_arg_type));
+            let mut cif = Cif::new(ffi_args, returns.ffi_arg_type());
 
             #[cfg(not(all(target_arch = "x86", windows)))]
-                cif.set_abi(libffi::raw::ffi_abi_FFI_DEFAULT_ABI);
+            cif.set_abi(libffi::raw::ffi_abi_FFI_DEFAULT_ABI);
 
             // STDCALL is used on win32
             #[cfg(all(target_arch = "x86", windows))]
-                cif.set_abi(libffi::raw::ffi_abi_FFI_STDCALL);
+            cif.set_abi(libffi::raw::ffi_abi_FFI_STDCALL);
 
             cif
         } else {
