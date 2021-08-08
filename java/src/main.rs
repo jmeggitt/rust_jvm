@@ -6,6 +6,7 @@ use glob::glob;
 use log::{error, info};
 
 mod args;
+
 use args::*;
 
 use jvm::class::{ClassPath, ClassLoader};
@@ -49,6 +50,11 @@ fn main() {
     if opts.has_flag("verbose") {
         info!("Arguments: {:?}", get_java_args());
         info!("Running in verbose mode");
+    }
+
+    if opts.program_args.is_empty() {
+        eprintln!("You must specify a main class or jar file to run!");
+        exit(1);
     }
 
     // Class path separator is platform dependent because of course it is...
@@ -97,10 +103,15 @@ fn main() {
                         }
                     }));
             }
-        },
+        }
         // If neither is given, default to user directory
         _ => class_path.push(".".into()),
     };
+
+    // If running a jar, add it to the class path
+    if opts.has_flag("jar") {
+        class_path.push(PathBuf::from(&opts.program_args[0]));
+    }
 
     let java_dir = var("JAVA_HOME").ok().map(PathBuf::from);
 
@@ -118,10 +129,24 @@ fn main() {
         exit(1);
     }
 
+    // Find the main class from the jar
+    let main_class = if opts.has_flag("jar") {
+        let target_jar = PathBuf::from(&opts.program_args[0]);
+        match class_loader.loaded_jars.get(&target_jar).unwrap().manifest.main_class() {
+            Some(v) => v,
+            None => {
+                eprintln!("{} does not have a main class!", target_jar.display());
+                exit(1);
+            }
+        }
+    } else {
+        opts.program_args[0].replace('.', "/")
+    };
+
+
     let mut jvm = JavaEnv::new(class_loader);
 
-    // class_loader.load_new(&"Simple.class".into()).unwrap();
-
-
-
+    if let Err(e) = jvm.entry_point(&main_class, opts.program_args.clone()) {
+        eprintln!("An error occurred while attempting to run main:\n{}", e);
+    }
 }

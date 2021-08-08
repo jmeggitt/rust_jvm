@@ -542,9 +542,9 @@ pub fn print_bytes(buffer: &[u8]) {
 }
 
 #[derive(Debug, Default)]
-struct UnpackedJar {
+pub struct UnpackedJar {
     dir: PathBuf,
-    manifest: Manifest,
+    pub manifest: Manifest,
 }
 
 #[derive(Default, Debug)]
@@ -552,7 +552,7 @@ pub struct ClassLoader {
     loaded: HashMap<String, Class>,
     class_path: ClassPath,
     load_requests: HashSet<String>,
-    loaded_jars: HashMap<PathBuf, UnpackedJar>,
+    pub loaded_jars: HashMap<PathBuf, UnpackedJar>,
 }
 
 impl ClassLoader {
@@ -788,7 +788,7 @@ impl ClassPath {
 
         if cfg!(windows) {
             if let Ok(v) = ClassPath::search_dir_for_rt(PathBuf::from("C:\\Program Files\\Java")) {
-                return Ok(v)
+                return Ok(v);
             }
 
             ClassPath::search_dir_for_rt(PathBuf::from("C:\\Program Files (x86)\\Java"))
@@ -818,7 +818,7 @@ impl ClassPath {
         Err(Error::new(ErrorKind::Other, "Unable to find rt.jar"))
     }
 
-        fn check_lib_for_rt(path: &PathBuf) -> Option<PathBuf> {
+    fn check_lib_for_rt(path: &PathBuf) -> Option<PathBuf> {
         let jdk_lib = path.join("jre/lib/rt.jar");
         if jdk_lib.exists() && jdk_lib.is_file() {
             return Some(jdk_lib.parent()?.to_path_buf());

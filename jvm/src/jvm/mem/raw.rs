@@ -24,6 +24,7 @@ impl<T> RawObject<T> {
         }
     }
 
+    #[allow(clippy::mut_from_ref)]
     pub unsafe fn raw_fields(&self) -> &mut T {
         &mut *self.fields.get()
     }

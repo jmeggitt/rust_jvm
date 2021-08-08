@@ -325,6 +325,10 @@ impl Manifest {
 
         paths
     }
+
+    pub fn main_class(&self) -> Option<String> {
+        self.main_class.clone()
+    }
 }
 
 #[derive(Default, Debug, Clone)]

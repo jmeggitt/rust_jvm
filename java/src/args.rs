@@ -36,7 +36,7 @@ pub struct ManualOpts {
     flags: HashSet<&'static str>,
     args: HashMap<&'static str, Vec<String>>,
     key_args: HashMap<&'static str, HashMap<String, Option<String>>>,
-    program_args: Vec<String>,
+    pub program_args: Vec<String>,
 }
 
 impl ManualOpts {
@@ -99,7 +99,7 @@ impl ManualOpts {
     }
 
     pub fn get_args(&self, key: &'static str) -> Option<&[String]> {
-        self.args.get(key).map(|x|&x[..])
+        self.args.get(key).map(|x| &x[..])
     }
 }
 
