@@ -1,0 +1,40 @@
+[package]
+name = "jvm"
+version = "0.2.0"
+authors = ["Jasper Meggitt <jasper.meggitt@gmail.com>"]
+edition = "2018"
+
+[features]
+default = ["tempfile"]
+debug = []
+
+[dependencies]
+byteorder = "1.4.3"
+serde = { version = "1.0", features = ["derive"] }
+num-derive = "0.3"
+num-traits = "0.2"
+bitflags = "1.2"
+hashbrown = "0.11.2"
+zip = "0.5.12"
+sha2 = "0.9.5"
+base64 = "0.13.0"
+pretty_env_logger = "0.4.0"
+walkdir = "2.3.2"
+libloading = "0.7.0"
+libffi = "1.0.1"
+jni = "0.19.0"
+lazy_static = "1.4.0"
+
+gc = "0.4.1"
+
+[dependencies.tempfile]
+version = "3.2.0"
+optional = true
+
+[dependencies.log]
+version = "0.4"
+features = ["max_level_trace", "release_max_level_trace", "std", "serde"]
+
+
+[build-dependencies]
+walkdir = "2.3.2"
