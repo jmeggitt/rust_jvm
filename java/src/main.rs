@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::process::exit;
 
 fn main() {
-    let mut opts = ManualOpts::default()
+    let opts = ManualOpts::default()
         .arg(ArgHandler {
             name: "verbose",
             // Technically, java only uses -verbose, but -v was available and is more standard
@@ -145,8 +145,7 @@ fn main() {
 
 
     let mut jvm = JavaEnv::new(class_loader);
-
-    if let Err(e) = jvm.entry_point(&main_class, opts.program_args.clone()) {
+    if let Err(e) = jvm.entry_point(&main_class, opts.program_args) {
         eprintln!("An error occurred while attempting to run main:\n{}", e);
     }
 }

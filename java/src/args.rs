@@ -5,6 +5,8 @@ use std::env;
 pub enum ArgType {
     Flag,
     Valued,
+    // TODO: Handle other arguments allowed by jvm
+    #[allow(dead_code)]
     Keyed,
 }
 
@@ -13,21 +15,6 @@ pub struct ArgHandler {
     pub name: &'static str,
     pub aliases: Vec<&'static str>,
     pub arg_type: ArgType,
-}
-
-impl ArgHandler {
-    pub fn named(name: &'static str, arg_type: ArgType) -> Self {
-        ArgHandler {
-            name,
-            aliases: Vec::new(),
-            arg_type,
-        }
-    }
-
-    pub fn aliases(mut self, aliases: &'static [&'static str]) -> Self {
-        self.aliases.extend_from_slice(aliases);
-        self
-    }
 }
 
 #[derive(Debug, Default)]
@@ -62,22 +49,22 @@ impl ManualOpts {
                         ArgType::Valued => {
                             if arg == *alias {
                                 let value = args.next().expect("Expected argument value");
-                                self.args.entry(schema.name).or_insert_with(|| Vec::new()).push(value);
+                                self.args.entry(schema.name).or_insert_with(Vec::new).push(value);
                                 continue 'parser;
                             }
                         }
                         ArgType::Keyed => {
-                            if arg.starts_with(alias) {
+                            if let Some(key_value) = arg.strip_prefix(alias) {
                                 if arg.len() == alias.len() {
                                     panic!("Expected key after {}", alias);
                                 }
 
-                                let (key, value) = match arg.find("=") {
-                                    Some(v) => (arg[alias.len()..v].to_string(), Some(arg[v + 1..].to_string())),
-                                    None => (arg[alias.len()..].to_string(), None),
+                                let (key, value) = match key_value.find('=') {
+                                    Some(v) => (key_value[..v].to_string(), Some(key_value[v + 1..].to_string())),
+                                    None => (key_value.to_string(), None),
                                 };
 
-                                let mut keyed_arg = self.key_args.entry(schema.name).or_insert_with(|| HashMap::new());
+                                let keyed_arg = self.key_args.entry(schema.name).or_insert_with(HashMap::new);
                                 keyed_arg.insert(key, value);
 
                                 continue 'parser;
