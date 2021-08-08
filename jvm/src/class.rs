@@ -738,7 +738,6 @@ impl ClassPath {
             Some(mut path) => {
                 path.drain_filter(|x| !x.exists())
                     .for_each(|x| warn!("Unable to find {}; dropped from classpath", x.display()));
-
                 path
             }
             None => Vec::new(),

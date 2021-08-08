@@ -1,121 +1,17 @@
 use pretty_env_logger::formatted_builder;
 use pretty_env_logger::env_logger::Target;
 use log::LevelFilter;
-use hashbrown::{HashMap, HashSet};
-use std::env;
+use std::env::var;
+use glob::glob;
+use log::{error, info};
 
+mod args;
+use args::*;
 
-#[derive(Debug)]
-enum ArgType {
-    Flag,
-    Valued,
-    Keyed,
-}
-
-#[derive(Debug)]
-struct ArgHandler {
-    name: &'static str,
-    aliases: Vec<&'static str>,
-    arg_type: ArgType,
-}
-
-impl ArgHandler {
-    pub fn named(name: &'static str, arg_type: ArgType) -> Self {
-        ArgHandler {
-            name,
-            aliases: Vec::new(),
-            arg_type,
-        }
-    }
-
-    pub fn aliases(mut self, aliases: &'static [&'static str]) -> Self {
-        self.aliases.extend_from_slice(aliases);
-        self
-    }
-}
-
-#[derive(Debug, Default)]
-struct ManualOpts {
-    schemas: Vec<ArgHandler>,
-    flags: HashSet<&'static str>,
-    args: HashMap<&'static str, Vec<String>>,
-    key_args: HashMap<&'static str, HashMap<String, Option<String>>>,
-    program_args: Vec<String>,
-}
-
-impl ManualOpts {
-    pub fn arg(mut self, arg: ArgHandler) -> Self {
-        self.schemas.push(arg);
-        self
-    }
-
-    pub fn parse(mut self) -> Self {
-        let mut args = Vec::new();
-
-        let mut cli_flags = env::args().collect::<Vec<String>>();
-        args.push(cli_flags.remove(0));
-
-        let env_args = env::var("JDK_JAVA_OPTIONS").unwrap_or_else(|_| String::new());
-        let env_args = shell_words::split(&env_args).expect("failed to parse JDK_JAVA_OPTIONS");
-        args.extend(env_args);
-
-        args.extend(cli_flags);
-        let mut args = args.into_iter();
-        let _executable = args.next();
-
-        'parser: while let Some(arg) = args.next() {
-            for schema in &self.schemas {
-                for alias in &schema.aliases {
-                    match schema.arg_type {
-                        ArgType::Flag => {
-                            if arg == *alias {
-                                self.flags.insert(schema.name);
-                                continue 'parser;
-                            }
-                        }
-                        ArgType::Valued => {
-                            if arg == *alias {
-                                let value = args.next().expect("Expected argument value");
-                                self.args.entry(schema.name).or_insert_with(|| Vec::new()).push(value);
-                                continue 'parser;
-                            }
-                        }
-                        ArgType::Keyed => {
-                            if arg.starts_with(alias) {
-                                if arg.len() == alias.len() {
-                                    panic!("Expected key after {}", alias);
-                                }
-
-                                let (key, value) = match arg.find("=") {
-                                    Some(v) => (arg[alias.len()..v].to_string(), Some(arg[v + 1..].to_string())),
-                                    None => (arg[alias.len()..].to_string(), None),
-                                };
-
-                                let mut keyed_arg = self.key_args.entry(schema.name).or_insert_with(|| HashMap::new());
-                                keyed_arg.insert(key, value);
-
-                                continue 'parser;
-                            }
-                        }
-                    };
-                }
-            }
-
-            self.program_args.push(arg);
-            self.program_args.extend(&mut args);
-        }
-
-        self
-    }
-
-    pub fn has_flag(&self, key: &'static str) -> bool {
-        self.flags.contains(key)
-    }
-
-    pub fn get_args(&self, key: &'static str) -> Option<&[String]> {
-        self.args.get(key).map(|x|&x[..])
-    }
-}
+use jvm::class::{ClassPath, ClassLoader};
+use jvm::jvm::JavaEnv;
+use std::path::PathBuf;
+use std::process::exit;
 
 fn main() {
     let mut opts = ManualOpts::default()
@@ -139,6 +35,7 @@ fn main() {
 
     println!("{:?}", &opts);
 
+    // First setup logging so we can see future errors in verbose mode
     let log_level = match opts.has_flag("verbose") {
         true => LevelFilter::Debug,
         false => LevelFilter::Error,
@@ -148,4 +45,83 @@ fn main() {
         .target(Target::Stdout)
         .filter_level(log_level)
         .init();
+
+    if opts.has_flag("verbose") {
+        info!("Arguments: {:?}", get_java_args());
+        info!("Running in verbose mode");
+    }
+
+    // Class path separator is platform dependent because of course it is...
+    let separator = if cfg!(unix) {
+        ':'
+    } else if cfg!(windows) {
+        ';'
+    } else {
+        ' '
+    };
+
+    // TODO: zip files can be interpreted as jars
+    let mut class_path = vec!["std/out".into()];
+
+    match (opts.get_args("class_path"), var("CLASSPATH")) {
+        // If class path is specified, it overrides CLASSPATH environment variable
+        (Some(paths), _) => {
+            for path in paths {
+                for element in path.split(separator) {
+                    class_path.extend(glob(element)
+                        .expect("Unable to read file glob")
+                        .filter_map(|x| {
+                            match x {
+                                Ok(x) => Some(x),
+                                Err(e) => {
+                                    error!("{:?}", e);
+                                    None
+                                }
+                            }
+                        }));
+                }
+            }
+        }
+        // Use environment variable if possible
+        (None, Ok(path)) => {
+            for element in path.split(separator) {
+                class_path.extend(glob(element)
+                    .expect("Unable to read file glob")
+                    .filter_map(|x| {
+                        match x {
+                            Ok(x) => Some(x),
+                            Err(e) => {
+                                error!("{:?}", e);
+                                None
+                            }
+                        }
+                    }));
+            }
+        },
+        // If neither is given, default to user directory
+        _ => class_path.push(".".into()),
+    };
+
+    let java_dir = var("JAVA_HOME").ok().map(PathBuf::from);
+
+    let class_path = match ClassPath::new(java_dir, Some(class_path)) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error indexing class path: {:?}", e);
+            exit(1);
+        }
+    };
+
+    let mut class_loader = ClassLoader::from_class_path(class_path);
+    if let Err(e) = class_loader.preload_class_path() {
+        eprintln!("Error loading class path: {:?}", e);
+        exit(1);
+    }
+
+    let mut jvm = JavaEnv::new(class_loader);
+
+    // class_loader.load_new(&"Simple.class".into()).unwrap();
+
+
+
 }
