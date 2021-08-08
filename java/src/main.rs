@@ -1,30 +1,9 @@
-// use clap::{Arg, App, Subcommand, ArgGroup};
 use pretty_env_logger::formatted_builder;
 use pretty_env_logger::env_logger::Target;
 use log::LevelFilter;
-// use clap::Clap;
-use std::collections::{HashMap, HashSet};
-
+use hashbrown::{HashMap, HashSet};
 use std::env;
 
-// #[derive(Clap, Debug)]
-// #[clap(version = env ! ("CARGO_PKG_VERSION"), author = env ! ("CARGO_PKG_AUTHORS"))]
-// struct Opts {
-//     // #[clap(short, long)]
-//     // verbose: bool,
-//     // #[clap(short, long)]
-//     // class_path: Vec<String>,
-//     // #[clap(long)]
-//     // jar: bool,
-//     // // #[clap(required)]
-//     // target: String,
-//     // // #[clap(multiple)]
-//     // args: Vec<String>,
-//     #[clap(short, long, number_of_values = 1)]
-//     foo: Vec<String>,
-//     #[clap(allow_hyphen_values = true)]
-//     inputs: Vec<String>,
-// }
 
 #[derive(Debug)]
 enum ArgType {
@@ -128,6 +107,14 @@ impl ManualOpts {
 
         self
     }
+
+    pub fn has_flag(&self, key: &'static str) -> bool {
+        self.flags.contains(key)
+    }
+
+    pub fn get_args(&self, key: &'static str) -> Option<&[String]> {
+        self.args.get(key).map(|x|&x[..])
+    }
 }
 
 fn main() {
@@ -152,57 +139,13 @@ fn main() {
 
     println!("{:?}", &opts);
 
-    // let opts = Opts::parse();
-    // let app = App::new("Rusty Java")
-    //     .version(env!("CARGO_PKG_VERSION"))
-    //     .author(env!("CARGO_PKG_AUTHORS"))
-    //     .about(env!("CARGO_PKG_DESCRIPTION"))
-    //     .arg(Arg::with_name("v")
-    //         .short("v")
-    //         .multiple(true)
-    //         .help("Enables verbose output"))
-    //     .arg(Arg::with_name("classpath")
-    //         .long("class-path")
-    //         .long("cp")
-    //         .takes_value(true)
-    //         .multiple(true)
-    //         .help("Adds a file or directory to the class search path"))
-    //     .arg(Arg::with_name("jar")
-    //         .long("jar")
-    //         .help("Launches from a given jar file"))
-    //     .arg(Arg::with_name("target")
-    //         .takes_value(true)
-    //         .required(true)
-    //         .help("Launches"))
-    //     .arg(Arg::with_name("args")
-    //         .takes_value(true)
-    //         .multiple(true)
-    //         .help("Values to pass to the java program"));
+    let log_level = match opts.has_flag("verbose") {
+        true => LevelFilter::Debug,
+        false => LevelFilter::Error,
+    };
 
-    // let app = App::new("program")
-    //     .arg(Arg::with_name("configfile")
-    //         .takes_value(true))
-    //     .arg(Arg::with_name("zip")
-    //         .long("from-zip")
-    //         .value_name("zipfile")
-    //         .takes_value(true))
-    //     .arg(Arg::with_name("args")
-    //         .takes_value(true)
-    //         .multiple(true));
-
-    // TODO: How do I support JDK_JAVA_OPTIONS?
-
-    // let matches = app.get_matches();
-
-    println!("{:?}", &opts);
-
-    // let log_level = match matches.is_present("verbose") {
-    //     true => LevelFilter::Debug,
-    //     false => LevelFilter::Error,
-    // };
-    //
-    // formatted_builder()
-    //     .target(Target::Stdout)
-    //     .filter_level(log_level)
-    //     .init();
+    formatted_builder()
+        .target(Target::Stdout)
+        .filter_level(log_level)
+        .init();
 }
