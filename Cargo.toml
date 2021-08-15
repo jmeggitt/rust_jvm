@@ -1,6 +1,7 @@
-[workspace]
 
+[workspace]
 members = [
     "jvm",
     "java",
+    "java_std"
 ]

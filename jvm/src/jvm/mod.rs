@@ -15,6 +15,7 @@ use crate::jvm::mem::{
     ObjectReference,
 };
 use crate::jvm::call::{NativeManager, StackFrame, FlowControl, VirtualMachine};
+use std::thread::ThreadId;
 
 macro_rules! fatal_error {
     ($($arg:tt),*) => {{
@@ -45,6 +46,8 @@ pub struct JavaEnv {
 
     pub call_stack: Vec<(ObjectHandle, String)>,
 
+    pub threads: HashMap<ThreadId, ObjectHandle>,
+
     schemas: HashMap<String, Arc<ClassSchema>>,
 }
 
@@ -60,6 +63,7 @@ impl JavaEnv {
             // locals: vec![JavaValue::Int(0); 255],
             registered_classes: HashMap::new(),
             call_stack: Vec::new(),
+            threads: HashMap::new(),
             schemas: HashMap::new(),
         };
 
@@ -161,13 +165,19 @@ impl JavaEnv {
         let lib_dir = self.class_loader.class_path().java_home().join("bin");
         info!("Loading shared libraries from {}", lib_dir.display());
 
-        // We need to load this first since the following libraries depend on it
+
         #[cfg(unix)]
-        self.linked_libraries
-            .load_library(lib_dir.join("amd64/server/libjvm.so"))?;
+            self.linked_libraries.load_library("/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release/librustyjvm.so".into()).unwrap();
         #[cfg(windows)]
-        self.linked_libraries
-            .load_library(lib_dir.join("server/jvm.dll"))?;
+            self.linked_libraries.load_library("C:/Users/Jasper/CLionProjects/JavaClassTests/target/release/rustyjvm.dll".into()).unwrap();
+
+        // We need to load this first since the following libraries depend on it
+        // #[cfg(unix)]
+        // self.linked_libraries
+        //     .load_library(lib_dir.join("amd64/server/libjvm.so"))?;
+        // #[cfg(windows)]
+        // self.linked_libraries
+        //     .load_library(lib_dir.join("server/jvm.dll"))?;
 
         // Load includes in deterministic order to ensure regularity between runs
         for entry in WalkDir::new(&lib_dir).sort_by_file_name() {
@@ -188,6 +198,7 @@ impl JavaEnv {
                     .load_library(entry.path().to_path_buf())?;
             }
         }
+        panic!();
 
         Ok(())
     }

@@ -67,7 +67,7 @@ fn main() {
     };
 
     // TODO: zip files can be interpreted as jars
-    let mut class_path = vec!["std/out".into()];
+    let mut class_path = vec!["java_std/out".into()];
 
     match (opts.get_args("class_path"), var("CLASSPATH")) {
         // If class path is specified, it overrides CLASSPATH environment variable
@@ -105,7 +105,9 @@ fn main() {
             }
         }
         // If neither is given, default to user directory
-        _ => class_path.push(".".into()),
+        _ => {
+            // class_path.push(".".into())
+        },
     };
 
     // If running a jar, add it to the class path

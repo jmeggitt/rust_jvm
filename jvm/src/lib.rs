@@ -1,5 +1,4 @@
-#![feature(drain_filter)]
-// #![feature(asm)]
+// #![feature(drain_filter)]
 #![feature(const_type_id)]
 // Ensure each result error is either unwrapped or returned
 #![deny(unused_must_use)]

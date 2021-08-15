@@ -135,7 +135,8 @@ impl NativeManager {
                         self.load_order.push(path.clone());
                         self.libs.insert(path, v)
                     }
-                    Err(e) => return Err(Error::new(ErrorKind::Other, e)),
+                    Err(e) => return Err(Error::new(ErrorKind::Other, format!("{}: {}", e, path.display()))),
+                    // Err(e) => return Err(Error::new(ErrorKind::Other, e)),
                 };
             }
         }
@@ -184,6 +185,7 @@ impl NativeManager {
             Self::clean_desc(desc)?
         );
         let short_name = format!("Java_{}_{}", clean_str(class), clean_str(name));
+        debug!("Searching for function {}", &long_name);
 
         if let Some(v) = self.loaded_fns.get(&long_name) {
             return Some(*v);

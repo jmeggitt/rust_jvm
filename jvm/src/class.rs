@@ -615,7 +615,6 @@ impl ClassLoader {
                     manifest,
                 },
             );
-            // break;
         }
 
         Ok(())
@@ -666,15 +665,6 @@ impl ClassLoader {
             }
             None => {
                 error!("Unable to find class {} in class path!", class);
-                // let mut timeout = 20;
-                // for entry in self.class_path.found_classes.keys() {
-                //     debug!("Class entry: {}", entry);
-                //     timeout -= 1;
-                //     if timeout == 0 {
-                //         break
-                //     }
-                // }
-
                 Ok(false)
             }
         };
@@ -736,8 +726,17 @@ impl ClassPath {
 
         let mut search_path = match class_path {
             Some(mut path) => {
-                path.drain_filter(|x| !x.exists())
-                    .for_each(|x| warn!("Unable to find {}; dropped from classpath", x.display()));
+                let mut i = 0;
+                while i < path.len() {
+                    if !path[i].exists() {
+                        warn!("Unable to find {}; dropped from classpath", path.remove(i).display());
+                    } else {
+                        i += 1;
+                    }
+                }
+
+                // path.drain_filter(|x| !x.exists())
+                //     .for_each(|x| warn!("Unable to find {}; dropped from classpath", x.display()));
                 path
             }
             None => Vec::new(),

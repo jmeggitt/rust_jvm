@@ -283,12 +283,12 @@ impl ObjectHandle {
         // FIXME: This check does not check if a class extends string
         assert_eq!(&self.get_class(), "java/lang/String");
 
-        println!("Unwrapping: {:?}", self);
+        // println!("Unwrapping: {:?}", self);
         let instance = self.expect_instance();
         let data: Option<ObjectHandle> = instance.read_named_field("value");
         let chars = data.unwrap().expect_array::<jchar>();
 
-        println!("Gonna do unsafe stuff");
+        // println!("Gonna do unsafe stuff");
         unsafe {
             // FIXME: I'm probably messing up the encoding
             let arr = chars.raw_fields();

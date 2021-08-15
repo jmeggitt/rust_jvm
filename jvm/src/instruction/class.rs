@@ -35,11 +35,12 @@ impl InstructionAction for getstatic {
                 .unwrap();
 
             let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
-            let value = jvm
+            let value = match jvm
                 .static_fields
-                .get(&field_reference)
-                .expect("Static value not found")
-                .clone();
+                .get(&field_reference) {
+                Some(v) => v.clone(),
+                None => panic!("Static value not found: {}::{}", &class_name, &field_name),
+            };
             debug!(
                 "Got value {:?} from {}::{} {}",
                 &value, &class_name, &field_name, descriptor

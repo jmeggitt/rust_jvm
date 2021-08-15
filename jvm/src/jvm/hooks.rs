@@ -19,7 +19,7 @@ use crate::constant_pool::ClassElement;
 pub fn register_hooks(jvm: &mut JavaEnv) {
     // Load classes since they are outside the class loaders visiblity
     // TODO: Maybe swap to a -cpstd/out/
-    for entry in WalkDir::new("std/out") {
+    for entry in WalkDir::new("java_std/out") {
         let entry = entry.expect("Error reading stdlib");
         if entry.path().extension() == Some("class".as_ref()) {
             jvm.class_loader
