@@ -1,9 +1,9 @@
 use crate::constant_pool::{Constant, ConstantClass};
 use crate::instruction::InstructionAction;
+use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::ArrayReference;
 use crate::jvm::mem::{JavaValue, ObjectHandle};
 use crate::jvm::JavaEnv;
-use crate::jvm::call::{StackFrame, FlowControl};
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort};
 
 macro_rules! array_instruction {
@@ -95,7 +95,9 @@ impl InstructionAction for anewarray {
         //     )))));
         frame
             .stack
-            .push(JavaValue::Reference(Some(ObjectHandle::new_array::<Option<ObjectHandle>, >(length as usize))));
+            .push(JavaValue::Reference(Some(ObjectHandle::new_array::<
+                Option<ObjectHandle>,
+            >(length as usize))));
         Ok(())
     }
 }

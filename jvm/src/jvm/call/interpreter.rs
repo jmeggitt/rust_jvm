@@ -1,9 +1,9 @@
-use crate::jvm::mem::{ObjectHandle, JavaValue, ObjectReference};
-use crate::constant_pool::Constant;
-use std::mem::replace;
 use crate::attribute::CodeAttribute;
-use crate::jvm::JavaEnv;
+use crate::constant_pool::Constant;
 use crate::jvm::call::FlowControl;
+use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
+use crate::jvm::JavaEnv;
+use std::mem::replace;
 
 pub struct StackFrame {
     // Comparable to the .text section of a binary
@@ -26,7 +26,6 @@ impl StackFrame {
         constants: Vec<Constant>,
         mut args: Vec<JavaValue>,
     ) -> Self {
-
         if max_locals > args.len() {
             args.extend(vec![JavaValue::Long(0); max_locals - args.len()]);
         }
@@ -100,7 +99,8 @@ impl StackFrame {
                             while branch_offset != 0 {
                                 let (current_pos, _) = code.instructions[rip];
                                 rip = (rip as i64 + branch_offset.signum()) as usize;
-                                branch_offset -= code.instructions[rip].0 as i64 - current_pos as i64;
+                                branch_offset -=
+                                    code.instructions[rip].0 as i64 - current_pos as i64;
                             }
                         }
                         None => {

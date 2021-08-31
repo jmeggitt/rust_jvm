@@ -157,7 +157,7 @@ impl Debug for RawObject<Vec<jvalue>> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if self.get_class() == "java/lang/String" {
             let data: Option<ObjectHandle> = self.read_named_field("value");
-            if let Some(arr) = data.map(|x|x.expect_array::<jchar>()) {
+            if let Some(arr) = data.map(|x| x.expect_array::<jchar>()) {
                 let len = arr.array_length();
                 let mut out = String::new();
                 for idx in 0..len {

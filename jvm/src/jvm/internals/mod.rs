@@ -3,9 +3,9 @@ use jni::objects::JClass;
 use jni::JNIEnv;
 use std::ffi::c_void;
 
+mod java_unsafe;
 pub mod reflection;
 mod system;
-mod java_unsafe;
 
 // TODO: mod java_unsafe;
 

@@ -2,8 +2,8 @@ use jni::sys::JNIEnv;
 
 use jni::objects::JClass;
 
-use jni::sys::{jclass, jint};
 use crate::jvm::JavaEnv;
+use jni::sys::{jclass, jint};
 
 /*
  * Class:     sun_reflect_Reflection

@@ -1,8 +1,8 @@
-use crate::jvm::mem::JavaValue;
 use crate::jvm::call::FlowControl;
+use crate::jvm::mem::JavaValue;
+use jni::sys::jlong;
 use std::alloc::{alloc, dealloc, Layout};
 use std::mem::size_of;
-use jni::sys::jlong;
 
 /// Mimics the functionality of a cpu for call invocations
 pub struct VirtualMachine {
@@ -15,7 +15,6 @@ pub struct VirtualMachine {
 }
 
 impl VirtualMachine {
-
     /// Allocate the stack in memory immediately. Optionally, I could also more directly allocate
     /// the pages for basically no change in performance.
     pub fn new(stack_size: usize, locals_size: usize) -> Self {
@@ -49,7 +48,7 @@ impl VirtualMachine {
 
     pub fn push(&mut self, val: JavaValue) -> Result<(), FlowControl> {
         if self.stack_ptr >= self.operand_stack.len() {
-            return Err(FlowControl::error("java/lang/StackOverflowError"))
+            return Err(FlowControl::error("java/lang/StackOverflowError"));
         }
         self.operand_stack[self.stack_ptr] = val;
         self.stack_ptr += 1;
@@ -68,7 +67,8 @@ impl VirtualMachine {
 
     pub fn init_locals(&mut self, values: &[JavaValue]) {
         assert!(values.len() < self.locals_top - self.locals_base);
-        self.locals_table[self.locals_base..self.locals_base + values.len()].copy_from_slice(values);
+        self.locals_table[self.locals_base..self.locals_base + values.len()]
+            .copy_from_slice(values);
     }
 
     pub fn init_frame(&mut self, locals: usize) -> Result<(), FlowControl> {

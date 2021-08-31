@@ -1,9 +1,9 @@
 use num_traits::PrimInt;
 
 use crate::instruction::InstructionAction;
+use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
-use crate::jvm::call::{StackFrame, FlowControl};
 
 macro_rules! math_instruction {
     ($name:ident, $inst:literal, $type:ident ($a:ident $(,$x:ident)*) => $res:expr) => {

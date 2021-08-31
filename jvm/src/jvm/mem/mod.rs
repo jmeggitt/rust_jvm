@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::mem::transmute_copy;
 
-use jni::sys::{jvalue, jbyte, jchar, jshort, jint, jfloat, jlong, jdouble};
+use jni::sys::{jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
 
 use std::fmt::{Debug, Formatter};
 
@@ -126,12 +126,8 @@ impl PartialOrd for JavaValue {
             // (JavaValue::Reference(Some(a)), JavaValue::Reference(Some(b))) => {
             //     a.get().partial_cmp(&b.get())
             // }
-            (JavaValue::Reference(Some(_)), JavaValue::Reference(_)) => {
-                Some(Ordering::Greater)
-            }
-            (JavaValue::Reference(_), JavaValue::Reference(Some(_))) => {
-                Some(Ordering::Less)
-            }
+            (JavaValue::Reference(Some(_)), JavaValue::Reference(_)) => Some(Ordering::Greater),
+            (JavaValue::Reference(_), JavaValue::Reference(Some(_))) => Some(Ordering::Less),
             (JavaValue::Reference(_), JavaValue::Reference(_)) => Some(Ordering::Equal),
             (a, b) => match (a.as_int(), b.as_int()) {
                 (Some(x), Some(y)) => x.partial_cmp(&y),

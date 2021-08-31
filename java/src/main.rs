@@ -1,15 +1,15 @@
-use pretty_env_logger::formatted_builder;
-use pretty_env_logger::env_logger::Target;
-use log::LevelFilter;
-use std::env::var;
 use glob::glob;
+use log::LevelFilter;
 use log::{error, info};
+use pretty_env_logger::env_logger::Target;
+use pretty_env_logger::formatted_builder;
+use std::env::var;
 
 mod args;
 
 use args::*;
 
-use jvm::class::{ClassPath, ClassLoader};
+use jvm::class::{ClassLoader, ClassPath};
 use jvm::jvm::JavaEnv;
 use std::path::PathBuf;
 use std::process::exit;
@@ -74,41 +74,39 @@ fn main() {
         (Some(paths), _) => {
             for path in paths {
                 for element in path.split(separator) {
-                    class_path.extend(glob(element)
-                        .expect("Unable to read file glob")
-                        .filter_map(|x| {
-                            match x {
-                                Ok(x) => Some(x),
-                                Err(e) => {
-                                    error!("{:?}", e);
-                                    None
-                                }
+                    class_path.extend(glob(element).expect("Unable to read file glob").filter_map(
+                        |x| match x {
+                            Ok(x) => Some(x),
+                            Err(e) => {
+                                error!("{:?}", e);
+                                None
                             }
-                        }));
+                        },
+                    ));
                 }
             }
         }
         // Use environment variable if possible
         (None, Ok(path)) => {
             for element in path.split(separator) {
-                class_path.extend(glob(element)
-                    .expect("Unable to read file glob")
-                    .filter_map(|x| {
-                        match x {
-                            Ok(x) => Some(x),
-                            Err(e) => {
-                                error!("{:?}", e);
-                                None
-                            }
+                class_path.extend(glob(element).expect("Unable to read file glob").filter_map(
+                    |x| match x {
+                        Ok(x) => Some(x),
+                        Err(e) => {
+                            error!("{:?}", e);
+                            None
                         }
-                    }));
+                    },
+                ));
             }
         }
         // If neither is given, default to user directory
         _ => {
-            // class_path.push(".".into())
-        },
+            class_path.push(".".into())
+        }
     };
+
+    class_path.push("/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_std/out".into());
 
     // If running a jar, add it to the class path
     if opts.has_flag("jar") {
@@ -134,7 +132,13 @@ fn main() {
     // Find the main class from the jar
     let main_class = if opts.has_flag("jar") {
         let target_jar = PathBuf::from(&opts.program_args[0]);
-        match class_loader.loaded_jars.get(&target_jar).unwrap().manifest.main_class() {
+        match class_loader
+            .loaded_jars
+            .get(&target_jar)
+            .unwrap()
+            .manifest
+            .main_class()
+        {
             Some(v) => v,
             None => {
                 eprintln!("{} does not have a main class!", target_jar.display());
@@ -144,7 +148,6 @@ fn main() {
     } else {
         opts.program_args[0].replace('.', "/")
     };
-
 
     let mut jvm = JavaEnv::new(class_loader);
     if let Err(e) = jvm.entry_point(&main_class, opts.program_args) {

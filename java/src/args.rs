@@ -49,7 +49,10 @@ impl ManualOpts {
                         ArgType::Valued => {
                             if arg == *alias {
                                 let value = args.next().expect("Expected argument value");
-                                self.args.entry(schema.name).or_insert_with(Vec::new).push(value);
+                                self.args
+                                    .entry(schema.name)
+                                    .or_insert_with(Vec::new)
+                                    .push(value);
                                 continue 'parser;
                             }
                         }
@@ -60,11 +63,17 @@ impl ManualOpts {
                                 }
 
                                 let (key, value) = match key_value.find('=') {
-                                    Some(v) => (key_value[..v].to_string(), Some(key_value[v + 1..].to_string())),
+                                    Some(v) => (
+                                        key_value[..v].to_string(),
+                                        Some(key_value[v + 1..].to_string()),
+                                    ),
                                     None => (key_value.to_string(), None),
                                 };
 
-                                let keyed_arg = self.key_args.entry(schema.name).or_insert_with(HashMap::new);
+                                let keyed_arg = self
+                                    .key_args
+                                    .entry(schema.name)
+                                    .or_insert_with(HashMap::new);
                                 keyed_arg.insert(key, value);
 
                                 continue 'parser;
@@ -106,4 +115,3 @@ pub fn get_java_args() -> Vec<String> {
     args.extend(cli_flags);
     args
 }
-

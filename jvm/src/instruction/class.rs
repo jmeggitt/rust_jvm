@@ -4,12 +4,12 @@ use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::class::BufferedRead;
-use crate::constant_pool::{Constant, ClassElement};
+use crate::constant_pool::{ClassElement, Constant};
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
+use crate::jvm::call::{clean_str, FlowControl, StackFrame};
 use crate::jvm::mem::FieldDescriptor;
 use crate::jvm::mem::{JavaValue, ManualInstanceReference, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;
-use crate::jvm::call::{StackFrame, clean_str, FlowControl};
 
 instruction! {@partial getstatic, 0xb2, u16}
 
@@ -35,9 +35,7 @@ impl InstructionAction for getstatic {
                 .unwrap();
 
             let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
-            let value = match jvm
-                .static_fields
-                .get(&field_reference) {
+            let value = match jvm.static_fields.get(&field_reference) {
                 Some(v) => v.clone(),
                 None => panic!("Static value not found: {}::{}", &class_name, &field_name),
             };
@@ -187,7 +185,7 @@ impl InstructionAction for invokevirtual {
                     //     &class_name, &field_name, &descriptor
                     // );
                     // return;
-                    return Err(FlowControl::throw("java/lang/NullPointerException"))
+                    return Err(FlowControl::throw("java/lang/NullPointerException"));
                 } // x => panic!("Attempted to run invokevirtual, but did not find target object: {:?}", x),
             };
 
@@ -286,7 +284,7 @@ impl InstructionAction for invokespecial {
             // stack_args.insert(0, JavaValue::Reference(Some(target.clone())));
             let method = ClassElement::new(method_class, field_name, descriptor);
             match jvm.invoke_special(method, target, stack_args) {
-            // match jvm.exec(target, &method_class, main_method, constants, stack_args) {
+                // match jvm.exec(target, &method_class, main_method, constants, stack_args) {
                 Ok(Some(v)) => frame.stack.push(v),
                 Ok(None) => {}
                 Err(e) => return Err(e),

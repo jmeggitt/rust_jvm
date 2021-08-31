@@ -10,9 +10,9 @@ use crate::constant_pool::{
     ConstantString,
 };
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
+use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
-use crate::jvm::call::{StackFrame, FlowControl};
 
 instruction! {athrow, 0xbf}
 instruction! {dcmpg, 0x98}
@@ -192,7 +192,7 @@ impl InstructionAction for areturn {
 instruction! {@partial r#return, 0xb1}
 
 impl InstructionAction for r#return {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl>  {
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         Err(FlowControl::Return(None))
     }
 }

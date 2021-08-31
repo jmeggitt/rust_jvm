@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
 use crate::instruction::InstructionAction;
+use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
-use crate::jvm::call::{StackFrame, FlowControl};
 
 macro_rules! cmp_instruction {
     ($name:ident, $inst:literal, i16, $cond:expr) => {
@@ -26,7 +26,7 @@ macro_rules! cmp_instruction {
 
                 if $cond(order) {
                     debug!("Branching by {}", jmp);
-                    return Err(FlowControl::Branch(jmp as i64))
+                    return Err(FlowControl::Branch(jmp as i64));
                     // frame.branch_offset += jmp as i64;
                 }
                 Ok(())
@@ -49,7 +49,7 @@ macro_rules! cmp_zero_instruction {
                 if $cond(order) {
                     debug!("Branching by {}", jmp);
                     // frame.branch_offset += jmp as i64;
-                    return Err(FlowControl::Branch(jmp as i64))
+                    return Err(FlowControl::Branch(jmp as i64));
                 }
                 Ok(())
             }
@@ -104,7 +104,7 @@ impl InstructionAction for ifnonnull {
         if let Some(JavaValue::Reference(Some(_))) = frame.stack.pop() {
             debug!("Branching by {}", jmp);
             // frame.branch_offset += jmp as i64;
-            return Err(FlowControl::Branch(jmp as i64))
+            return Err(FlowControl::Branch(jmp as i64));
         }
         Ok(())
     }
@@ -116,7 +116,7 @@ impl InstructionAction for ifnull {
 
         if let Some(JavaValue::Reference(None)) = frame.stack.pop() {
             debug!("Branching by {}", jmp);
-            return Err(FlowControl::Branch(jmp as i64))
+            return Err(FlowControl::Branch(jmp as i64));
             // frame.branch_offset += jmp as i64;
         }
         Ok(())

@@ -1,15 +1,20 @@
-use std::ffi::{CString, c_void};
+use std::ffi::{c_void, CString};
 use std::mem::forget;
 use std::ptr::null_mut;
 
-use jni::sys::{jclass, jint, JNIEnv, JNINativeInterface_, JNINativeMethod, jobject, jmethodID, jthrowable, jboolean, jvalue};
+use jni::sys::{
+    jboolean, jclass, jint, jmethodID, jobject, jthrowable, jvalue, JNIEnv, JNINativeInterface_,
+    JNINativeMethod,
+};
 
-use crate::jvm::{ObjectHandle, JavaEnv};
-use crate::jvm::mem::{ManualInstanceReference, ObjectReference, JavaValue, FieldDescriptor, JavaPrimitive};
-use std::os::raw::c_char;
-use crate::constant_pool::ClassElement;
 use crate::class::BufferedRead;
+use crate::constant_pool::ClassElement;
 use crate::jvm::call::FlowControl;
+use crate::jvm::mem::{
+    FieldDescriptor, JavaPrimitive, JavaValue, ManualInstanceReference, ObjectReference,
+};
+use crate::jvm::{JavaEnv, ObjectHandle};
+use std::os::raw::c_char;
 
 // #[deprecated(note="Switch to storing JVM ptr in JNIEnv::reserved0")]
 // pub static mut GLOBAL_JVM: Option<Box<JavaEnv>> = None;
@@ -30,7 +35,7 @@ pub unsafe extern "system" fn register_natives(
     let mut registered = 0;
 
     for method in
-    std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, num_methods as usize)
+        std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, num_methods as usize)
     {
         let name = CString::from_raw(method.name);
         let desc = CString::from_raw(method.signature);
@@ -61,11 +66,12 @@ unsafe extern "system" fn get_object_class(env: *mut JNIEnv, obj: jobject) -> jc
     }
 }
 
-unsafe extern "system" fn get_method_id(env: *mut JNIEnv,
-                                        clazz: jclass,
-                                        name: *const c_char,
-                                        sig: *const c_char)
-                                        -> jmethodID {
+unsafe extern "system" fn get_method_id(
+    env: *mut JNIEnv,
+    clazz: jclass,
+    name: *const c_char,
+    sig: *const c_char,
+) -> jmethodID {
     let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
     let name_obj: Option<ObjectHandle> = a.read_named_field("name");
 
@@ -118,11 +124,12 @@ unsafe fn read_args(signature: &str, values: *const jvalue) -> Vec<JavaValue> {
     }
 }
 
-unsafe extern "system" fn call_obj_method_a(env: *mut JNIEnv,
-                                            obj: jobject,
-                                            method_id: jmethodID,
-                                            args: *const jvalue)
-                                            -> jobject {
+unsafe extern "system" fn call_obj_method_a(
+    env: *mut JNIEnv,
+    obj: jobject,
+    method_id: jmethodID,
+    args: *const jvalue,
+) -> jobject {
     let target = ObjectHandle::from_ptr(obj).unwrap();
     let element = read_method_id(method_id);
     let parsed_args = read_args(&element.desc, args);
@@ -133,7 +140,7 @@ unsafe extern "system" fn call_obj_method_a(env: *mut JNIEnv,
         Err(FlowControl::Throws(x)) => {
             (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 = x.pack().l as _;
             null_mut()
-        },
+        }
         x => panic!("{:?}", x),
     }
 }

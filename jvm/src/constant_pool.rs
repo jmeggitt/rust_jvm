@@ -6,9 +6,9 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_traits::FromPrimitive;
 
 use crate::class::BufferedRead;
+use crate::jvm::mem::FieldDescriptor;
 use crate::version::ClassVersion;
 use std::ops::Index;
-use crate::jvm::mem::FieldDescriptor;
 
 #[repr(transparent)]
 pub struct ConstantPool<'a> {
@@ -110,7 +110,7 @@ impl ClassElement {
         ClassElement {
             class: class.to_string(),
             element: element.to_string(),
-            desc: desc.to_string()
+            desc: desc.to_string(),
         }
     }
 

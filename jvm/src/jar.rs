@@ -34,11 +34,12 @@ pub fn unpack_jar<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     path.as_ref().hash(&mut hasher);
     let file_hash = hasher.finish();
 
+    // TODO: Switch to temporary directory
     let unpack_dir;
     if let Some(prefix) = file_name.strip_suffix(".jar") {
-        unpack_dir = PathBuf::from(format!("java_libs/{}-{:0x?}", prefix, file_hash));
+        unpack_dir = PathBuf::from(format!("/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_libs/{}-{:0x?}", prefix, file_hash));
     } else {
-        unpack_dir = PathBuf::from(format!("java_libs/{}-{:0x?}", &file_name, file_hash));
+        unpack_dir = PathBuf::from(format!("/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_libs/{}-{:0x?}", &file_name, file_hash));
     }
 
     if unpack_dir.exists() {

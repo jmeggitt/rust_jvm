@@ -1,6 +1,6 @@
 use crate::instruction::InstructionAction;
+use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::JavaEnv;
-use crate::jvm::call::{StackFrame, FlowControl};
 
 instruction! {@partial aload, 0x19, u8, 0x2a <-> 0x2d}
 instruction! {@partial astore, 0x3a, u8, 0x4b <-> 0x4e}

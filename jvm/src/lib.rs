@@ -13,6 +13,7 @@ extern crate num_derive;
 pub mod attribute;
 pub mod class;
 pub mod constant_pool;
+pub mod exports;
 pub mod instruction;
 pub mod jar;
 pub mod jvm;

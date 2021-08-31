@@ -1,3 +1,4 @@
+mod interface;
 /// Java Calling Convention:
 ///  - Local Variable table is maintained between calls
 ///  - Returned value is placed on operand stack of previous call
@@ -14,24 +15,22 @@
 ///
 /// TODO: Signature Polymorphic (§2.9.3) are not yet supported
 ///
-
 mod interpreter;
 mod native;
-mod interface;
 mod stack;
 
-
-pub use stack::*;
-pub use native::*;
-pub use interpreter::*;
-use crate::jvm::mem::{FieldDescriptor, ObjectHandle, JavaValue, ObjectReference};
-use crate::class::{BufferedRead, MethodInfo, AccessFlags};
 use crate::attribute::CodeAttribute;
-use crate::jvm::JavaEnv;
+use crate::class::{AccessFlags, BufferedRead, MethodInfo};
 use crate::constant_pool::{ClassElement, Constant};
+use crate::jvm::mem::{FieldDescriptor, JavaValue, ObjectHandle, ObjectReference};
+use crate::jvm::JavaEnv;
+pub use interpreter::*;
+use jni::sys::{JNIEnv, JNINativeInterface_, jthrowable};
+pub use native::*;
+pub use stack::*;
 use std::marker::PhantomData;
-use jni::sys::JNIEnv;
 use std::ops::{Deref, DerefMut};
+use std::ptr::null_mut;
 
 pub trait Method: 'static {
     fn exec(&self, jvm: &mut JavaEnv, args: &[JavaValue]) -> Result<Option<JavaValue>, JavaValue>;
@@ -124,28 +123,35 @@ impl JavaVTable {
         unimplemented!()
     }
 
-
     // pub fn perform(&self, index: usize, jvm: &mut JavaEnv, target: )
 }
 
-
 impl JavaEnv {
-    pub fn invoke(&mut self, element: ClassElement, mut locals: Vec<JavaValue>) -> Result<Option<JavaValue>, FlowControl> {
+    pub fn invoke(
+        &mut self,
+        element: ClassElement,
+        mut locals: Vec<JavaValue>,
+    ) -> Result<Option<JavaValue>, FlowControl> {
         debug!("Running {:?}", &element);
         for (idx, local) in locals.iter().enumerate() {
             debug!("\t{}: {:?}", idx, local);
         }
         self.debug_print_call_stack();
-        let (class_name, method, constants) = match self.find_instance_method(&element.class, &element.element, &element.desc) {
-            Some(v) => v,
-            _ => panic!("Unable to find {:?}", element),
-        };
+        let (class_name, method, constants) =
+            match self.find_instance_method(&element.class, &element.element, &element.desc) {
+                Some(v) => v,
+                _ => panic!("Unable to find {:?}", element),
+            };
 
         let ret = if method.access.contains(AccessFlags::NATIVE) {
-            let fn_ptr = match self.linked_libraries.get_fn_ptr(&class_name, &element.element, &element.desc) {
-                Some(v) => v,
-                None => panic!("Unable to find function {:?}", element),
-            };
+            let fn_ptr =
+                match self
+                    .linked_libraries
+                    .get_fn_ptr(&class_name, &element.element, &element.desc)
+                {
+                    Some(v) => v,
+                    None => panic!("Unable to find function {:?}", element),
+                };
             let native_call = NativeCall::new(fn_ptr, element.build_desc());
 
             // Native static methods require the class
@@ -161,7 +167,12 @@ impl JavaEnv {
             unsafe { native_call.exec(self, target, locals) }
         } else {
             let instructions = method.code(&constants);
-            let mut frame = StackFrame::new(instructions.max_locals as usize, instructions.max_stack as usize, constants, locals);
+            let mut frame = StackFrame::new(
+                instructions.max_locals as usize,
+                instructions.max_stack as usize,
+                constants,
+                locals,
+            );
             frame.exec(self, &instructions)
         };
 
@@ -171,7 +182,12 @@ impl JavaEnv {
         }
     }
 
-    pub fn invoke_special(&mut self, method: ClassElement, target: ObjectHandle, mut args: Vec<JavaValue>) -> Result<Option<JavaValue>, FlowControl> {
+    pub fn invoke_special(
+        &mut self,
+        method: ClassElement,
+        target: ObjectHandle,
+        mut args: Vec<JavaValue>,
+    ) -> Result<Option<JavaValue>, FlowControl> {
         let class = self.class_instance(&target.get_class());
         self.call_stack.push((class, format!("{:?}", &method)));
         args.insert(0, JavaValue::Reference(Some(target)));
@@ -180,7 +196,12 @@ impl JavaEnv {
         ret
     }
 
-    pub fn invoke_virtual(&mut self, mut method: ClassElement, target: ObjectHandle, mut args: Vec<JavaValue>) -> Result<Option<JavaValue>, FlowControl> {
+    pub fn invoke_virtual(
+        &mut self,
+        mut method: ClassElement,
+        target: ObjectHandle,
+        mut args: Vec<JavaValue>,
+    ) -> Result<Option<JavaValue>, FlowControl> {
         method.class = target.get_class();
         let class = self.class_instance(&target.get_class());
         self.call_stack.push((class, format!("{:?}", &method)));
@@ -190,7 +211,11 @@ impl JavaEnv {
         ret
     }
 
-    pub fn invoke_static(&mut self, mut method: ClassElement, mut args: Vec<JavaValue>) -> Result<Option<JavaValue>, FlowControl> {
+    pub fn invoke_static(
+        &mut self,
+        mut method: ClassElement,
+        mut args: Vec<JavaValue>,
+    ) -> Result<Option<JavaValue>, FlowControl> {
         let class = self.class_instance(&method.class);
         self.call_stack.push((class, format!("{:?}", &method)));
         let ret = self.invoke(method, args);
@@ -315,9 +340,25 @@ impl JavaEnv {
 }
 
 #[repr(transparent)]
+#[derive(Copy, Clone)]
 pub struct RawJNIEnv<'a> {
     ptr: *mut JNIEnv,
     _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> RawJNIEnv<'a> {
+    pub unsafe fn set_thrown(&mut self, throwable: Option<ObjectHandle>) {
+        (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 = match throwable {
+            None => null_mut(),
+            Some(v) => v.ptr() as _,
+        }
+    }
+
+    pub unsafe fn read_thrown(&self) -> Option<ObjectHandle> {
+        let ptr = (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 as jthrowable;
+        ObjectHandle::from_ptr(ptr)
+    }
+
 }
 
 impl<'a> Deref for RawJNIEnv<'a> {
@@ -339,6 +380,3 @@ impl<'a> DerefMut for RawJNIEnv<'a> {
         }
     }
 }
-
-
-

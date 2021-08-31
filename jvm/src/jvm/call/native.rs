@@ -1,17 +1,16 @@
-use std::ffi::c_void;
+use crate::jvm::call::interface::build_interface;
+use crate::jvm::call::FlowControl;
+use crate::jvm::mem::{FieldDescriptor, JavaValue, ObjectHandle};
+use crate::jvm::{internals, JavaEnv};
 use hashbrown::HashMap;
-use std::path::PathBuf;
+use jni::sys::JNINativeInterface_;
+use libffi::middle::{Arg, Cif, CodePtr};
 use libloading::Library;
+use std::ffi::c_void;
 use std::io;
 use std::io::{Error, ErrorKind};
-use crate::jvm::{internals, JavaEnv};
-use crate::jvm::mem::{ObjectHandle, JavaValue, FieldDescriptor};
-use crate::jvm::call::interface::build_interface;
-use libffi::middle::{Cif, Arg, CodePtr};
+use std::path::PathBuf;
 use std::ptr::null_mut;
-use jni::sys::JNINativeInterface_;
-use crate::jvm::call::FlowControl;
-
 
 pub struct NativeCall {
     cif: Cif,
@@ -24,14 +23,18 @@ const NULL_BOX: *mut c_void = null_mut();
 
 impl NativeCall {
     pub fn new(fn_ptr: *const c_void, desc: FieldDescriptor) -> Self {
-        assert!(matches!(&desc, FieldDescriptor::Method {..}));
+        assert!(matches!(&desc, FieldDescriptor::Method { .. }));
 
         let cif = desc.build_cif();
-        NativeCall { cif, fn_ptr: CodePtr::from_ptr(fn_ptr), desc }
+        NativeCall {
+            cif,
+            fn_ptr: CodePtr::from_ptr(fn_ptr),
+            desc,
+        }
     }
 
     fn verify_args(&self, arguments: &[JavaValue]) {
-        if let FieldDescriptor::Method {args, ..} = &self.desc {
+        if let FieldDescriptor::Method { args, .. } = &self.desc {
             for (desc, arg) in args.iter().zip(arguments) {
                 assert!(desc.matches(arg));
             }
@@ -54,7 +57,12 @@ impl NativeCall {
         }
     }
 
-    pub unsafe fn exec(&self, jvm: &mut JavaEnv, target: ObjectHandle, args: Vec<JavaValue>) -> Result<Option<JavaValue>, FlowControl> {
+    pub unsafe fn exec(
+        &self,
+        jvm: &mut JavaEnv,
+        target: ObjectHandle,
+        args: Vec<JavaValue>,
+    ) -> Result<Option<JavaValue>, FlowControl> {
         self.verify_args(&args);
 
         let jni_env = build_interface(jvm);
@@ -71,11 +79,11 @@ impl NativeCall {
             ffi_args.push(NativeCall::wrap_arg(arg));
         }
 
-        if let FieldDescriptor::Method { returns, ..} = &self.desc {
+        if let FieldDescriptor::Method { returns, .. } = &self.desc {
             Ok(Some(match &**returns {
                 FieldDescriptor::Void => {
                     self.cif.call::<c_void>(self.fn_ptr, &ffi_args);
-                    return Ok(None)
+                    return Ok(None);
                 }
                 FieldDescriptor::Byte => JavaValue::Byte(self.cif.call(self.fn_ptr, &ffi_args)),
                 FieldDescriptor::Char => JavaValue::Char(self.cif.call(self.fn_ptr, &ffi_args)),
@@ -89,7 +97,7 @@ impl NativeCall {
                     let ret = self.cif.call(self.fn_ptr, &ffi_args);
                     JavaValue::Reference(ObjectHandle::from_ptr(ret))
                 }
-                _ => panic!()
+                _ => panic!(),
             }))
         } else {
             unreachable!("Should have passed argument check")
@@ -122,7 +130,7 @@ pub struct NativeManager {
 impl NativeManager {
     pub fn new() -> Self {
         let mut manager = NativeManager::default();
-        internals::register_natives(&mut manager);
+        // internals::register_natives(&mut manager);
         manager
     }
 
@@ -135,8 +143,12 @@ impl NativeManager {
                         self.load_order.push(path.clone());
                         self.libs.insert(path, v)
                     }
-                    Err(e) => return Err(Error::new(ErrorKind::Other, format!("{}: {}", e, path.display()))),
-                    // Err(e) => return Err(Error::new(ErrorKind::Other, e)),
+                    Err(e) => {
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            format!("{}: {}", e, path.display()),
+                        ))
+                    } // Err(e) => return Err(Error::new(ErrorKind::Other, e)),
                 };
             }
         }

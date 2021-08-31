@@ -5,7 +5,11 @@ macro_rules! const_instruction {
         instruction! {@partial $name, $inst}
 
         impl crate::instruction::InstructionAction for $name {
-            fn exec(&self, stack: &mut crate::jvm::call::StackFrame, _: &mut crate::jvm::JavaEnv) -> Result<(), crate::jvm::call::FlowControl> {
+            fn exec(
+                &self,
+                stack: &mut crate::jvm::call::StackFrame,
+                _: &mut crate::jvm::JavaEnv,
+            ) -> Result<(), crate::jvm::call::FlowControl> {
                 stack.stack.push($value);
                 Ok(())
             }

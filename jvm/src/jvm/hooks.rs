@@ -9,86 +9,85 @@ use jni::sys::{
 };
 use walkdir::WalkDir;
 
-use crate::jvm::mem::{
-    ConstTypeId, JavaValue, ObjectHandle, ObjectReference, ObjectType,
-};
-use crate::jvm::JavaEnv;
-use crate::jvm::call::clean_str;
 use crate::constant_pool::ClassElement;
+use crate::jvm::call::clean_str;
+use crate::jvm::mem::{ConstTypeId, JavaValue, ObjectHandle, ObjectReference, ObjectType};
+use crate::jvm::JavaEnv;
 
 pub fn register_hooks(jvm: &mut JavaEnv) {
     // Load classes since they are outside the class loaders visiblity
     // TODO: Maybe swap to a -cpstd/out/
-    for entry in WalkDir::new("java_std/out") {
-        let entry = entry.expect("Error reading stdlib");
-        if entry.path().extension() == Some("class".as_ref()) {
-            jvm.class_loader
-                .load_new(&entry.path().to_path_buf())
-                .unwrap();
-        }
-    }
+    // for entry in WalkDir::new("java_std/out") {
+    //     let entry = entry.expect("Error reading stdlib");
+    //     if entry.path().extension() == Some("class".as_ref()) {
+    //         jvm.class_loader
+    //             .load_new(&entry.path().to_path_buf())
+    //             .unwrap();
+    //     }
+    // }
 
-    jvm.linked_libraries.register_fn(
-        "sun/misc/Unsafe",
-        "registerNatives",
-        "()V",
-        empty as *const c_void,
-    );
-
-    // jvm.init_class("java/lang/Object");
-
-    jvm.linked_libraries.register_fn(
-        "java/lang/Object",
-        "hashCode",
-        "()I",
-        hash_object as *const c_void,
-    );
-
-    // jvm.init_class("java/lang/System");
-
-    jvm.linked_libraries.register_fn(
-        "java/lang/System",
-        "arraycopy",
-        "(Ljava/lang/Object;ILjava/lang/Object;II)V",
-        array_copy as *const c_void,
-    );
-
-    // jvm.init_class("java/lang/Class");
-
-    jvm.linked_libraries.register_fn(
-        "java/lang/Class",
-        "desiredAssertionStatus0",
-        "(Ljava/lang/Class;)Z",
-        desired_assertions as *const c_void,
-    );
-
-    jvm.linked_libraries.register_fn(
-        "java/lang/Class",
-        "getPrimitiveClass",
-        "(Ljava/lang/String;)Ljava/lang/Class;",
-        get_class as *const c_void,
-    );
-
-    let print_fn = print_stream_hook as *const c_void;
-    jvm.linked_libraries.register_fn(
-        "jvm/hooks/PrintStreamHook",
-        "sendIO",
-        "(ILjava/lang/String;)V",
-        print_fn,
-    );
+    // jvm.linked_libraries.register_fn(
+    //     "sun/misc/Unsafe",
+    //     "registerNatives",
+    //     "()V",
+    //     empty as *const c_void,
+    // );
+    //
+    // // jvm.init_class("java/lang/Object");
+    //
+    // jvm.linked_libraries.register_fn(
+    //     "java/lang/Object",
+    //     "hashCode",
+    //     "()I",
+    //     hash_object as *const c_void,
+    // );
+    //
+    // // jvm.init_class("java/lang/System");
+    //
+    // jvm.linked_libraries.register_fn(
+    //     "java/lang/System",
+    //     "arraycopy",
+    //     "(Ljava/lang/Object;ILjava/lang/Object;II)V",
+    //     array_copy as *const c_void,
+    // );
+    //
+    // // jvm.init_class("java/lang/Class");
+    //
+    // jvm.linked_libraries.register_fn(
+    //     "java/lang/Class",
+    //     "desiredAssertionStatus0",
+    //     "(Ljava/lang/Class;)Z",
+    //     desired_assertions as *const c_void,
+    // );
+    //
+    // jvm.linked_libraries.register_fn(
+    //     "java/lang/Class",
+    //     "getPrimitiveClass",
+    //     "(Ljava/lang/String;)Ljava/lang/Class;",
+    //     get_class as *const c_void,
+    // );
+    //
+    // let print_fn = print_stream_hook as *const c_void;
+    // jvm.linked_libraries.register_fn(
+    //     "jvm/hooks/PrintStreamHook",
+    //     "sendIO",
+    //     "(ILjava/lang/String;)V",
+    //     print_fn,
+    // );
 
     jvm.init_class("jvm/hooks/PrintStreamHook");
-    let method = ClassElement::new("jvm/hooks/PrintStreamHook", "buildStream", "(I)Ljava/io/PrintStream;");
+    let method = ClassElement::new(
+        "jvm/hooks/PrintStreamHook",
+        "buildStream",
+        "(I)Ljava/io/PrintStream;",
+    );
     let stdout = jvm
         .invoke_static(method.clone(), vec![JavaValue::Int(0)])
         .unwrap()
         .unwrap();
     // jvm.locals[0] = JavaValue::Int(1);
     let stderr = jvm
-        .invoke_static(
-            method,
-            vec![JavaValue::Int(1)],
-        )
+        .invoke_static(method, vec![JavaValue::Int(1)])
         .unwrap()
         .unwrap();
 

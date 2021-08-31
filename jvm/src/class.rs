@@ -729,7 +729,10 @@ impl ClassPath {
                 let mut i = 0;
                 while i < path.len() {
                     if !path[i].exists() {
-                        warn!("Unable to find {}; dropped from classpath", path.remove(i).display());
+                        warn!(
+                            "Unable to find {}; dropped from classpath",
+                            path.remove(i).display()
+                        );
                     } else {
                         i += 1;
                     }

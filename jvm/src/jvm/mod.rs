@@ -6,15 +6,13 @@ use hashbrown::{HashMap, HashSet};
 use jni::sys::jchar;
 use walkdir::WalkDir;
 
-
 use crate::class::{AccessFlags, BufferedRead, Class, ClassLoader, MethodInfo};
-use crate::constant_pool::{Constant, ClassElement};
+use crate::constant_pool::{ClassElement, Constant};
+use crate::jvm::call::{FlowControl, NativeManager, StackFrame, VirtualMachine};
 use crate::jvm::hooks::register_hooks;
 use crate::jvm::mem::{
-    ClassSchema, FieldDescriptor, JavaValue, ManualInstanceReference, ObjectHandle,
-    ObjectReference,
+    ClassSchema, FieldDescriptor, JavaValue, ManualInstanceReference, ObjectHandle, ObjectReference,
 };
-use crate::jvm::call::{NativeManager, StackFrame, FlowControl, VirtualMachine};
 use std::thread::ThreadId;
 
 macro_rules! fatal_error {
@@ -24,8 +22,8 @@ macro_rules! fatal_error {
     }};
 }
 
-pub mod mem;
 pub mod call;
+pub mod mem;
 
 mod hooks;
 mod internals;
@@ -165,11 +163,19 @@ impl JavaEnv {
         let lib_dir = self.class_loader.class_path().java_home().join("bin");
         info!("Loading shared libraries from {}", lib_dir.display());
 
-
-        #[cfg(unix)]
-            self.linked_libraries.load_library("/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release/librustyjvm.so".into()).unwrap();
-        #[cfg(windows)]
-            self.linked_libraries.load_library("C:/Users/Jasper/CLionProjects/JavaClassTests/target/release/rustyjvm.dll".into()).unwrap();
+        // #[cfg(unix)]
+        // self.linked_libraries
+        //     .load_library(
+        //         "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release/librustyjvm.so"
+        //             .into(),
+        //     )
+        //     .unwrap();
+        // #[cfg(windows)]
+        // self.linked_libraries
+        //     .load_library(
+        //         "C:/Users/Jasper/CLionProjects/JavaClassTests/target/release/rustyjvm.dll".into(),
+        //     )
+        //     .unwrap();
 
         // We need to load this first since the following libraries depend on it
         // #[cfg(unix)]
@@ -187,6 +193,11 @@ impl JavaEnv {
             }
 
             #[cfg(unix)]
+            if entry.path().to_str().unwrap().contains("libjvm") {
+                continue
+            }
+
+            #[cfg(unix)]
             if entry.path().extension() == Some("so".as_ref()) {
                 self.linked_libraries
                     .load_library(entry.path().to_path_buf())?;
@@ -198,7 +209,6 @@ impl JavaEnv {
                     .load_library(entry.path().to_path_buf())?;
             }
         }
-        panic!();
 
         Ok(())
     }
@@ -257,8 +267,7 @@ impl JavaEnv {
 
         self.class_loader.attempt_load(class)?;
 
-        let arg =
-            JavaValue::Reference(Some(ObjectHandle::new_array::<Option<ObjectHandle>>(0)));
+        let arg = JavaValue::Reference(Some(ObjectHandle::new_array::<Option<ObjectHandle>>(0)));
         // self.exec_static(class, "main", "([Ljava/lang/String;)V", vec![arg])
         //     .unwrap();
         let method = ClassElement::new(class, "main", "([Ljava/lang/String;)V");

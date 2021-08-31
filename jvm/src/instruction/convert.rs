@@ -1,7 +1,7 @@
 use crate::instruction::InstructionAction;
+use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
-use crate::jvm::call::{StackFrame, FlowControl};
 
 macro_rules! convert_instruction {
     ($name:ident, $inst:literal, $from:ident -> $to:ident) => {
