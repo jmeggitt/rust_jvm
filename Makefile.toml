@@ -8,7 +8,7 @@ default_to_workspace = false
 [tasks.test-run]
 toolchain = "nightly"
 command = "cargo"
-args = ["run", "--release", "--bin", "java", "--", "-v", "Simple"]
+args = ["run", "-p", "java", "--", "-v", "Simple"]
 dependencies = ["build"]
 
 [tasks.test-run.windows]
@@ -17,9 +17,7 @@ toolchain = "nightly-i686-pc-windows-msvc"
 [tasks.build]
 toolchain = "nightly"
 command = "cargo"
-#args = ["rustc", "--release", "-p", "java_std", "--", "--emit=obj"]
-#args = ["rustc", "--release", "-p", "java_std", "--", "-C", "link-args=-Wl,--version-script=/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_std/test-mapfile"]
-args = ["build", "--release", "-p", "jvm"]
+args = ["build", "-p", "java_std"]
 
 [tasks.build.windows]
 toolchain = "nightly-i686-pc-windows-msvc"

@@ -101,9 +101,7 @@ fn main() {
             }
         }
         // If neither is given, default to user directory
-        _ => {
-            class_path.push(".".into())
-        }
+        _ => class_path.push(".".into()),
     };
 
     class_path.push("/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_std/out".into());

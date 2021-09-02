@@ -1,25 +1,28 @@
 #![allow(dead_code, unused_variables, non_snake_case, non_camel_case_types)]
 #![deny(improper_ctypes_definitions)]
 
+use crate::constant_pool::ClassElement;
+use crate::jvm::call::{FlowControl, RawJNIEnv};
+use crate::jvm::mem::{ConstTypeId, JavaValue, ObjectHandle, ObjectReference, ObjectType};
 use jni::sys::*;
-use std::ffi::c_void;
-use crate::jvm::call::RawJNIEnv;
-use crate::jvm::mem::ObjectHandle;
 use std::collections::hash_map::DefaultHasher;
+use std::ffi::c_void;
 use std::hash::{Hash, Hasher};
-use std::time::{UNIX_EPOCH, SystemTime};
 use std::process::exit;
 use std::ptr::null_mut;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 macro_rules! obj_expect {
-    ($env:ident, $obj:ident) => { obj_expect!($env, $obj, ()) };
+    ($env:ident, $obj:ident) => {
+        obj_expect!($env, $obj, ())
+    };
     ($env:ident, $obj:ident, $ret:expr) => {
         match ObjectHandle::from_ptr($obj as _) {
             Some(v) => v,
             None => {
                 // TODO: throw null pointer exception
                 $env.set_thrown(None);
-                return $ret
+                return $ret;
             }
         }
     };
@@ -31,9 +34,9 @@ pub unsafe extern "system" fn JNI_GetDefaultJavaVMInitArgs_impl(args: *mut c_voi
         version: JNI_VERSION_1_8,
         nOptions: 0,
         options: null_mut(),
-        ignoreUnrecognized: JNI_TRUE
+        ignoreUnrecognized: JNI_TRUE,
     };
-    return 0
+    return 0;
 }
 
 #[no_mangle]
@@ -46,7 +49,11 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JNI_GetCreatedJavaVMs_impl(vmBuf: *mut *mut JavaVM, bufLen: jsize, nVMs: *mut jsize) -> jint {
+pub unsafe extern "system" fn JNI_GetCreatedJavaVMs_impl(
+    vmBuf: *mut *mut JavaVM,
+    bufLen: jsize,
+    nVMs: *mut jsize,
+) -> jint {
     unimplemented!()
 }
 
@@ -135,7 +142,73 @@ pub unsafe extern "system" fn JVM_ArrayCopy_impl(
     dst_pos: jint,
     length: jint,
 ) {
-    unimplemented!()
+    // FIXME: Panic and throw exceptions on null or invalid arguments
+    let src_object = ObjectHandle::from_ptr(src).unwrap();
+    let dst_object = ObjectHandle::from_ptr(dst).unwrap();
+
+    if src_object.memory_layout() != dst_object.memory_layout() {
+        panic!("Attempted arraycopy with different typed arrays!");
+    }
+
+    match src_object.memory_layout() {
+        ObjectType::Array(jboolean::ID) => src_object.expect_array::<jboolean>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jbyte::ID) => src_object.expect_array::<jbyte>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jchar::ID) => src_object.expect_array::<jchar>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jshort::ID) => src_object.expect_array::<jshort>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jint::ID) => src_object.expect_array::<jint>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jlong::ID) => src_object.expect_array::<jlong>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jfloat::ID) => src_object.expect_array::<jfloat>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(jdouble::ID) => src_object.expect_array::<jdouble>().array_copy(
+            dst_object,
+            src_pos as usize,
+            dst_pos as usize,
+            length as usize,
+        ),
+        ObjectType::Array(<Option<ObjectHandle>>::ID) => src_object
+            .expect_array::<Option<ObjectHandle>>()
+            .array_copy(
+                dst_object,
+                src_pos as usize,
+                dst_pos as usize,
+                length as usize,
+            ),
+        x => panic!("Array copy can not be preformed with type {:?}", x),
+    };
 }
 
 #[no_mangle]
@@ -381,7 +454,11 @@ pub unsafe extern "system" fn JVM_Yield_impl(mut env: RawJNIEnv, threadClass: jc
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_Sleep_impl(mut env: RawJNIEnv, threadClass: jclass, millis: jlong) {
+pub unsafe extern "system" fn JVM_Sleep_impl(
+    mut env: RawJNIEnv,
+    threadClass: jclass,
+    millis: jlong,
+) {
     unimplemented!()
 }
 
@@ -394,7 +471,10 @@ pub unsafe extern "system" fn JVM_CurrentThread_impl(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_CountStackFrames_impl(mut env: RawJNIEnv, thread: jobject) -> jint {
+pub unsafe extern "system" fn JVM_CountStackFrames_impl(
+    mut env: RawJNIEnv,
+    thread: jobject,
+) -> jint {
     unimplemented!()
 }
 
@@ -797,7 +877,10 @@ pub unsafe extern "system" fn JVM_IsArrayClass_impl(mut env: RawJNIEnv, cls: jcl
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_IsPrimitiveClass_impl(mut env: RawJNIEnv, cls: jclass) -> jboolean {
+pub unsafe extern "system" fn JVM_IsPrimitiveClass_impl(
+    mut env: RawJNIEnv,
+    cls: jclass,
+) -> jboolean {
     unimplemented!()
 }
 
@@ -829,7 +912,10 @@ pub unsafe extern "system" fn JVM_GetDeclaringClass_impl(
 
 /* Generics support _impl(JDK 1.5) */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassSignature_impl(mut env: RawJNIEnv, cls: jclass) -> jstring {
+pub unsafe extern "system" fn JVM_GetClassSignature_impl(
+    mut env: RawJNIEnv,
+    cls: jclass,
+) -> jstring {
     unimplemented!()
 }
 
@@ -906,7 +992,10 @@ pub unsafe extern "system" fn JVM_GetClassDeclaredConstructors_impl(
  the low 13 bits _impl(i.e., a mask of 0x1FFF) are guaranteed to be
  valid. */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassAccessFlags_impl(mut env: RawJNIEnv, cls: jclass) -> jint {
+pub unsafe extern "system" fn JVM_GetClassAccessFlags_impl(
+    mut env: RawJNIEnv,
+    cls: jclass,
+) -> jint {
     unimplemented!()
 }
 
@@ -1111,7 +1200,21 @@ pub unsafe extern "system" fn JVM_DoPrivileged_impl(
     context: jobject,
     wrapException: jboolean,
 ) -> jobject {
-    unimplemented!()
+    let action = obj_expect!(env, action, null_mut());
+    let element = ClassElement {
+        class: action.get_class(),
+        element: "run".to_string(),
+        desc: "()Ljava/lang/Object;".to_string(),
+    };
+
+    match env.invoke_virtual(element, action, vec![]) {
+        Ok(Some(JavaValue::Reference(None))) => null_mut(),
+        Ok(Some(JavaValue::Reference(Some(v)))) => v.ptr(),
+        // FIXME: This should handle exceptions
+        // Err(FlowControl::Throws(x))
+        x => panic!("{:?}", x),
+    }
+    // panic!("Action: {:?}", ObjectHandle::from_ptr(action))
 }
 
 #[no_mangle]
@@ -1164,7 +1267,8 @@ pub unsafe extern "system" fn JVM_DesiredAssertionStatus_impl(
     unused: jclass,
     cls: jclass,
 ) -> jboolean {
-    unimplemented!()
+    // TODO: Allow assertions on specific classes
+    JNI_FALSE
 }
 
 /*
@@ -1360,7 +1464,10 @@ PART 2: Support for the Verifier and Class File Format Checker
  * in any way.
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassNameUTF_impl(mut env: RawJNIEnv, cb: jclass) -> *const u8 {
+pub unsafe extern "system" fn JVM_GetClassNameUTF_impl(
+    mut env: RawJNIEnv,
+    cb: jclass,
+) -> *const u8 {
     unimplemented!()
 }
 
@@ -1396,7 +1503,10 @@ pub unsafe extern "system" fn JVM_GetClassFieldsCount_impl(mut env: RawJNIEnv, c
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassMethodsCount_impl(mut env: RawJNIEnv, cb: jclass) -> jint {
+pub unsafe extern "system" fn JVM_GetClassMethodsCount_impl(
+    mut env: RawJNIEnv,
+    cb: jclass,
+) -> jint {
     unimplemented!()
 }
 

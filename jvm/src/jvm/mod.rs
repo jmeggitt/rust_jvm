@@ -163,19 +163,19 @@ impl JavaEnv {
         let lib_dir = self.class_loader.class_path().java_home().join("bin");
         info!("Loading shared libraries from {}", lib_dir.display());
 
-        // #[cfg(unix)]
-        // self.linked_libraries
-        //     .load_library(
-        //         "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release/librustyjvm.so"
-        //             .into(),
-        //     )
-        //     .unwrap();
-        // #[cfg(windows)]
-        // self.linked_libraries
-        //     .load_library(
-        //         "C:/Users/Jasper/CLionProjects/JavaClassTests/target/release/rustyjvm.dll".into(),
-        //     )
-        //     .unwrap();
+        #[cfg(unix)]
+        self.linked_libraries
+            .load_library(
+                "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/debug/librustyjvm.so"
+                    .into(),
+            )
+            .unwrap();
+        #[cfg(windows)]
+        self.linked_libraries
+            .load_library(
+                "C:/Users/Jasper/CLionProjects/JavaClassTests/target/debug/rustyjvm.dll".into(),
+            )
+            .unwrap();
 
         // We need to load this first since the following libraries depend on it
         // #[cfg(unix)]
@@ -194,7 +194,7 @@ impl JavaEnv {
 
             #[cfg(unix)]
             if entry.path().to_str().unwrap().contains("libjvm") {
-                continue
+                continue;
             }
 
             #[cfg(unix)]

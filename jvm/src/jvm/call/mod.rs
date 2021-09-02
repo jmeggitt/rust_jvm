@@ -25,7 +25,7 @@ use crate::constant_pool::{ClassElement, Constant};
 use crate::jvm::mem::{FieldDescriptor, JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;
 pub use interpreter::*;
-use jni::sys::{JNIEnv, JNINativeInterface_, jthrowable};
+use jni::sys::{jthrowable, JNIEnv, JNINativeInterface_};
 pub use native::*;
 pub use stack::*;
 use std::marker::PhantomData;
@@ -202,12 +202,16 @@ impl JavaEnv {
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
+        println!("E");
         method.class = target.get_class();
         let class = self.class_instance(&target.get_class());
+        println!("F");
         self.call_stack.push((class, format!("{:?}", &method)));
         args.insert(0, JavaValue::Reference(Some(target)));
+        println!("G");
         let ret = self.invoke(method, args);
         self.call_stack.pop().unwrap();
+        println!("H");
         ret
     }
 
@@ -358,7 +362,6 @@ impl<'a> RawJNIEnv<'a> {
         let ptr = (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 as jthrowable;
         ObjectHandle::from_ptr(ptr)
     }
-
 }
 
 impl<'a> Deref for RawJNIEnv<'a> {

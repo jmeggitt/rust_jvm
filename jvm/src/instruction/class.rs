@@ -3,7 +3,7 @@ use std::io::Cursor;
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::class::BufferedRead;
+use crate::class::{AccessFlags, BufferedRead};
 use crate::constant_pool::{ClassElement, Constant};
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
 use crate::jvm::call::{clean_str, FlowControl, StackFrame};
@@ -12,6 +12,28 @@ use crate::jvm::mem::{JavaValue, ManualInstanceReference, ObjectHandle, ObjectRe
 use crate::jvm::JavaEnv;
 
 instruction! {@partial getstatic, 0xb2, u16}
+
+impl getstatic {
+    fn check_static_init(
+        jvm: &mut JavaEnv,
+        class: &str,
+        field: &str,
+        desc: &str,
+    ) -> Option<JavaValue> {
+        let class_spec = jvm.class_loader.class(class)?;
+        let field_spec = class_spec.get_field(field, desc)?;
+        if !field_spec.access.contains(AccessFlags::STATIC) {
+            return None;
+        }
+
+        let descriptor = FieldDescriptor::read_str(desc).ok()?;
+        let ret = descriptor.initial_local();
+
+        let field_reference = format!("{}_{}", clean_str(class), clean_str(desc));
+        jvm.static_fields.insert(field_reference, ret.clone());
+        Some(ret)
+    }
+}
 
 impl InstructionAction for getstatic {
     fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
@@ -37,7 +59,11 @@ impl InstructionAction for getstatic {
             let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
             let value = match jvm.static_fields.get(&field_reference) {
                 Some(v) => v.clone(),
-                None => panic!("Static value not found: {}::{}", &class_name, &field_name),
+                None => match Self::check_static_init(jvm, &class_name, &field_name, &descriptor) {
+                    Some(v) => v,
+                    // Check if the element exists, but has not been initialized yet
+                    None => panic!("Static value not found: {}::{}", &class_name, &field_name),
+                },
             };
             debug!(
                 "Got value {:?} from {}::{} {}",

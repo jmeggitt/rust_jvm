@@ -6,6 +6,7 @@ use std::hash::{Hash, Hasher};
 
 use jni::sys::{
     jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jobject, jshort, jstring, JNIEnv,
+    JNINativeMethod,
 };
 use walkdir::WalkDir;
 
@@ -13,6 +14,7 @@ use crate::constant_pool::ClassElement;
 use crate::jvm::call::clean_str;
 use crate::jvm::mem::{ConstTypeId, JavaValue, ObjectHandle, ObjectReference, ObjectType};
 use crate::jvm::JavaEnv;
+use std::os::raw::c_char;
 
 pub fn register_hooks(jvm: &mut JavaEnv) {
     // Load classes since they are outside the class loaders visiblity
@@ -26,12 +28,13 @@ pub fn register_hooks(jvm: &mut JavaEnv) {
     //     }
     // }
 
-    // jvm.linked_libraries.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "registerNatives",
-    //     "()V",
-    //     empty as *const c_void,
-    // );
+    // TODO: Implement a register natives function for sun/misc/Unsafe and more declarations there
+    jvm.linked_libraries.register_fn(
+        "sun/misc/Unsafe",
+        "registerNatives",
+        "()V",
+        empty as *const c_void,
+    );
     //
     // // jvm.init_class("java/lang/Object");
     //
@@ -42,8 +45,21 @@ pub fn register_hooks(jvm: &mut JavaEnv) {
     //     hash_object as *const c_void,
     // );
     //
-    // // jvm.init_class("java/lang/System");
-    //
+
+    // jvm.linked_libraries.register_fn(
+    //     "java/lang/System",
+    //     "registerNatives",
+    //     "()V",
+    //     system_register_natives as *const c_void);
+
+    // jvm.class_loader.attempt_load("java/lang/System").unwrap();
+    // jvm.invoke_static(ClassElement::new("java/lang/System", "registerNatives", "()V"), vec![]).unwrap();
+    // panic!();
+    // jvm.init_class("java/lang/System");
+
+    // let field_reference = format!("{}_{}", clean_str("java/lang/Thread"), clean_str(&field_name));
+    // jvm.static_fields.insert(field_reference, value);
+
     // jvm.linked_libraries.register_fn(
     //     "java/lang/System",
     //     "arraycopy",
@@ -96,6 +112,30 @@ pub fn register_hooks(jvm: &mut JavaEnv) {
 
     let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("err"));
     jvm.static_fields.insert(field_reference, stderr);
+}
+
+/// Java_java_lang_System_registerNatives
+/// TODO: There are other java/lang/System functions defined in libjvm.so
+pub unsafe extern "system" fn system_register_natives(env: *mut JNIEnv, cls: jclass) {
+    let methods = [
+        JNINativeMethod {
+            name: "currentTimeMillis".as_ptr() as *mut c_char,
+            signature: "()J".as_ptr() as *mut c_char,
+            fnPtr: crate::exports::JVM_CurrentTimeMillis_impl as *mut c_void,
+        },
+        JNINativeMethod {
+            name: "nanoTime".as_ptr() as *mut c_char,
+            signature: "()J".as_ptr() as *mut c_char,
+            fnPtr: crate::exports::JVM_NanoTime_impl as *mut c_void,
+        },
+        JNINativeMethod {
+            name: "arraycopy".as_ptr() as *mut c_char,
+            signature: "(Ljava/lang/Object;Ijava/lang/Object;II)V".as_ptr() as *mut c_char,
+            fnPtr: crate::exports::JVM_ArrayCopy_impl as *mut c_void,
+        },
+    ];
+
+    (**env).RegisterNatives.unwrap()(env, cls, methods.as_ptr(), methods.len() as jint);
 }
 
 pub unsafe extern "system" fn hash_object(_env: *mut JNIEnv, obj: jobject) -> jint {

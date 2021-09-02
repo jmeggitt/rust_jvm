@@ -130,7 +130,7 @@ pub struct NativeManager {
 impl NativeManager {
     pub fn new() -> Self {
         let mut manager = NativeManager::default();
-        // internals::register_natives(&mut manager);
+        internals::register_natives(&mut manager);
         manager
     }
 
