@@ -3,6 +3,8 @@ use crate::constant_pool::Constant;
 use crate::jvm::call::FlowControl;
 use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;
+use crate::profile_scope_cfg;
+
 use std::mem::replace;
 
 pub struct StackFrame {
@@ -34,17 +36,11 @@ impl StackFrame {
             constants,
             locals: args,
             stack: Vec::with_capacity(max_stack),
-            // branch_offset: 0,
-            // returns: None,
-            // throws: None,
         }
     }
 
     pub fn debug_print(&self) {
         debug!("Stack Frame Debug:");
-        // debug!("\tBranching Offset: {:?}", self.branch_offset);
-        // debug!("\tReturn Slot: {:?}", &self.returns);
-
         debug!("\tLocal Variables: {}", self.locals.len());
         for (idx, local) in self.locals.iter().enumerate() {
             debug!("\t\t{}:\t{:?}", idx, local)
@@ -79,40 +75,49 @@ impl StackFrame {
 
             // let instruction = &self.code.instructions[self.rip];
             debug!("Executing instruction {:?}", &code.instructions[rip]);
-            match code.instructions[rip].1.exec(self, jvm) {
-                Err(FlowControl::Branch(mut branch_offset)) => {
-                    while branch_offset != 0 {
-                        let (current_pos, _) = code.instructions[rip];
-                        rip = (rip as i64 + branch_offset.signum()) as usize;
-                        branch_offset -= code.instructions[rip].0 as i64 - current_pos as i64;
+            {
+                #[cfg(feature = "profile")]
+                let type_name = format!("{:?}", &code.instructions[rip].1);
+                profile_scope_cfg!(
+                    "{}",
+                    &type_name[..type_name.find('(').unwrap_or(type_name.len())]
+                );
+
+                match code.instructions[rip].1.exec(self, jvm) {
+                    Err(FlowControl::Branch(mut branch_offset)) => {
+                        while branch_offset != 0 {
+                            let (current_pos, _) = code.instructions[rip];
+                            rip = (rip as i64 + branch_offset.signum()) as usize;
+                            branch_offset -= code.instructions[rip].0 as i64 - current_pos as i64;
+                        }
                     }
-                }
-                Err(FlowControl::Throws(Some(e))) => {
-                    let exception_class = e.get_class();
+                    Err(FlowControl::Throws(Some(e))) => {
+                        let exception_class = e.get_class();
 
-                    let position = code.instructions[rip].0;
-                    match code.attempt_catch(position, &exception_class, &self.constants, jvm) {
-                        Some(jump_dst) => {
-                            debug!("Exception successfully caught, branching to catch block!");
-                            let mut branch_offset = jump_dst as i64 - position as i64;
+                        let position = code.instructions[rip].0;
+                        match code.attempt_catch(position, &exception_class, &self.constants, jvm) {
+                            Some(jump_dst) => {
+                                debug!("Exception successfully caught, branching to catch block!");
+                                let mut branch_offset = jump_dst as i64 - position as i64;
 
-                            while branch_offset != 0 {
-                                let (current_pos, _) = code.instructions[rip];
-                                rip = (rip as i64 + branch_offset.signum()) as usize;
-                                branch_offset -=
-                                    code.instructions[rip].0 as i64 - current_pos as i64;
+                                while branch_offset != 0 {
+                                    let (current_pos, _) = code.instructions[rip];
+                                    rip = (rip as i64 + branch_offset.signum()) as usize;
+                                    branch_offset -=
+                                        code.instructions[rip].0 as i64 - current_pos as i64;
+                                }
+                            }
+                            None => {
+                                warn!("Exception not caught, Raising: {}", exception_class);
+                                jvm.debug_print_call_stack();
+                                return Err(FlowControl::Throws(Some(e)));
                             }
                         }
-                        None => {
-                            warn!("Exception not caught, Raising: {}", exception_class);
-                            jvm.debug_print_call_stack();
-                            return Err(FlowControl::Throws(Some(e)));
-                        }
                     }
-                }
-                Err(x) => return Err(x),
-                _ => rip += 1,
-            };
+                    Err(x) => return Err(x),
+                    _ => rip += 1,
+                };
+            }
         }
     }
 }

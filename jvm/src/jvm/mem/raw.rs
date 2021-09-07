@@ -2,15 +2,17 @@ use std::any::{type_name, TypeId};
 use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
 
-use crate::jvm::mem::{ClassSchema, JavaPrimitive, JavaValue, ObjectHandle, ObjectType};
+use crate::jvm::mem::{
+    ClassSchema, JavaPrimitive, JavaValue, NonCircularDebug, ObjectHandle, ObjectType,
+};
 use gc::{Finalize, Trace};
+use hashbrown::HashSet;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem::size_of;
 use std::sync::Arc;
 
-// #[repr(C, align(8))]
 pub struct RawObject<T: ?Sized> {
     pub schema: Arc<ClassSchema>,
     fields: UnsafeCell<T>,
@@ -153,8 +155,12 @@ empty_trace!(RawObject<Vec<jfloat>>);
 empty_trace!(RawObject<Vec<jdouble>>);
 empty_trace!(RawObject<()>);
 
-impl Debug for RawObject<Vec<jvalue>> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl NonCircularDebug for RawObject<Vec<jvalue>> {
+    fn non_cyclical_fmt(
+        &self,
+        f: &mut Formatter<'_>,
+        touched: &mut HashSet<ObjectHandle>,
+    ) -> std::fmt::Result {
         if self.get_class() == "java/lang/String" {
             let data: Option<ObjectHandle> = self.read_named_field("value");
             if let Some(arr) = data.map(|x| x.expect_array::<jchar>()) {
@@ -172,7 +178,9 @@ impl Debug for RawObject<Vec<jvalue>> {
 
             for field in &self.schema.field_lookup {
                 let value: JavaValue = self.read_field(field.offset);
-                write!(f, "{}: {:?}, ", &field.name, value)?;
+                write!(f, "{}: ", &field.name)?;
+                value.non_cyclical_fmt(f, touched)?;
+                write!(f, ", ")?;
             }
 
             write!(f, "}}")
@@ -180,11 +188,22 @@ impl Debug for RawObject<Vec<jvalue>> {
     }
 }
 
-impl<T: JavaPrimitive + Debug> Debug for RawObject<Vec<T>>
+impl Debug for RawObject<Vec<jvalue>> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut touched = HashSet::new();
+        self.non_cyclical_fmt(f, &mut touched)
+    }
+}
+
+impl<T: JavaPrimitive + NonCircularDebug> NonCircularDebug for RawObject<Vec<T>>
 where
     Self: ArrayReference<T>,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn non_cyclical_fmt(
+        &self,
+        f: &mut Formatter<'_>,
+        touched: &mut HashSet<ObjectHandle>,
+    ) -> std::fmt::Result {
         match TypeId::of::<T>() {
             jboolean::ID => write!(f, "boolean"),
             jbyte::ID => write!(f, "byte"),
@@ -195,10 +214,40 @@ where
             jfloat::ID => write!(f, "float"),
             jdouble::ID => write!(f, "double"),
             ObjectHandle::ID => write!(f, "Object"),
+            <Option<ObjectHandle>>::ID => write!(f, "Object"),
             _ => write!(f, "{}", type_name::<T>()),
         }?;
 
-        unsafe { write!(f, "[{:?}]", &*self.fields.get()) }
+        unsafe {
+            write!(f, "[")?;
+            (&*self.fields.get()).non_cyclical_fmt(f, touched)?;
+            // write!(f, "[{:?}]", &*self.fields.get())
+            write!(f, "[")
+        }
+    }
+}
+
+impl<T: JavaPrimitive + NonCircularDebug> Debug for RawObject<Vec<T>>
+where
+    Self: ArrayReference<T>,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut touched = HashSet::new();
+        self.non_cyclical_fmt(f, &mut touched)
+        // match TypeId::of::<T>() {
+        //     jboolean::ID => write!(f, "boolean"),
+        //     jbyte::ID => write!(f, "byte"),
+        //     jchar::ID => write!(f, "char"),
+        //     jshort::ID => write!(f, "short"),
+        //     jint::ID => write!(f, "int"),
+        //     jlong::ID => write!(f, "long"),
+        //     jfloat::ID => write!(f, "float"),
+        //     jdouble::ID => write!(f, "double"),
+        //     ObjectHandle::ID => write!(f, "Object"),
+        //     _ => write!(f, "{}", type_name::<T>()),
+        // }?;
+        //
+        // unsafe { write!(f, "[{:?}]", &*self.fields.get()) }
     }
 }
 
@@ -289,11 +338,11 @@ impl InstanceReference<jvalue> for RawObject<Vec<jvalue>> {
 impl InstanceReference<JavaValue> for RawObject<Vec<jvalue>> {
     fn write_field(&self, offset: usize, val: JavaValue) {
         let field = self.schema.get_field_from_offset(offset);
-        if !field.desc.matches(&val) {
+        if let Some(v) = field.desc.assign_from(val) {
+            <Self as InstanceReference<jvalue>>::write_field(self, offset, val.into());
+        } else {
             panic!("{:?} does not match {:?}", field.desc, val);
         }
-        // assert!(field.desc.matches(&val));
-        <Self as InstanceReference<jvalue>>::write_field(self, offset, val.into());
     }
 
     fn read_field(&self, offset: usize) -> JavaValue {

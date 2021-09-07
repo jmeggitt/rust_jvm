@@ -1,5 +1,6 @@
 use crate::instruction::InstructionAction;
 use crate::jvm::call::{FlowControl, StackFrame};
+use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
 
 instruction! {@partial dup, 0x59}
@@ -8,6 +9,8 @@ instruction! {@partial dup_x2, 0x5b}
 instruction! {@partial dup2, 0x5c}
 instruction! {@partial dup2_x1, 0x5d}
 instruction! {@partial dup2_x2, 0x5e}
+
+// FIXME: Most of these commands have multiple forms depending on the stack element length
 
 impl InstructionAction for dup {
     fn exec(&self, frame: &mut StackFrame, _: &mut JavaEnv) -> Result<(), FlowControl> {
@@ -44,8 +47,16 @@ impl InstructionAction for dup_x2 {
 
 impl InstructionAction for dup2 {
     fn exec(&self, frame: &mut StackFrame, _: &mut JavaEnv) -> Result<(), FlowControl> {
-        frame.stack.push(frame.stack[frame.stack.len() - 2].clone());
-        frame.stack.push(frame.stack[frame.stack.len() - 2].clone());
+        if matches!(
+            frame.stack[frame.stack.len() - 1],
+            JavaValue::Long(_) | JavaValue::Double(_)
+        ) {
+            frame.stack.push(frame.stack[frame.stack.len() - 1].clone());
+        } else {
+            frame.stack.push(frame.stack[frame.stack.len() - 2].clone());
+            frame.stack.push(frame.stack[frame.stack.len() - 2].clone());
+        }
+
         Ok(())
     }
 }

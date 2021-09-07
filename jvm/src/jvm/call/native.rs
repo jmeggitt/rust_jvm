@@ -130,6 +130,12 @@ pub struct NativeManager {
 impl NativeManager {
     pub fn new() -> Self {
         let mut manager = NativeManager::default();
+        use std::env::{current_dir, vars};
+        info!("cwd: {:?}", current_dir().unwrap());
+        info!("Environment variables:");
+        for (key, value) in vars() {
+            info!("\t{}: {}", key, value);
+        }
         internals::register_natives(&mut manager);
         manager
     }
@@ -147,7 +153,7 @@ impl NativeManager {
                         return Err(Error::new(
                             ErrorKind::Other,
                             format!("{}: {}", e, path.display()),
-                        ))
+                        ));
                     } // Err(e) => return Err(Error::new(ErrorKind::Other, e)),
                 };
             }

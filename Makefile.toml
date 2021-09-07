@@ -1,5 +1,8 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+# Put a bandaid on the stack size problem instead of trying to fix it
+RUSTFLAGS = "-C link-args=-Wl,-zstack-size=67108864"
 #RUSTFLAGS = "-C link-args=-Wl,--version-script=/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_std/test-mapfile"
 
 [config]
@@ -8,7 +11,7 @@ default_to_workspace = false
 [tasks.test-run]
 toolchain = "nightly"
 command = "cargo"
-args = ["run", "-p", "java", "--", "-v", "Simple"]
+args = ["run", "--release", "-p", "-vv", "java", "--", "-v", "Simple"]
 dependencies = ["build"]
 
 [tasks.test-run.windows]
@@ -17,7 +20,7 @@ toolchain = "nightly-i686-pc-windows-msvc"
 [tasks.build]
 toolchain = "nightly"
 command = "cargo"
-args = ["build", "-p", "java_std"]
+args = ["build", "--release", "-p", "java_std"]
 
 [tasks.build.windows]
 toolchain = "nightly-i686-pc-windows-msvc"

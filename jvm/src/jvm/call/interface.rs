@@ -2,18 +2,18 @@
 
 use std::ffi::{c_void, CString};
 use std::mem::forget;
-use std::ptr::null_mut;
+use std::ptr::{null, null_mut};
 
 use jni::sys::{
     jarray, jboolean, jbooleanArray, jbyte, jbyteArray, jchar, jcharArray, jclass, jdouble,
-    jdoubleArray, jfield_id, jfloat, jfloatArray, jint, jintArray, jlong, jlongArray, jmethod_id,
+    jdoubleArray, jfieldID, jfloat, jfloatArray, jint, jintArray, jlong, jlongArray, jmethodID,
     jobject, jobjectArray, jobjectRefType, jshort, jshortArray, jsize, jstring, jthrowable, jvalue,
-    jweak, va_list, JNIEnv, JNINativeInterface_, JNINativeMethod, JavaVM,
+    jweak, va_list, JNIEnv, JNINativeInterface_, JNINativeMethod, JavaVM, JNI_TRUE,
 };
 
 use crate::class::BufferedRead;
 use crate::constant_pool::ClassElement;
-use crate::jvm::call::FlowControl;
+use crate::jvm::call::{FlowControl, RawJNIEnv};
 use crate::jvm::mem::{
     FieldDescriptor, JavaPrimitive, JavaValue, ManualInstanceReference, ObjectReference,
 };
@@ -75,7 +75,7 @@ unsafe extern "system" fn get_method_id(
     clazz: jclass,
     name: *const c_char,
     sig: *const c_char,
-) -> jmethod_id {
+) -> jmethodID {
     let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
     let name_obj: Option<ObjectHandle> = a.read_named_field("name");
 
@@ -110,7 +110,7 @@ unsafe extern "system" fn exception_describe(env: *mut JNIEnv) {
     eprintln!("*descriptive explanation of exception*")
 }
 
-unsafe fn read_method_id(method: jmethod_id) -> &'static ClassElement {
+unsafe fn read_method_id(method: jmethodID) -> &'static ClassElement {
     &*(method as *mut ClassElement)
 }
 
@@ -131,7 +131,7 @@ unsafe fn read_args(signature: &str, values: *const jvalue) -> Vec<JavaValue> {
 unsafe extern "system" fn call_obj_method_a(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jobject {
     let target = ObjectHandle::from_ptr(obj).unwrap();
@@ -150,7 +150,7 @@ unsafe extern "system" fn call_obj_method_a(
 }
 // unsafe extern "C" fn call_method(env: *mut JNIEnv,
 // obj: jobject,
-// method_id: jmethod_id,
+// method_id: jmethodID,
 // ...)
 // -> jobject {
 //
@@ -414,18 +414,18 @@ pub unsafe extern "system" fn FindClass(env: *mut JNIEnv, name: *const c_char) -
     unimplemented!()
 }
 #[no_mangle]
-pub unsafe extern "system" fn FromReflectedMethod(env: *mut JNIEnv, method: jobject) -> jmethod_id {
+pub unsafe extern "system" fn FromReflectedMethod(env: *mut JNIEnv, method: jobject) -> jmethodID {
     unimplemented!()
 }
 #[no_mangle]
-pub unsafe extern "system" fn FromReflectedField(env: *mut JNIEnv, field: jobject) -> jfield_id {
+pub unsafe extern "system" fn FromReflectedField(env: *mut JNIEnv, field: jobject) -> jfieldID {
     unimplemented!()
 }
 #[no_mangle]
 pub unsafe extern "system" fn ToReflectedMethod(
     env: *mut JNIEnv,
     cls: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     is_static: jboolean,
 ) -> jobject {
     unimplemented!()
@@ -446,7 +446,7 @@ pub unsafe extern "system" fn IsAssignableFrom(
 pub unsafe extern "system" fn ToReflectedField(
     env: *mut JNIEnv,
     cls: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     is_static: jboolean,
 ) -> jobject {
     unimplemented!()
@@ -524,7 +524,7 @@ pub unsafe extern "system" fn AllocObject(env: *mut JNIEnv, clazz: jclass) -> jo
 pub unsafe extern "system" fn NewObjectV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jobject {
     unimplemented!()
@@ -533,7 +533,7 @@ pub unsafe extern "system" fn NewObjectV(
 pub unsafe extern "system" fn NewObjectA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jobject {
     unimplemented!()
@@ -555,7 +555,7 @@ pub unsafe extern "system" fn IsInstanceOf(
 pub unsafe extern "system" fn CallObjectMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jobject {
     unimplemented!()
@@ -564,7 +564,7 @@ pub unsafe extern "system" fn CallObjectMethodV(
 pub unsafe extern "system" fn CallObjectMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jobject {
     unimplemented!()
@@ -574,7 +574,7 @@ pub unsafe extern "system" fn CallObjectMethodA(
 pub unsafe extern "system" fn CallBooleanMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jboolean {
     unimplemented!()
@@ -583,7 +583,7 @@ pub unsafe extern "system" fn CallBooleanMethodV(
 pub unsafe extern "system" fn CallBooleanMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jboolean {
     unimplemented!()
@@ -593,7 +593,7 @@ pub unsafe extern "system" fn CallBooleanMethodA(
 pub unsafe extern "system" fn CallByteMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jbyte {
     unimplemented!()
@@ -602,7 +602,7 @@ pub unsafe extern "system" fn CallByteMethodV(
 pub unsafe extern "system" fn CallByteMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jbyte {
     unimplemented!()
@@ -612,7 +612,7 @@ pub unsafe extern "system" fn CallByteMethodA(
 pub unsafe extern "system" fn CallCharMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jchar {
     unimplemented!()
@@ -621,7 +621,7 @@ pub unsafe extern "system" fn CallCharMethodV(
 pub unsafe extern "system" fn CallCharMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jchar {
     unimplemented!()
@@ -631,7 +631,7 @@ pub unsafe extern "system" fn CallCharMethodA(
 pub unsafe extern "system" fn CallShortMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jshort {
     unimplemented!()
@@ -640,7 +640,7 @@ pub unsafe extern "system" fn CallShortMethodV(
 pub unsafe extern "system" fn CallShortMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jshort {
     unimplemented!()
@@ -650,7 +650,7 @@ pub unsafe extern "system" fn CallShortMethodA(
 pub unsafe extern "system" fn CallIntMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jint {
     unimplemented!()
@@ -659,7 +659,7 @@ pub unsafe extern "system" fn CallIntMethodV(
 pub unsafe extern "system" fn CallIntMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jint {
     unimplemented!()
@@ -669,7 +669,7 @@ pub unsafe extern "system" fn CallIntMethodA(
 pub unsafe extern "system" fn CallLongMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jlong {
     unimplemented!()
@@ -678,7 +678,7 @@ pub unsafe extern "system" fn CallLongMethodV(
 pub unsafe extern "system" fn CallLongMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jlong {
     unimplemented!()
@@ -688,7 +688,7 @@ pub unsafe extern "system" fn CallLongMethodA(
 pub unsafe extern "system" fn CallFloatMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jfloat {
     unimplemented!()
@@ -697,7 +697,7 @@ pub unsafe extern "system" fn CallFloatMethodV(
 pub unsafe extern "system" fn CallFloatMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jfloat {
     unimplemented!()
@@ -706,7 +706,7 @@ pub unsafe extern "system" fn CallFloatMethodA(
 pub unsafe extern "system" fn CallDoubleMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jdouble {
     unimplemented!()
@@ -715,7 +715,7 @@ pub unsafe extern "system" fn CallDoubleMethodV(
 pub unsafe extern "system" fn CallDoubleMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jdouble {
     unimplemented!()
@@ -724,7 +724,7 @@ pub unsafe extern "system" fn CallDoubleMethodA(
 pub unsafe extern "system" fn CallVoidMethodV(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) {
     unimplemented!()
@@ -733,7 +733,7 @@ pub unsafe extern "system" fn CallVoidMethodV(
 pub unsafe extern "system" fn CallVoidMethodA(
     env: *mut JNIEnv,
     obj: jobject,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) {
     unimplemented!()
@@ -743,7 +743,7 @@ pub unsafe extern "system" fn CallNonvirtualObjectMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jobject {
     unimplemented!()
@@ -753,7 +753,7 @@ pub unsafe extern "system" fn CallNonvirtualObjectMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jobject {
     unimplemented!()
@@ -763,7 +763,7 @@ pub unsafe extern "system" fn CallNonvirtualBooleanMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jboolean {
     unimplemented!()
@@ -773,7 +773,7 @@ pub unsafe extern "system" fn CallNonvirtualBooleanMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jboolean {
     unimplemented!()
@@ -783,7 +783,7 @@ pub unsafe extern "system" fn CallNonvirtualByteMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jbyte {
     unimplemented!()
@@ -793,7 +793,7 @@ pub unsafe extern "system" fn CallNonvirtualByteMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jbyte {
     unimplemented!()
@@ -803,7 +803,7 @@ pub unsafe extern "system" fn CallNonvirtualCharMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jchar {
     unimplemented!()
@@ -813,7 +813,7 @@ pub unsafe extern "system" fn CallNonvirtualCharMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jchar {
     unimplemented!()
@@ -823,7 +823,7 @@ pub unsafe extern "system" fn CallNonvirtualShortMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jshort {
     unimplemented!()
@@ -833,7 +833,7 @@ pub unsafe extern "system" fn CallNonvirtualShortMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jshort {
     unimplemented!()
@@ -843,7 +843,7 @@ pub unsafe extern "system" fn CallNonvirtualIntMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jint {
     unimplemented!()
@@ -853,7 +853,7 @@ pub unsafe extern "system" fn CallNonvirtualIntMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jint {
     unimplemented!()
@@ -863,7 +863,7 @@ pub unsafe extern "system" fn CallNonvirtualLongMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jlong {
     unimplemented!()
@@ -873,7 +873,7 @@ pub unsafe extern "system" fn CallNonvirtualLongMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jlong {
     unimplemented!()
@@ -883,7 +883,7 @@ pub unsafe extern "system" fn CallNonvirtualFloatMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jfloat {
     unimplemented!()
@@ -893,7 +893,7 @@ pub unsafe extern "system" fn CallNonvirtualFloatMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jfloat {
     unimplemented!()
@@ -903,7 +903,7 @@ pub unsafe extern "system" fn CallNonvirtualDoubleMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jdouble {
     unimplemented!()
@@ -913,7 +913,7 @@ pub unsafe extern "system" fn CallNonvirtualDoubleMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jdouble {
     unimplemented!()
@@ -923,7 +923,7 @@ pub unsafe extern "system" fn CallNonvirtualVoidMethodV(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) {
     unimplemented!()
@@ -933,7 +933,7 @@ pub unsafe extern "system" fn CallNonvirtualVoidMethodA(
     env: *mut JNIEnv,
     obj: jobject,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) {
     unimplemented!()
@@ -944,14 +944,14 @@ pub unsafe extern "system" fn GetFieldID(
     clazz: jclass,
     name: *const c_char,
     sig: *const c_char,
-) -> jfield_id {
+) -> jfieldID {
     unimplemented!()
 }
 #[no_mangle]
 pub unsafe extern "system" fn GetObjectField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jobject {
     unimplemented!()
 }
@@ -959,7 +959,7 @@ pub unsafe extern "system" fn GetObjectField(
 pub unsafe extern "system" fn GetBooleanField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jboolean {
     unimplemented!()
 }
@@ -967,7 +967,7 @@ pub unsafe extern "system" fn GetBooleanField(
 pub unsafe extern "system" fn GetByteField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jbyte {
     unimplemented!()
 }
@@ -975,7 +975,7 @@ pub unsafe extern "system" fn GetByteField(
 pub unsafe extern "system" fn GetCharField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jchar {
     unimplemented!()
 }
@@ -983,7 +983,7 @@ pub unsafe extern "system" fn GetCharField(
 pub unsafe extern "system" fn GetShortField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jshort {
     unimplemented!()
 }
@@ -991,7 +991,7 @@ pub unsafe extern "system" fn GetShortField(
 pub unsafe extern "system" fn GetIntField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jint {
     unimplemented!()
 }
@@ -999,7 +999,7 @@ pub unsafe extern "system" fn GetIntField(
 pub unsafe extern "system" fn GetLongField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jlong {
     unimplemented!()
 }
@@ -1007,7 +1007,7 @@ pub unsafe extern "system" fn GetLongField(
 pub unsafe extern "system" fn GetFloatField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jfloat {
     unimplemented!()
 }
@@ -1015,7 +1015,7 @@ pub unsafe extern "system" fn GetFloatField(
 pub unsafe extern "system" fn GetDoubleField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jdouble {
     unimplemented!()
 }
@@ -1023,7 +1023,7 @@ pub unsafe extern "system" fn GetDoubleField(
 pub unsafe extern "system" fn SetObjectField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
     val: jobject,
 ) {
     unimplemented!()
@@ -1032,7 +1032,7 @@ pub unsafe extern "system" fn SetObjectField(
 pub unsafe extern "system" fn SetBooleanField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
     val: jboolean,
 ) {
     unimplemented!()
@@ -1041,7 +1041,7 @@ pub unsafe extern "system" fn SetBooleanField(
 pub unsafe extern "system" fn SetByteField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
     val: jbyte,
 ) {
     unimplemented!()
@@ -1050,7 +1050,7 @@ pub unsafe extern "system" fn SetByteField(
 pub unsafe extern "system" fn SetCharField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
     val: jchar,
 ) {
     unimplemented!()
@@ -1059,7 +1059,7 @@ pub unsafe extern "system" fn SetCharField(
 pub unsafe extern "system" fn SetShortField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
     val: jshort,
 ) {
     unimplemented!()
@@ -1068,7 +1068,7 @@ pub unsafe extern "system" fn SetShortField(
 pub unsafe extern "system" fn SetIntField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
     val: jint,
 ) {
     unimplemented!()
@@ -1077,7 +1077,7 @@ pub unsafe extern "system" fn SetIntField(
 pub unsafe extern "system" fn SetLongField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
     val: jlong,
 ) {
     unimplemented!()
@@ -1086,7 +1086,7 @@ pub unsafe extern "system" fn SetLongField(
 pub unsafe extern "system" fn SetFloatField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
     val: jfloat,
 ) {
     unimplemented!()
@@ -1095,7 +1095,7 @@ pub unsafe extern "system" fn SetFloatField(
 pub unsafe extern "system" fn SetDoubleField(
     env: *mut JNIEnv,
     obj: jobject,
-    field_id: jfield_id,
+    field_id: jfieldID,
     val: jdouble,
 ) {
     unimplemented!()
@@ -1106,14 +1106,14 @@ pub unsafe extern "system" fn GetStaticMethodID(
     clazz: jclass,
     name: *const c_char,
     sig: *const c_char,
-) -> jmethod_id {
+) -> jmethodID {
     unimplemented!()
 }
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticObjectMethodV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jobject {
     unimplemented!()
@@ -1122,7 +1122,7 @@ pub unsafe extern "system" fn CallStaticObjectMethodV(
 pub unsafe extern "system" fn CallStaticObjectMethodA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jobject {
     unimplemented!()
@@ -1131,7 +1131,7 @@ pub unsafe extern "system" fn CallStaticObjectMethodA(
 pub unsafe extern "system" fn CallStaticBooleanMethodV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jboolean {
     unimplemented!()
@@ -1140,7 +1140,7 @@ pub unsafe extern "system" fn CallStaticBooleanMethodV(
 pub unsafe extern "system" fn CallStaticBooleanMethodA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jboolean {
     unimplemented!()
@@ -1149,7 +1149,7 @@ pub unsafe extern "system" fn CallStaticBooleanMethodA(
 pub unsafe extern "system" fn CallStaticByteMethodV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jbyte {
     unimplemented!()
@@ -1158,7 +1158,7 @@ pub unsafe extern "system" fn CallStaticByteMethodV(
 pub unsafe extern "system" fn CallStaticByteMethodA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jbyte {
     unimplemented!()
@@ -1167,7 +1167,7 @@ pub unsafe extern "system" fn CallStaticByteMethodA(
 pub unsafe extern "system" fn CallStaticCharMethodV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jchar {
     unimplemented!()
@@ -1176,7 +1176,7 @@ pub unsafe extern "system" fn CallStaticCharMethodV(
 pub unsafe extern "system" fn CallStaticCharMethodA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jchar {
     unimplemented!()
@@ -1185,7 +1185,7 @@ pub unsafe extern "system" fn CallStaticCharMethodA(
 pub unsafe extern "system" fn CallStaticShortMethodV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jshort {
     unimplemented!()
@@ -1194,7 +1194,7 @@ pub unsafe extern "system" fn CallStaticShortMethodV(
 pub unsafe extern "system" fn CallStaticShortMethodA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jshort {
     unimplemented!()
@@ -1203,7 +1203,7 @@ pub unsafe extern "system" fn CallStaticShortMethodA(
 pub unsafe extern "system" fn CallStaticIntMethodV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jint {
     unimplemented!()
@@ -1212,7 +1212,7 @@ pub unsafe extern "system" fn CallStaticIntMethodV(
 pub unsafe extern "system" fn CallStaticIntMethodA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jint {
     unimplemented!()
@@ -1221,7 +1221,7 @@ pub unsafe extern "system" fn CallStaticIntMethodA(
 pub unsafe extern "system" fn CallStaticLongMethodV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jlong {
     unimplemented!()
@@ -1230,7 +1230,7 @@ pub unsafe extern "system" fn CallStaticLongMethodV(
 pub unsafe extern "system" fn CallStaticLongMethodA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jlong {
     unimplemented!()
@@ -1239,7 +1239,7 @@ pub unsafe extern "system" fn CallStaticLongMethodA(
 pub unsafe extern "system" fn CallStaticFloatMethodV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jfloat {
     unimplemented!()
@@ -1248,7 +1248,7 @@ pub unsafe extern "system" fn CallStaticFloatMethodV(
 pub unsafe extern "system" fn CallStaticFloatMethodA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jfloat {
     unimplemented!()
@@ -1257,7 +1257,7 @@ pub unsafe extern "system" fn CallStaticFloatMethodA(
 pub unsafe extern "system" fn CallStaticDoubleMethodV(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) -> jdouble {
     unimplemented!()
@@ -1266,7 +1266,7 @@ pub unsafe extern "system" fn CallStaticDoubleMethodV(
 pub unsafe extern "system" fn CallStaticDoubleMethodA(
     env: *mut JNIEnv,
     clazz: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) -> jdouble {
     unimplemented!()
@@ -1275,7 +1275,7 @@ pub unsafe extern "system" fn CallStaticDoubleMethodA(
 pub unsafe extern "system" fn CallStaticVoidMethodV(
     env: *mut JNIEnv,
     cls: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: va_list,
 ) {
     unimplemented!()
@@ -1284,7 +1284,7 @@ pub unsafe extern "system" fn CallStaticVoidMethodV(
 pub unsafe extern "system" fn CallStaticVoidMethodA(
     env: *mut JNIEnv,
     cls: jclass,
-    method_id: jmethod_id,
+    method_id: jmethodID,
     args: *const jvalue,
 ) {
     unimplemented!()
@@ -1295,14 +1295,14 @@ pub unsafe extern "system" fn GetStaticFieldID(
     clazz: jclass,
     name: *const c_char,
     sig: *const c_char,
-) -> jfield_id {
+) -> jfieldID {
     unimplemented!()
 }
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticObjectField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jobject {
     unimplemented!()
 }
@@ -1310,7 +1310,7 @@ pub unsafe extern "system" fn GetStaticObjectField(
 pub unsafe extern "system" fn GetStaticBooleanField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jboolean {
     unimplemented!()
 }
@@ -1318,7 +1318,7 @@ pub unsafe extern "system" fn GetStaticBooleanField(
 pub unsafe extern "system" fn GetStaticByteField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jbyte {
     unimplemented!()
 }
@@ -1326,7 +1326,7 @@ pub unsafe extern "system" fn GetStaticByteField(
 pub unsafe extern "system" fn GetStaticCharField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jchar {
     unimplemented!()
 }
@@ -1334,7 +1334,7 @@ pub unsafe extern "system" fn GetStaticCharField(
 pub unsafe extern "system" fn GetStaticShortField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jshort {
     unimplemented!()
 }
@@ -1342,7 +1342,7 @@ pub unsafe extern "system" fn GetStaticShortField(
 pub unsafe extern "system" fn GetStaticIntField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jint {
     unimplemented!()
 }
@@ -1350,7 +1350,7 @@ pub unsafe extern "system" fn GetStaticIntField(
 pub unsafe extern "system" fn GetStaticLongField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jlong {
     unimplemented!()
 }
@@ -1358,7 +1358,7 @@ pub unsafe extern "system" fn GetStaticLongField(
 pub unsafe extern "system" fn GetStaticFloatField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jfloat {
     unimplemented!()
 }
@@ -1366,7 +1366,7 @@ pub unsafe extern "system" fn GetStaticFloatField(
 pub unsafe extern "system" fn GetStaticDoubleField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
 ) -> jdouble {
     unimplemented!()
 }
@@ -1374,7 +1374,7 @@ pub unsafe extern "system" fn GetStaticDoubleField(
 pub unsafe extern "system" fn SetStaticObjectField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     value: jobject,
 ) {
     unimplemented!()
@@ -1383,7 +1383,7 @@ pub unsafe extern "system" fn SetStaticObjectField(
 pub unsafe extern "system" fn SetStaticBooleanField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     value: jboolean,
 ) {
     unimplemented!()
@@ -1392,7 +1392,7 @@ pub unsafe extern "system" fn SetStaticBooleanField(
 pub unsafe extern "system" fn SetStaticByteField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     value: jbyte,
 ) {
     unimplemented!()
@@ -1401,7 +1401,7 @@ pub unsafe extern "system" fn SetStaticByteField(
 pub unsafe extern "system" fn SetStaticCharField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     value: jchar,
 ) {
     unimplemented!()
@@ -1410,7 +1410,7 @@ pub unsafe extern "system" fn SetStaticCharField(
 pub unsafe extern "system" fn SetStaticShortField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     value: jshort,
 ) {
     unimplemented!()
@@ -1419,7 +1419,7 @@ pub unsafe extern "system" fn SetStaticShortField(
 pub unsafe extern "system" fn SetStaticIntField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     value: jint,
 ) {
     unimplemented!()
@@ -1428,7 +1428,7 @@ pub unsafe extern "system" fn SetStaticIntField(
 pub unsafe extern "system" fn SetStaticLongField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     value: jlong,
 ) {
     unimplemented!()
@@ -1437,7 +1437,7 @@ pub unsafe extern "system" fn SetStaticLongField(
 pub unsafe extern "system" fn SetStaticFloatField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     value: jfloat,
 ) {
     unimplemented!()
@@ -1446,7 +1446,7 @@ pub unsafe extern "system" fn SetStaticFloatField(
 pub unsafe extern "system" fn SetStaticDoubleField(
     env: *mut JNIEnv,
     clazz: jclass,
-    field_id: jfield_id,
+    field_id: jfieldID,
     value: jdouble,
 ) {
     unimplemented!()
@@ -1493,16 +1493,29 @@ pub unsafe extern "system" fn GetStringUTFChars(
     str: jstring,
     is_copy: *mut jboolean,
 ) -> *const c_char {
-    unimplemented!()
+    let mut jvm = RawJNIEnv::new(env);
+    if !is_copy.is_null() {
+        *is_copy = JNI_TRUE;
+    }
+
+    let obj = obj_expect!(jvm, str, null());
+    let str = obj.expect_string();
+    // let boxed = str.into_boxed_str().into_boxed_bytes();
+
+    let ret = CString::new(str).unwrap();
+    ret.into_raw() as _
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseStringUTFChars(
     env: *mut JNIEnv,
     str: jstring,
     chars: *const c_char,
 ) {
-    unimplemented!()
+    // Put the pointer back into CString struct so it will be dropped at the end of the function
+    CString::from_raw(chars as _);
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetArrayLength(env: *mut JNIEnv, array: jarray) -> jsize {
     unimplemented!()

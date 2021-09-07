@@ -6,10 +6,11 @@ edition = "2018"
 
 [lib]
 name = "jvm"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [features]
 default = ["tempfile"]
+profile = ["tempfile", "thread_profiler"]
 debug = []
 
 [dependencies]
@@ -29,6 +30,7 @@ libffi = "1.0.1"
 jni = "0.19.0"
 lazy_static = "1.4.0"
 
+thread_profiler = {version = "0.3", optional = true }
 gc = "0.4.1"
 
 [dependencies.tempfile]
@@ -37,4 +39,4 @@ optional = true
 
 [dependencies.log]
 version = "0.4"
-features = ["max_level_trace", "release_max_level_trace", "std", "serde"]
+features = ["max_level_debug", "release_max_level_debug", "std", "serde"]

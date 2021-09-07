@@ -5,3 +5,10 @@ members = [
     "java",
     "java_std"
 ]
+
+
+[profile.release]
+rpath = true
+
+[profile.dev]
+rpath = true

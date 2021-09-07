@@ -4,9 +4,10 @@ use std::mem::transmute_copy;
 
 use jni::sys::{jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
 
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 pub use handle::*;
+use hashbrown::HashSet;
 pub use raw::*;
 pub use schema::*;
 pub use types::*;
@@ -152,17 +153,112 @@ impl Into<jvalue> for JavaValue {
     }
 }
 
-impl Debug for JavaValue {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl NonCircularDebug for JavaValue {
+    fn non_cyclical_fmt(
+        &self,
+        f: &mut Formatter<'_>,
+        touched: &mut HashSet<ObjectHandle>,
+    ) -> std::fmt::Result {
         match self {
             JavaValue::Byte(x) => write!(f, "{}u8", x),
             JavaValue::Char(x) => write!(f, "{:?}", std::char::from_u32(*x as u32).unwrap()),
             JavaValue::Short(x) => write!(f, "{}i16", x),
             JavaValue::Int(x) => write!(f, "{}i32", x),
             JavaValue::Float(x) => write!(f, "{}f32", x),
-            JavaValue::Reference(x) => write!(f, "{:?}", x),
             JavaValue::Long(x) => write!(f, "{}i64", x),
             JavaValue::Double(x) => write!(f, "{}f64", x),
+            JavaValue::Reference(x) => x.non_cyclical_fmt(f, touched),
         }
     }
 }
+
+macro_rules! non_circular_debug {
+    ($type:ty: $fmt:expr) => {
+        impl NonCircularDebug for $type {
+            fn non_cyclical_fmt(
+                &self,
+                f: &mut Formatter<'_>,
+                _: &mut HashSet<ObjectHandle>,
+            ) -> std::fmt::Result {
+                write!(f, $fmt, self)
+            }
+        }
+    };
+}
+
+non_circular_debug! {u8: "{}u8"}
+non_circular_debug! {i8: "{}i8"}
+non_circular_debug! {i16: "{}i16"}
+non_circular_debug! {i32: "{}i32"}
+non_circular_debug! {i64: "{}i64"}
+non_circular_debug! {f32: "{}f32"}
+non_circular_debug! {f64: "{}f64"}
+
+impl NonCircularDebug for jchar {
+    fn non_cyclical_fmt(
+        &self,
+        f: &mut Formatter<'_>,
+        touched: &mut HashSet<ObjectHandle>,
+    ) -> std::fmt::Result {
+        write!(f, "{:?}", std::char::from_u32(*self as u32).unwrap())
+    }
+}
+
+impl Debug for JavaValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut touched = HashSet::new();
+        self.non_cyclical_fmt(f, &mut touched)
+        // match self {
+        //     JavaValue::Byte(x) => write!(f, "{}u8", x),
+        //     JavaValue::Char(x) => write!(f, "{:?}", std::char::from_u32(*x as u32).unwrap()),
+        //     JavaValue::Short(x) => write!(f, "{}i16", x),
+        //     JavaValue::Int(x) => write!(f, "{}i32", x),
+        //     JavaValue::Float(x) => write!(f, "{}f32", x),
+        //     JavaValue::Reference(x) => write!(f, "{:?}", x),
+        //     JavaValue::Long(x) => write!(f, "{}i64", x),
+        //     JavaValue::Double(x) => write!(f, "{}f64", x),
+        // }
+    }
+}
+
+pub trait NonCircularDebug {
+    fn non_cyclical_fmt(
+        &self,
+        f: &mut Formatter<'_>,
+        touched: &mut HashSet<ObjectHandle>,
+    ) -> std::fmt::Result;
+}
+
+// impl<T: Display> NonCircularDebug for T {
+//     fn non_cyclical_fmt(&self, f: &mut Formatter<'_>, _: &mut HashSet<ObjectHandle>) -> std::fmt::Result {
+//         self.fmt(f)
+//     }
+// }
+
+impl<T: NonCircularDebug> NonCircularDebug for Vec<T> {
+    fn non_cyclical_fmt(
+        &self,
+        f: &mut Formatter<'_>,
+        touched: &mut HashSet<ObjectHandle>,
+    ) -> std::fmt::Result {
+        if self.is_empty() {
+            return Ok(());
+        }
+
+        self[0].non_cyclical_fmt(f, touched)?;
+
+        for item in &self[1..] {
+            write!(f, ", ")?;
+            item.non_cyclical_fmt(f, touched)?;
+        }
+
+        Ok(())
+    }
+}
+
+// impl<T: NonCircularDebug> Debug for T {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         let mut touched = HashSet::new();
+//         self.non_cyclical_fmt(f, &mut touched)
+//     }
+// }

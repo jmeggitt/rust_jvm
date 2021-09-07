@@ -24,6 +24,8 @@ use crate::class::{AccessFlags, BufferedRead, MethodInfo};
 use crate::constant_pool::{ClassElement, Constant};
 use crate::jvm::mem::{FieldDescriptor, JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;
+use crate::profile_scope_cfg;
+pub use interface::build_interface;
 pub use interpreter::*;
 use jni::sys::{jthrowable, JNIEnv, JNINativeInterface_};
 pub use native::*;
@@ -188,6 +190,7 @@ impl JavaEnv {
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
+        profile_scope_cfg!("special {:?}", &method);
         let class = self.class_instance(&target.get_class());
         self.call_stack.push((class, format!("{:?}", &method)));
         args.insert(0, JavaValue::Reference(Some(target)));
@@ -202,16 +205,13 @@ impl JavaEnv {
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
-        println!("E");
+        profile_scope_cfg!("virtual {:?}", &method);
         method.class = target.get_class();
         let class = self.class_instance(&target.get_class());
-        println!("F");
         self.call_stack.push((class, format!("{:?}", &method)));
         args.insert(0, JavaValue::Reference(Some(target)));
-        println!("G");
         let ret = self.invoke(method, args);
         self.call_stack.pop().unwrap();
-        println!("H");
         ret
     }
 
@@ -220,6 +220,7 @@ impl JavaEnv {
         mut method: ClassElement,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
+        profile_scope_cfg!("static {:?}", &method);
         let class = self.class_instance(&method.class);
         self.call_stack.push((class, format!("{:?}", &method)));
         let ret = self.invoke(method, args);
@@ -351,6 +352,13 @@ pub struct RawJNIEnv<'a> {
 }
 
 impl<'a> RawJNIEnv<'a> {
+    pub fn new(ptr: *mut JNIEnv) -> Self {
+        RawJNIEnv {
+            ptr,
+            _phantom: PhantomData,
+        }
+    }
+
     pub unsafe fn set_thrown(&mut self, throwable: Option<ObjectHandle>) {
         (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 = match throwable {
             None => null_mut(),

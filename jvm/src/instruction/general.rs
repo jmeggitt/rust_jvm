@@ -25,8 +25,6 @@ instruction! {jsr, 0xa8, u16}
 // TODO: jsr_w
 instruction! {lcmp, 0x94}
 // TODO: lookupswitch
-instruction! {monitorenter, 0xc2}
-instruction! {monitorexit, 0xc3}
 instruction! {ret, 0xa9, u8}
 // TODO: multianewarray
 // TODO: tableswitch
@@ -35,8 +33,11 @@ instruction! {ret, 0xa9, u8}
 instruction! {@partial checkcast, 0xc0, u16}
 
 impl InstructionAction for checkcast {
-    fn exec(&self, _frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
-        warn!("Skipped cast check as exceptions are not implemented yet!");
+    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+        warn!(
+            "Skipped cast check as exceptions are not implemented yet: {:?}",
+            frame.stack[frame.stack.len() - 1]
+        );
         Ok(())
     }
 }
@@ -50,7 +51,7 @@ impl InstructionAction for bipush {
         // pattern in the instruction macro
         let signed = unsafe { ::std::mem::transmute::<_, i8>(value) };
         // Sign extend byte to int as specified in specification
-        frame.stack.push(JavaValue::Int(signed as _));
+        frame.stack.push(JavaValue::Byte(signed as _));
         Ok(())
     }
 }
@@ -242,6 +243,21 @@ impl InstructionAction for iinc {
             JavaValue::Double(x) => *x += val as f64,
             x => panic!("can not call iinc on {:?}", x),
         }
+        Ok(())
+    }
+}
+
+instruction! {@partial monitorenter, 0xc2}
+instruction! {@partial monitorexit, 0xc3}
+
+impl InstructionAction for monitorenter {
+    fn exec(&self, _frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+        Ok(())
+    }
+}
+
+impl InstructionAction for monitorexit {
+    fn exec(&self, _frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
         Ok(())
     }
 }

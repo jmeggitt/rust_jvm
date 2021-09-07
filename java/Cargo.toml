@@ -4,8 +4,17 @@ version = "0.1.0"
 authors = ["Jasper Meggitt <jasper.meggitt@gmail.com>"]
 edition = "2018"
 
+[features]
+default = []
+profile = []
+#profile = ["jvm/profile"]
+
+
 [dependencies]
-jvm = { path = "../jvm" }
+libloading = "0.7.0"
+jni = "0.19.0"
+
+#jvm = { path = "../jvm" }
 
 pretty_env_logger = "0.4.0"
 log = "0.4.14"

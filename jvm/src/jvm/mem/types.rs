@@ -116,6 +116,37 @@ impl Display for FieldDescriptor {
 }
 
 impl FieldDescriptor {
+    pub fn assign_from(&self, value: JavaValue) -> Option<JavaValue> {
+        Some(match (self, value) {
+            (FieldDescriptor::Boolean, JavaValue::Byte(x)) => JavaValue::Byte((x != 0) as _),
+            (FieldDescriptor::Boolean, JavaValue::Short(x)) => JavaValue::Byte((x != 0) as _),
+            (FieldDescriptor::Boolean, JavaValue::Int(x)) => JavaValue::Byte((x != 0) as _),
+            (FieldDescriptor::Boolean, JavaValue::Long(x)) => JavaValue::Byte((x != 0) as _),
+            (FieldDescriptor::Byte, JavaValue::Byte(x)) => JavaValue::Byte(x as _),
+            (FieldDescriptor::Short, JavaValue::Byte(x)) => JavaValue::Short(x as _),
+            (FieldDescriptor::Short, JavaValue::Short(x)) => JavaValue::Short(x as _),
+            (FieldDescriptor::Short, JavaValue::Char(x)) => JavaValue::Short(x as _),
+            (FieldDescriptor::Char, JavaValue::Byte(x)) => JavaValue::Char(x as _),
+            (FieldDescriptor::Char, JavaValue::Short(x)) => JavaValue::Char(x as _),
+            (FieldDescriptor::Char, JavaValue::Char(x)) => JavaValue::Char(x as _),
+            (FieldDescriptor::Int, JavaValue::Byte(x)) => JavaValue::Int(x as _),
+            (FieldDescriptor::Int, JavaValue::Short(x)) => JavaValue::Int(x as _),
+            (FieldDescriptor::Int, JavaValue::Char(x)) => JavaValue::Int(x as _),
+            (FieldDescriptor::Int, JavaValue::Int(x)) => JavaValue::Int(x as _),
+            (FieldDescriptor::Long, JavaValue::Byte(x)) => JavaValue::Long(x as _),
+            (FieldDescriptor::Long, JavaValue::Short(x)) => JavaValue::Long(x as _),
+            (FieldDescriptor::Long, JavaValue::Char(x)) => JavaValue::Long(x as _),
+            (FieldDescriptor::Long, JavaValue::Int(x)) => JavaValue::Long(x as _),
+            (FieldDescriptor::Long, JavaValue::Long(x)) => JavaValue::Long(x as _),
+            (FieldDescriptor::Float, JavaValue::Float(x)) => JavaValue::Float(x as _),
+            (FieldDescriptor::Double, JavaValue::Float(x)) => JavaValue::Double(x as _),
+            (FieldDescriptor::Double, JavaValue::Double(x)) => JavaValue::Double(x as _),
+            (FieldDescriptor::Object(_), JavaValue::Reference(x)) => JavaValue::Reference(x),
+            (FieldDescriptor::Array(_), JavaValue::Reference(x)) => JavaValue::Reference(x),
+            _ => return None,
+        })
+    }
+
     pub fn class_usage(&self) -> HashSet<String> {
         let mut set = HashSet::new();
         match self {
@@ -156,11 +187,11 @@ impl FieldDescriptor {
     #[allow(clippy::match_like_matches_macro)]
     pub fn matches(&self, local: &JavaValue) -> bool {
         match (self, local) {
-            (FieldDescriptor::Byte, JavaValue::Byte(_)) => true,
             (FieldDescriptor::Boolean, JavaValue::Byte(_)) => true,
             (FieldDescriptor::Boolean, JavaValue::Short(_)) => true,
             (FieldDescriptor::Boolean, JavaValue::Int(_)) => true,
             (FieldDescriptor::Boolean, JavaValue::Long(_)) => true,
+            (FieldDescriptor::Byte, JavaValue::Byte(_)) => true,
             (FieldDescriptor::Char, JavaValue::Char(_)) => true,
             (FieldDescriptor::Short, JavaValue::Short(_)) => true,
             (FieldDescriptor::Int, JavaValue::Int(_)) => true,

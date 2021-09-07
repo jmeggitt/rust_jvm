@@ -3,10 +3,10 @@ use std::ops::Deref;
 
 use crate::jvm::mem::{
     ArrayReference, ClassSchema, ConstTypeId, InstanceReference, JavaPrimitive, JavaValue,
-    ManualInstanceReference, ObjectReference, ObjectType, RawObject,
+    ManualInstanceReference, NonCircularDebug, ObjectReference, ObjectType, RawObject,
 };
 use gc::{Finalize, Gc, Trace};
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use jni::sys::{
     _jobject, jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort, jvalue,
 };
@@ -127,7 +127,7 @@ impl<T: Trace> Deref for ObjectWrapper<T> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ObjectHandle(NonNull<_jobject>);
 
@@ -220,24 +220,87 @@ impl ObjectReference for ObjectHandle {
     }
 }
 
-impl Debug for ObjectHandle {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl NonCircularDebug for ObjectHandle {
+    fn non_cyclical_fmt(
+        &self,
+        f: &mut Formatter<'_>,
+        touched: &mut HashSet<ObjectHandle>,
+    ) -> std::fmt::Result {
+        // The core of NonCircularDebug is denying object handles that have already been touched
+        if touched.contains(self) {
+            return write!(f, "@{:p}", self.ptr());
+        } else {
+            touched.insert(*self);
+        }
+
         let owned = self.clone();
         match self.memory_layout() {
-            ObjectType::Instance => owned.expect_instance().fmt(f),
-            ObjectType::Array(jboolean::ID) => owned.expect_array::<jboolean>().fmt(f),
-            ObjectType::Array(jbyte::ID) => owned.expect_array::<jbyte>().fmt(f),
-            ObjectType::Array(jchar::ID) => owned.expect_array::<jchar>().fmt(f),
-            ObjectType::Array(jshort::ID) => owned.expect_array::<jshort>().fmt(f),
-            ObjectType::Array(jint::ID) => owned.expect_array::<jint>().fmt(f),
-            ObjectType::Array(jlong::ID) => owned.expect_array::<jlong>().fmt(f),
-            ObjectType::Array(jfloat::ID) => owned.expect_array::<jfloat>().fmt(f),
-            ObjectType::Array(jdouble::ID) => owned.expect_array::<jdouble>().fmt(f),
-            ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => {
-                owned.expect_array::<Option<ObjectHandle>>().fmt(f)
+            ObjectType::Instance => owned.expect_instance().non_cyclical_fmt(f, touched),
+            ObjectType::Array(jboolean::ID) => owned
+                .expect_array::<jboolean>()
+                .non_cyclical_fmt(f, touched),
+            ObjectType::Array(jbyte::ID) => {
+                owned.expect_array::<jbyte>().non_cyclical_fmt(f, touched)
             }
+            ObjectType::Array(jchar::ID) => {
+                owned.expect_array::<jchar>().non_cyclical_fmt(f, touched)
+            }
+            ObjectType::Array(jshort::ID) => {
+                owned.expect_array::<jshort>().non_cyclical_fmt(f, touched)
+            }
+            ObjectType::Array(jint::ID) => {
+                owned.expect_array::<jint>().non_cyclical_fmt(f, touched)
+            }
+            ObjectType::Array(jlong::ID) => {
+                owned.expect_array::<jlong>().non_cyclical_fmt(f, touched)
+            }
+            ObjectType::Array(jfloat::ID) => {
+                owned.expect_array::<jfloat>().non_cyclical_fmt(f, touched)
+            }
+            ObjectType::Array(jdouble::ID) => {
+                owned.expect_array::<jdouble>().non_cyclical_fmt(f, touched)
+            }
+            ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => owned
+                .expect_array::<Option<ObjectHandle>>()
+                .non_cyclical_fmt(f, touched),
             x => panic!("Unable to hash object of type {:?}", x),
         }
+    }
+}
+
+impl NonCircularDebug for Option<ObjectHandle> {
+    fn non_cyclical_fmt(
+        &self,
+        f: &mut Formatter<'_>,
+        touched: &mut HashSet<ObjectHandle>,
+    ) -> std::fmt::Result {
+        match self {
+            Some(x) => x.non_cyclical_fmt(f, touched),
+            None => write!(f, "null"),
+        }
+    }
+}
+
+impl Debug for ObjectHandle {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut touched = HashSet::new();
+        self.non_cyclical_fmt(f, &mut touched)
+        // let owned = self.clone();
+        // match self.memory_layout() {
+        //     ObjectType::Instance => owned.expect_instance().fmt(f),
+        //     ObjectType::Array(jboolean::ID) => owned.expect_array::<jboolean>().fmt(f),
+        //     ObjectType::Array(jbyte::ID) => owned.expect_array::<jbyte>().fmt(f),
+        //     ObjectType::Array(jchar::ID) => owned.expect_array::<jchar>().fmt(f),
+        //     ObjectType::Array(jshort::ID) => owned.expect_array::<jshort>().fmt(f),
+        //     ObjectType::Array(jint::ID) => owned.expect_array::<jint>().fmt(f),
+        //     ObjectType::Array(jlong::ID) => owned.expect_array::<jlong>().fmt(f),
+        //     ObjectType::Array(jfloat::ID) => owned.expect_array::<jfloat>().fmt(f),
+        //     ObjectType::Array(jdouble::ID) => owned.expect_array::<jdouble>().fmt(f),
+        //     ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => {
+        //         owned.expect_array::<Option<ObjectHandle>>().fmt(f)
+        //     }
+        //     x => panic!("Unable to hash object of type {:?}", x),
+        // }
     }
 }
 

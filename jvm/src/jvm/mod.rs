@@ -45,6 +45,7 @@ pub struct JavaEnv {
     pub call_stack: Vec<(ObjectHandle, String)>,
 
     pub threads: HashMap<ThreadId, ObjectHandle>,
+    pub sys_thread_group: Option<ObjectHandle>,
 
     schemas: HashMap<String, Arc<ClassSchema>>,
 }
@@ -62,9 +63,12 @@ impl JavaEnv {
             registered_classes: HashMap::new(),
             call_stack: Vec::new(),
             threads: HashMap::new(),
+            sys_thread_group: None,
             schemas: HashMap::new(),
         };
 
+        #[cfg(feature = "thread_profiler")]
+        thread_profiler::register_thread_with_profiler();
         // unsafe {
         //     jvm.make_primary_jvm();
         // }
@@ -75,10 +79,6 @@ impl JavaEnv {
         // warn!("Loading core")
         jvm.load_core_libs().unwrap();
         register_hooks(&mut jvm);
-
-        // prevent circular dependency
-        // jvm.class_schema("java/lang/String");
-        // jvm.class_schema("java/lang/Class");
 
         jvm
     }

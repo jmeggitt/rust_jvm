@@ -1,13 +1,20 @@
 #![allow(dead_code, unused_variables, non_snake_case, non_camel_case_types)]
 #![deny(improper_ctypes_definitions)]
 
+use crate::class::{ClassLoader, ClassPath};
 use crate::constant_pool::ClassElement;
-use crate::jvm::call::{FlowControl, RawJNIEnv};
+use crate::jvm::call::{build_interface, FlowControl, RawJNIEnv};
 use crate::jvm::mem::{ConstTypeId, JavaValue, ObjectHandle, ObjectReference, ObjectType};
+use crate::jvm::JavaEnv;
 use jni::sys::*;
+use log::LevelFilter;
+use pretty_env_logger::env_logger::Target;
+use pretty_env_logger::formatted_builder;
 use std::collections::hash_map::DefaultHasher;
-use std::ffi::c_void;
+use std::env::var;
+use std::ffi::{c_void, CStr, CString};
 use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
 use std::process::exit;
 use std::ptr::null_mut;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -41,11 +48,57 @@ pub unsafe extern "system" fn JNI_GetDefaultJavaVMInitArgs_impl(args: *mut c_voi
 
 #[no_mangle]
 pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
-    pvm: *mut *mut JavaVM,
-    penv: *mut *mut c_void,
+    pvm: *mut *mut JavaVM,  // Fill with created JavaVM
+    penv: *mut *mut JNIEnv, // Fill with created JNIEnv
     args: *mut c_void,
 ) -> jint {
-    unimplemented!()
+    // TODO: Apply init arguments instead of hard coding values
+    let _init_args = *(args as *mut JavaVMInitArgs);
+
+    formatted_builder()
+        .target(Target::Stdout)
+        .filter_level(LevelFilter::Debug)
+        .init();
+
+    let java_dir = var("JAVA_HOME").ok().map(PathBuf::from);
+    let class_path = match ClassPath::new(
+        java_dir,
+        Some(vec![
+            "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_std/out".into(),
+            ".".into(),
+        ]),
+    ) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error indexing class path: {:?}", e);
+            exit(1);
+        }
+    };
+
+    let mut class_loader = ClassLoader::from_class_path(class_path);
+    if let Err(e) = class_loader.preload_class_path() {
+        eprintln!("Error loading class path: {:?}", e);
+        return -1;
+    }
+
+    let mut jvm = Box::new(JavaEnv::new(class_loader));
+    let interface = build_interface(&mut *jvm);
+
+    let vm = JNIInvokeInterface_ {
+        reserved0: Box::leak(jvm) as *mut JavaEnv as _,
+        reserved1: null_mut(),
+        reserved2: null_mut(),
+        DestroyJavaVM: None,
+        AttachCurrentThread: None,
+        DetachCurrentThread: None,
+        GetEnv: None,
+        AttachCurrentThreadAsDaemon: None,
+    };
+
+    **pvm = Box::leak(Box::new(vm)) as JavaVM;
+    **penv = Box::leak(Box::new(interface)) as JNIEnv;
+
+    return 0;
 }
 
 #[no_mangle]
@@ -54,7 +107,7 @@ pub unsafe extern "system" fn JNI_GetCreatedJavaVMs_impl(
     bufLen: jsize,
     nVMs: *mut jsize,
 ) -> jint {
-    unimplemented!()
+    unimplemented!("This feature is not supported due to functional programming approach")
 }
 
 #[no_mangle]
@@ -729,9 +782,10 @@ pub unsafe extern "system" fn JVM_GetCallerClass_impl(mut env: RawJNIEnv, depth:
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindPrimitiveClass_impl(
     mut env: RawJNIEnv,
-    utf: *mut u8,
+    utf: *const i8,
 ) -> jclass {
-    unimplemented!()
+    let str = CStr::from_ptr(utf);
+    env.class_instance(&str.to_string_lossy()).ptr()
 }
 
 /*
