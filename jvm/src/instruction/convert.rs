@@ -3,12 +3,19 @@ use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
 
+use parking_lot::RwLock;
+use std::sync::Arc;
+
 macro_rules! convert_instruction {
     ($name:ident, $inst:literal, $from:ident -> $to:ident) => {
         instruction! {@partial $name, $inst}
 
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+            fn exec(
+                &self,
+                frame: &mut StackFrame,
+                _jvm: &mut Arc<RwLock<JavaEnv>>,
+            ) -> Result<(), FlowControl> {
                 let popped = frame.stack.pop().unwrap();
                 if let JavaValue::$from(x) = popped {
                     frame.stack.push(JavaValue::$to(x as _));
@@ -21,6 +28,7 @@ macro_rules! convert_instruction {
     };
 }
 
+// TODO: Incorrect results when converting computational types
 convert_instruction! {d2f, 0x90, Double -> Float}
 convert_instruction! {d2i, 0x8e, Double -> Int}
 convert_instruction! {d2l, 0x8f, Double -> Long}

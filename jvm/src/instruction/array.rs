@@ -6,12 +6,18 @@ use crate::jvm::mem::FieldDescriptor;
 use crate::jvm::mem::{JavaValue, ObjectHandle};
 use crate::jvm::JavaEnv;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort};
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 macro_rules! array_instruction {
     (@$type:ident $name:ident, $inst:literal, $arr_type:ty, $local:ident, $desc:expr) => {
         instruction! {@partial $name, $inst}
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+            fn exec(
+                &self,
+                frame: &mut StackFrame,
+                _jvm: &mut std::sync::Arc<parking_lot::RwLock<crate::jvm::JavaEnv>>,
+            ) -> Result<(), FlowControl> {
                 array_instruction! {@$type frame, $arr_type, $local, $desc}
             }
         }
@@ -61,7 +67,11 @@ array_instruction! {@store sastore, 0x56, jshort, Short, FieldDescriptor::Short}
 instruction! {@partial anewarray, 0xbd, u16}
 
 impl InstructionAction for anewarray {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let anewarray(index) = *self;
 
         let class_name = match &frame.constants[index as usize - 1] {
@@ -95,7 +105,11 @@ impl InstructionAction for anewarray {
 instruction! {@partial newarray, 0xbc, u8}
 
 impl InstructionAction for newarray {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let newarray(arr_type) = *self;
 
         let length = match frame
@@ -127,7 +141,11 @@ impl InstructionAction for newarray {
 instruction! {@partial arraylength, 0xbe}
 
 impl InstructionAction for arraylength {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         if let Some(JavaValue::Reference(Some(val))) = frame.stack.pop() {
             match val.unknown_array_length() {
                 Some(v) => frame.stack.push(JavaValue::Int(v as i32)),

@@ -5,7 +5,9 @@ use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;
 use crate::profile_scope_cfg;
 
+use parking_lot::RwLock;
 use std::mem::replace;
+use std::sync::Arc;
 
 pub struct StackFrame {
     // Comparable to the .text section of a binary
@@ -29,13 +31,30 @@ impl StackFrame {
         mut args: Vec<JavaValue>,
     ) -> Self {
         if max_locals > args.len() {
-            args.extend(vec![JavaValue::Long(0); max_locals - args.len()]);
+            args.extend(vec![JavaValue::Int(0); max_locals - args.len()]);
         }
 
         StackFrame {
             constants,
             locals: args,
             stack: Vec::with_capacity(max_stack),
+        }
+    }
+
+    pub fn verify_computational_types(buffer: &[JavaValue]) {
+        let mut idx = 0;
+        while idx < buffer.len() {
+            match &buffer[idx] {
+                JavaValue::Long(_) => {
+                    assert!(matches!(&buffer[idx + 1], JavaValue::Long(_)));
+                    idx += 2;
+                }
+                JavaValue::Double(_) => {
+                    assert!(matches!(&buffer[idx + 1], JavaValue::Double(_)));
+                    idx += 2;
+                }
+                _ => idx += 1,
+            }
         }
     }
 
@@ -58,9 +77,13 @@ impl StackFrame {
 
     pub fn exec(
         &mut self,
-        jvm: &mut JavaEnv,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
         code: &CodeAttribute,
     ) -> Result<Option<JavaValue>, FlowControl> {
+        self.debug_print();
+        StackFrame::verify_computational_types(&self.locals);
+        StackFrame::verify_computational_types(&self.stack);
+
         // let instructions = self.code.instructions.clone();
         for (offset, instruction) in &code.instructions {
             trace!("\t{}:\t{:?}", offset, instruction);
@@ -83,6 +106,9 @@ impl StackFrame {
                     &type_name[..type_name.find('(').unwrap_or(type_name.len())]
                 );
 
+                StackFrame::verify_computational_types(&self.locals);
+                StackFrame::verify_computational_types(&self.stack);
+
                 match code.instructions[rip].1.exec(self, jvm) {
                     Err(FlowControl::Branch(mut branch_offset)) => {
                         while branch_offset != 0 {
@@ -95,7 +121,12 @@ impl StackFrame {
                         let exception_class = e.get_class();
 
                         let position = code.instructions[rip].0;
-                        match code.attempt_catch(position, &exception_class, &self.constants, jvm) {
+                        match code.attempt_catch(
+                            position,
+                            &exception_class,
+                            &self.constants,
+                            &mut *jvm.write(),
+                        ) {
                             Some(jump_dst) => {
                                 debug!("Exception successfully caught, branching to catch block!");
                                 let mut branch_offset = jump_dst as i64 - position as i64;
@@ -109,7 +140,7 @@ impl StackFrame {
                             }
                             None => {
                                 warn!("Exception not caught, Raising: {}", exception_class);
-                                jvm.debug_print_call_stack();
+                                jvm.read().debug_print_call_stack();
                                 return Err(FlowControl::Throws(Some(e)));
                             }
                         }

@@ -1,4 +1,6 @@
 use num_traits::PrimInt;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 use crate::instruction::InstructionAction;
 use crate::jvm::call::{FlowControl, StackFrame};
@@ -10,14 +12,18 @@ macro_rules! math_instruction {
         instruction! {@partial $name, $inst}
 
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, _: &mut JavaEnv) -> Result<(), FlowControl> {
+            fn exec(&self, frame: &mut StackFrame, _: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
                 math_instruction!(@impl $type frame ($($x,)* $a) => $res);
                 Ok(())
             }
         }
     };
     (@impl Long $frame:ident ($($x:ident),+) => $res:expr) => {
-        $(math_instruction!(@pop_int $frame $x -> i64);)+
+        $(
+            $frame.stack.pop().unwrap();
+            math_instruction!(@pop_int $frame $x -> i64);
+        )+
+        $frame.stack.push(JavaValue::Long($res));
         $frame.stack.push(JavaValue::Long($res));
     };
     (@impl Int $frame:ident ($($x:ident),+) => $res:expr) => {
@@ -25,7 +31,11 @@ macro_rules! math_instruction {
         $frame.stack.push(JavaValue::Int($res));
     };
     (@impl Double $frame:ident ($($x:ident),+) => $res:expr) => {
-        $(math_instruction!(@pop_float $frame $x -> f64);)+
+        $(
+            $frame.stack.pop().unwrap();
+            math_instruction!(@pop_float $frame $x -> f64);
+        )+
+        $frame.stack.push(JavaValue::Double($res));
         $frame.stack.push(JavaValue::Double($res));
     };
     (@impl Float $frame:ident ($($x:ident),+) => $res:expr) => {

@@ -1,4 +1,7 @@
 use std::cmp::Ordering;
+use std::sync::Arc;
+
+use parking_lot::RwLock;
 
 use crate::instruction::InstructionAction;
 use crate::jvm::call::{FlowControl, StackFrame};
@@ -10,11 +13,22 @@ macro_rules! cmp_instruction {
         instruction! {@partial $name, $inst, i16}
 
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, _: &mut JavaEnv) -> Result<(), FlowControl> {
+            fn exec(
+                &self,
+                frame: &mut StackFrame,
+                _: &mut Arc<RwLock<JavaEnv>>,
+            ) -> Result<(), FlowControl> {
                 let Self(jmp) = *self;
 
                 let val2 = frame.stack.pop().unwrap();
                 let val1 = frame.stack.pop().unwrap();
+
+                // Only accept type 1 computational types
+                assert!(!matches!(&val1, JavaValue::Long(_) | JavaValue::Double(_)));
+                assert!(!matches!(&val2, JavaValue::Long(_) | JavaValue::Double(_)));
+                // assert!(matches!(&val1, JavaValue::Byte(_) | JavaValue::Char(_) | JavaValue::Short(_) | JavaValue::Int(_)));
+                // assert!(matches!(&val2, JavaValue::Byte(_) | JavaValue::Char(_) | JavaValue::Short(_) | JavaValue::Int(_)));
+
                 let order = match val1.partial_cmp(&val2) {
                     Some(v) => v,
                     None => panic!(
@@ -40,10 +54,21 @@ macro_rules! cmp_zero_instruction {
         instruction! {@partial $name, $inst, i16}
 
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, _: &mut JavaEnv) -> Result<(), FlowControl> {
+            fn exec(
+                &self,
+                frame: &mut StackFrame,
+                _: &mut Arc<RwLock<JavaEnv>>,
+            ) -> Result<(), FlowControl> {
                 let Self(jmp) = *self;
 
                 let val = frame.stack.pop().unwrap();
+                assert!(matches!(
+                    &val,
+                    JavaValue::Byte(_)
+                        | JavaValue::Char(_)
+                        | JavaValue::Short(_)
+                        | JavaValue::Int(_)
+                ));
                 let order = val.signum().expect("Unable to get ordering for branching");
 
                 if $cond(order) {
@@ -77,27 +102,60 @@ instruction! {@partial ifnonnull, 0xc7, i16}
 instruction! {@partial ifnull, 0xc6, i16}
 
 impl InstructionAction for ifnonnull {
-    fn exec(&self, frame: &mut StackFrame, _: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let Self(jmp) = *self;
 
-        if let Some(JavaValue::Reference(Some(_))) = frame.stack.pop() {
-            debug!("Branching by {}", jmp);
-            // frame.branch_offset += jmp as i64;
-            return Err(FlowControl::Branch(jmp as i64));
+        match frame.stack.pop() {
+            Some(JavaValue::Reference(Some(_))) => {
+                debug!("Branching by {}", jmp);
+                return Err(FlowControl::Branch(jmp as i64));
+            }
+            Some(JavaValue::Reference(_)) => Ok(()),
+            x => {
+                frame.debug_print();
+                panic!("ifnonnull only accepts references: {:?}", x)
+            }
         }
-        Ok(())
+        // if let Some(JavaValue::Reference(Some(_))) = frame.stack.pop() {
+        //     debug!("Branching by {}", jmp);
+        //     // frame.branch_offset += jmp as i64;
+        //     return Err(FlowControl::Branch(jmp as i64));
+        // } else {
+        //     panic!("ifnonnull only accepts references")
+        // }
     }
 }
 
 impl InstructionAction for ifnull {
-    fn exec(&self, frame: &mut StackFrame, _: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let Self(jmp) = *self;
 
-        if let Some(JavaValue::Reference(None)) = frame.stack.pop() {
-            debug!("Branching by {}", jmp);
-            return Err(FlowControl::Branch(jmp as i64));
-            // frame.branch_offset += jmp as i64;
+        match frame.stack.pop() {
+            Some(JavaValue::Reference(None)) => {
+                debug!("Branching by {}", jmp);
+                return Err(FlowControl::Branch(jmp as i64));
+            }
+            Some(JavaValue::Reference(_)) => Ok(()),
+            x => {
+                frame.debug_print();
+                panic!("ifnull only accepts references: {:?}", x)
+            }
         }
-        Ok(())
+
+        // if let Some(JavaValue::Reference(None)) = frame.stack.pop() {
+        //     debug!("Branching by {}", jmp);
+        //     return Err(FlowControl::Branch(jmp as i64));
+        //     // frame.branch_offset += jmp as i64;
+        // } else {
+        //     panic!("ifnull only accepts references")
+        // }
     }
 }

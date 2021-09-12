@@ -97,6 +97,7 @@ impl From<ObjectHandle> for JavaValue {
     }
 }
 
+// FIXME: All int types can be compared and all comparisons are signed
 impl PartialEq for JavaValue {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {

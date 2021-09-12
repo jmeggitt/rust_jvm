@@ -4,9 +4,11 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::io::{self, Cursor, Error, ErrorKind};
 use std::ops::RangeInclusive;
+use std::sync::Arc;
 
 use byteorder::ReadBytesExt;
 use hashbrown::HashMap;
+use parking_lot::RwLock;
 
 use array::*;
 use class::*;
@@ -37,7 +39,11 @@ mod stack;
 pub trait Instruction: Any + Debug {
     fn write(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<()>;
 
-    fn exec(&self, _stack: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        _stack: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         panic!("Instruction not implemented for {:?}", self);
     }
 }
@@ -50,7 +56,11 @@ pub trait StaticInstruct: Instruction {
 }
 
 pub trait InstructionAction: Any {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl>;
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl>;
 }
 
 pub struct InstructionReader {

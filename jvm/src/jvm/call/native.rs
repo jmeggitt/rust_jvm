@@ -6,11 +6,13 @@ use hashbrown::HashMap;
 use jni::sys::JNINativeInterface_;
 use libffi::middle::{Arg, Cif, CodePtr};
 use libloading::Library;
+use parking_lot::RwLock;
 use std::ffi::c_void;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use std::ptr::null_mut;
+use std::sync::Arc;
 
 pub struct NativeCall {
     cif: Cif,
@@ -33,11 +35,37 @@ impl NativeCall {
         }
     }
 
-    fn verify_args(&self, arguments: &[JavaValue]) {
+    fn verify_args(&self, arguments: &[JavaValue]) -> Vec<JavaValue> {
         if let FieldDescriptor::Method { args, .. } = &self.desc {
-            for (desc, arg) in args.iter().zip(arguments) {
-                assert!(desc.matches(arg));
+            let mut ret = Vec::new();
+            let mut idx = 0;
+            for desc in args {
+                match desc {
+                    FieldDescriptor::Long => {
+                        assert!(matches!(&arguments[idx], JavaValue::Long(_)));
+                        ret.push(arguments[idx]);
+                        idx += 2;
+                    }
+                    FieldDescriptor::Double => {
+                        assert!(matches!(&arguments[idx], JavaValue::Double(_)));
+                        ret.push(arguments[idx]);
+                        idx += 2;
+                    }
+                    x => {
+                        if let Some(x) = x.assign_from(arguments[idx]) {
+                            ret.push(x);
+                            idx += 1;
+                        } else {
+                            panic!("Arguments passed do not match those for native call")
+                        }
+                    }
+                }
             }
+
+            ret
+            // for (desc, arg) in args.iter().zip(arguments) {
+            //     assert!(desc.matches(arg));
+            // }
         } else {
             panic!("Arguments do not match function!")
         }
@@ -59,11 +87,11 @@ impl NativeCall {
 
     pub unsafe fn exec(
         &self,
-        jvm: &mut JavaEnv,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
         target: ObjectHandle,
-        args: Vec<JavaValue>,
+        mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
-        self.verify_args(&args);
+        args = self.verify_args(&args);
 
         let jni_env = build_interface(jvm);
         let target_ptr = target.ptr();
@@ -79,6 +107,7 @@ impl NativeCall {
             ffi_args.push(NativeCall::wrap_arg(arg));
         }
 
+        // TODO: Handle sticky exception
         if let FieldDescriptor::Method { returns, .. } = &self.desc {
             Ok(Some(match &**returns {
                 FieldDescriptor::Void => {

@@ -13,20 +13,22 @@ use crate::jvm::hooks::register_hooks;
 use crate::jvm::mem::{
     ClassSchema, FieldDescriptor, JavaValue, ManualInstanceReference, ObjectHandle, ObjectReference,
 };
+use parking_lot::RwLock;
 use std::thread::ThreadId;
 
-macro_rules! fatal_error {
-    ($($arg:tt),*) => {{
-        error!($($arg),*);
-        panic!($($arg),*);
-    }};
-}
+// macro_rules! fatal_error {
+//     ($($arg:tt),*) => {{
+//         error!($($arg),*);
+//         panic!($($arg),*);
+//     }};
+// }
 
 pub mod call;
 pub mod mem;
 
 mod hooks;
 mod internals;
+pub mod thread;
 
 // TODO: Review section 5.5 of the docs
 pub struct JavaEnv {
@@ -51,7 +53,7 @@ pub struct JavaEnv {
 }
 
 impl JavaEnv {
-    pub fn new(class_loader: ClassLoader) -> Self {
+    pub fn new(class_loader: ClassLoader) -> Arc<RwLock<Self>> {
         let mut jvm = JavaEnv {
             class_loader,
             static_fields: HashMap::new(),
@@ -78,6 +80,7 @@ impl JavaEnv {
 
         // warn!("Loading core")
         jvm.load_core_libs().unwrap();
+        let mut jvm = Arc::new(RwLock::new(jvm));
         register_hooks(&mut jvm);
 
         jvm
@@ -111,6 +114,10 @@ impl JavaEnv {
     }
 
     pub fn instanceof(&self, instance: &str, target: &str) -> Option<bool> {
+        if instance == target {
+            return Some(true);
+        }
+
         // If this is a regular object, we hit the base case
         if instance == "java/lang/Object" {
             return Some(false);
@@ -240,39 +247,20 @@ impl JavaEnv {
         }
     }
 
-    pub fn init_class(&mut self, class: &str) {
-        if !self.static_load.contains(class) {
-            self.class_loader.attempt_load(class).unwrap();
-            self.static_load.insert(class.to_string());
-
-            if class != "java/lang/Object" {
-                let super_class = self.class_loader.class(class).unwrap().super_class();
-                self.init_class(&super_class);
-            }
-
-            let instance = self.class_loader.class(class).unwrap();
-            if instance.get_method("<clinit>", "()V").is_some() {
-                let method = ClassElement::new(class, "<clinit>", "()V");
-                self.invoke_static(method, vec![]).unwrap();
-                // self.exec_static(class, "<clinit>", "()V", vec![]).unwrap();
-            }
-        }
-    }
-
-    pub fn entry_point(&mut self, class: &str, args: Vec<String>) -> io::Result<()> {
-        info!(
-            "Starting entry point class {} with arguments {:?}",
-            class, &args
-        );
-
-        self.class_loader.attempt_load(class)?;
-
-        let arg = JavaValue::Reference(Some(ObjectHandle::new_array::<Option<ObjectHandle>>(0)));
-        // self.exec_static(class, "main", "([Ljava/lang/String;)V", vec![arg])
-        //     .unwrap();
-        let method = ClassElement::new(class, "main", "([Ljava/lang/String;)V");
-        self.invoke_static(method, vec![arg]).unwrap();
-
-        Ok(())
-    }
+    // pub fn entry_point(&mut self, class: &str, args: Vec<String>) -> io::Result<()> {
+    //     info!(
+    //         "Starting entry point class {} with arguments {:?}",
+    //         class, &args
+    //     );
+    //
+    //     self.class_loader.attempt_load(class)?;
+    //
+    //     let arg = JavaValue::Reference(Some(ObjectHandle::new_array::<Option<ObjectHandle>>(0)));
+    //     // self.exec_static(class, "main", "([Ljava/lang/String;)V", vec![arg])
+    //     //     .unwrap();
+    //     let method = ClassElement::new(class, "main", "([Ljava/lang/String;)V");
+    //     self.invoke_static(method, vec![arg]).unwrap();
+    //
+    //     Ok(())
+    // }
 }

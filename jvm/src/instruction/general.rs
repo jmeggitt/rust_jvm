@@ -13,6 +13,8 @@ use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
 use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 instruction! {athrow, 0xbf}
 instruction! {dcmpg, 0x98}
@@ -33,7 +35,12 @@ instruction! {ret, 0xa9, u8}
 instruction! {@partial checkcast, 0xc0, u16}
 
 impl InstructionAction for checkcast {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        // TODO: Implement cast checking
         warn!(
             "Skipped cast check as exceptions are not implemented yet: {:?}",
             frame.stack[frame.stack.len() - 1]
@@ -45,7 +52,11 @@ impl InstructionAction for checkcast {
 instruction! {@partial bipush, 0x10, u8}
 
 impl InstructionAction for bipush {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let bipush(value) = *self;
         // Be lazy and transmute the byte from unsigned to signed to avoid implementing another
         // pattern in the instruction macro
@@ -59,7 +70,11 @@ impl InstructionAction for bipush {
 instruction! {@partial sipush, 0x11, i16}
 
 impl InstructionAction for sipush {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let sipush(value) = *self;
         // Sign extend short to int as specified in specification
         frame.stack.push(JavaValue::Int(value as _));
@@ -70,7 +85,11 @@ impl InstructionAction for sipush {
 instruction! {@partial ldc, 0x12, u8}
 
 impl InstructionAction for ldc {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let ldc(index) = *self;
 
         frame
@@ -82,13 +101,13 @@ impl InstructionAction for ldc {
                     let text = frame.constants[*string_index as usize - 1]
                         .expect_utf8()
                         .unwrap();
-                    jvm.build_string(&text)
+                    jvm.write().build_string(&text)
                 }
                 Constant::Class(ConstantClass { name_index }) => {
                     let name = frame.constants[*name_index as usize - 1]
                         .expect_utf8()
                         .unwrap();
-                    JavaValue::Reference(Some(jvm.class_instance(&name)))
+                    JavaValue::Reference(Some(jvm.write().class_instance(&name)))
                     // JavaValue::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
                 }
                 x => panic!("Attempted to push {:?} to the stack", x),
@@ -100,7 +119,11 @@ impl InstructionAction for ldc {
 instruction! {@partial ldc_w, 0x13, u16}
 
 impl InstructionAction for ldc_w {
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let ldc_w(index) = *self;
 
         frame
@@ -112,13 +135,13 @@ impl InstructionAction for ldc_w {
                     let text = frame.constants[*string_index as usize - 1]
                         .expect_utf8()
                         .unwrap();
-                    jvm.build_string(&text)
+                    jvm.write().build_string(&text)
                 }
                 Constant::Class(ConstantClass { name_index }) => {
                     let name = frame.constants[*name_index as usize - 1]
                         .expect_utf8()
                         .unwrap();
-                    JavaValue::Reference(Some(jvm.class_instance(&name)))
+                    JavaValue::Reference(Some(jvm.write().class_instance(&name)))
                     // JavaValue::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
                 }
                 x => panic!("Attempted to push {:?} to the stack", x),
@@ -130,7 +153,11 @@ impl InstructionAction for ldc_w {
 instruction! {@partial ldc2_w, 0x14, u16}
 
 impl InstructionAction for ldc2_w {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let ldc2_w(index) = *self;
 
         frame
@@ -147,7 +174,11 @@ impl InstructionAction for ldc2_w {
 instruction! {@partial goto, 0xa7, i16}
 
 impl InstructionAction for goto {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let goto(offset) = *self;
         // frame.branch_offset += offset as i64;
         Err(FlowControl::Branch(offset as i64))
@@ -161,31 +192,51 @@ instruction! {@partial dreturn, 0xaf}
 instruction! {@partial areturn, 0xb0}
 
 impl InstructionAction for ireturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         Err(FlowControl::Return(frame.stack.pop()))
     }
 }
 
 impl InstructionAction for lreturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         Err(FlowControl::Return(frame.stack.pop()))
     }
 }
 
 impl InstructionAction for freturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         Err(FlowControl::Return(frame.stack.pop()))
     }
 }
 
 impl InstructionAction for dreturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         Err(FlowControl::Return(frame.stack.pop()))
     }
 }
 
 impl InstructionAction for areturn {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         Err(FlowControl::Return(frame.stack.pop()))
     }
 }
@@ -193,7 +244,11 @@ impl InstructionAction for areturn {
 instruction! {@partial r#return, 0xb1}
 
 impl InstructionAction for r#return {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         Err(FlowControl::Return(None))
     }
 }
@@ -210,7 +265,11 @@ impl Instruction for iinc {
         buffer.write_i8(self.1)
     }
 
-    fn exec(&self, frame: &mut StackFrame, jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         <Self as InstructionAction>::exec(self, frame, jvm)
     }
 }
@@ -224,7 +283,11 @@ impl StaticInstruct for iinc {
 }
 
 impl InstructionAction for iinc {
-    fn exec(&self, frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         let iinc(index, val) = *self;
 
         match &mut frame.locals[index as usize] {
@@ -251,13 +314,21 @@ instruction! {@partial monitorenter, 0xc2}
 instruction! {@partial monitorexit, 0xc3}
 
 impl InstructionAction for monitorenter {
-    fn exec(&self, _frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        _frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         Ok(())
     }
 }
 
 impl InstructionAction for monitorexit {
-    fn exec(&self, _frame: &mut StackFrame, _jvm: &mut JavaEnv) -> Result<(), FlowControl> {
+    fn exec(
+        &self,
+        _frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
         Ok(())
     }
 }

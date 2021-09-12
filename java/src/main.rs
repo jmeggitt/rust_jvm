@@ -11,7 +11,10 @@ use args::*;
 
 // use jvm::class::{ClassLoader, ClassPath};
 // use jvm::jvm::JavaEnv;
-use jni::sys::{jint, JNIEnv, JavaVM, JavaVMInitArgs, JNI_ERR, JNI_TRUE, JNI_VERSION_1_8};
+use jni::sys::{
+    jint, JNIEnv, JNI_CreateJavaVM, JNI_GetDefaultJavaVMInitArgs, JavaVM, JavaVMInitArgs, JNI_ERR,
+    JNI_TRUE, JNI_VERSION_1_8,
+};
 use libloading::{Library, Symbol};
 use std::ffi::c_void;
 use std::path::PathBuf;
@@ -123,20 +126,20 @@ fn main() {
     // set_var("_", "/home/jaspermeggitt/.cargo/bin/cargo");
 
     unsafe {
-        let lib = Library::new(
-            "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release/libjvm.so",
-        )
-        .unwrap();
-
-        let get_jvm_init_args: Symbol<unsafe extern "system" fn(args: *mut c_void) -> jint> =
-            lib.get(b"JNI_GetDefaultJavaVMInitArgs").unwrap();
-        let create_jvm: Symbol<
-            unsafe extern "system" fn(
-                pvm: *mut *mut JavaVM,
-                penv: *mut *mut JNIEnv,
-                args: *mut c_void,
-            ) -> jint,
-        > = lib.get(b"JNI_CreateJavaVM").unwrap();
+        // let lib = Library::new(
+        //     "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release/libjvm.so",
+        // )
+        // .unwrap();
+        //
+        // let get_jvm_init_args: Symbol<unsafe extern "system" fn(args: *mut c_void) -> jint> =
+        //     lib.get(b"JNI_GetDefaultJavaVMInitArgs").unwrap();
+        // let create_jvm: Symbol<
+        //     unsafe extern "system" fn(
+        //         pvm: *mut *mut JavaVM,
+        //         penv: *mut *mut JNIEnv,
+        //         args: *mut c_void,
+        //     ) -> jint,
+        // > = lib.get(b"JNI_CreateJavaVM").unwrap();
 
         let mut args = JavaVMInitArgs {
             version: JNI_VERSION_1_8,
@@ -145,14 +148,19 @@ fn main() {
             ignoreUnrecognized: JNI_TRUE,
         };
 
-        if get_jvm_init_args(&mut args as *mut _ as *mut c_void) == JNI_ERR {
+        if JNI_GetDefaultJavaVMInitArgs(&mut args as *mut _ as *mut c_void) == JNI_ERR {
             panic!("Unable to get jni init args");
         }
 
         let mut jvm = null_mut();
         let mut env = null_mut();
 
-        if create_jvm(&mut jvm, &mut env, &args as *const JavaVMInitArgs as _) == JNI_ERR {
+        if JNI_CreateJavaVM(
+            &mut jvm,
+            &mut env as *mut _ as _,
+            &args as *const JavaVMInitArgs as _,
+        ) == JNI_ERR
+        {
             panic!("Unable to create Java VM");
         }
     }

@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 
-use std::ffi::{c_void, CString};
+use std::ffi::{c_void, CStr, CString};
 use std::mem::forget;
 use std::ptr::{null, null_mut};
 
@@ -13,23 +13,28 @@ use jni::sys::{
 
 use crate::class::BufferedRead;
 use crate::constant_pool::ClassElement;
-use crate::jvm::call::{FlowControl, RawJNIEnv};
+use crate::jvm::call::{FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{
     FieldDescriptor, JavaPrimitive, JavaValue, ManualInstanceReference, ObjectReference,
 };
 use crate::jvm::{JavaEnv, ObjectHandle};
+use parking_lot::RwLock;
 use std::os::raw::c_char;
+use std::sync::Arc;
 
 // #[deprecated(note="Switch to storing JVM ptr in JNIEnv::reserved0")]
 // pub static mut GLOBAL_JVM: Option<Box<JavaEnv>> = None;
 
+// TODO: Rewrite this function with CStr
 pub unsafe extern "system" fn register_natives(
-    _env: *mut JNIEnv,
+    env: *mut JNIEnv,
     clazz: jclass,
     methods: *const JNINativeMethod,
     num_methods: jint,
 ) -> jint {
-    debug!("Calling JNIEnv::RegisterNatives");
+    let mut env = RawJNIEnv::new(env);
+
+    // debug!("Calling JNIEnv::RegisterNatives");
     let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
     let name_obj: Option<ObjectHandle> = a.read_named_field("name");
     let class = name_obj.unwrap().expect_string();
@@ -41,11 +46,11 @@ pub unsafe extern "system" fn register_natives(
     for method in
         std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, num_methods as usize)
     {
-        let name = CString::from_raw(method.name);
-        let desc = CString::from_raw(method.signature);
+        let name = CStr::from_ptr(method.name);
+        let desc = CStr::from_ptr(method.signature);
 
-        let jvm = (&**_env).reserved0 as *mut JavaEnv;
-        if (&mut *jvm).linked_libraries.register_fn(
+        // let jvm = (&**_env).reserved0 as *mut JavaEnv;
+        if env.write().linked_libraries.register_fn(
             &class,
             name.to_str().unwrap(),
             desc.to_str().unwrap(),
@@ -53,19 +58,18 @@ pub unsafe extern "system" fn register_natives(
         ) {
             registered += 1;
         }
-
-        forget(name);
-        forget(desc);
     }
 
-    forget(class);
+    // forget(class);
     registered
 }
 
 unsafe extern "system" fn get_object_class(env: *mut JNIEnv, obj: jobject) -> jclass {
-    let jvm = (&**env).reserved0 as *mut JavaEnv;
+    let mut env = RawJNIEnv::new(env);
+
+    // let jvm = (&**env).reserved0 as *mut JavaEnv;
     match ObjectHandle::from_ptr(obj) {
-        Some(v) => (&mut *jvm).class_instance(&v.get_class()).ptr(),
+        Some(v) => env.write().class_instance(&v.get_class()).ptr(),
         None => null_mut(),
     }
 }
@@ -134,15 +138,17 @@ unsafe extern "system" fn call_obj_method_a(
     method_id: jmethodID,
     args: *const jvalue,
 ) -> jobject {
+    let mut env = RawJNIEnv::new(env);
     let target = ObjectHandle::from_ptr(obj).unwrap();
     let element = read_method_id(method_id);
     let parsed_args = read_args(&element.desc, args);
 
-    let mut jvm = &mut *((&**env).reserved0 as *mut JavaEnv);
-    match jvm.invoke_virtual(element.clone(), target, parsed_args) {
+    // let mut jvm = &mut *((&**env).reserved0 as *mut JavaEnv);
+    match env.invoke_virtual(element.clone(), target, parsed_args) {
         Ok(Some(JavaValue::Reference(v))) => v.pack().l,
         Err(FlowControl::Throws(x)) => {
-            (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 = x.pack().l as _;
+            env.set_thrown(x);
+            // (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 = x.pack().l as _;
             null_mut()
         }
         x => panic!("{:?}", x),
@@ -157,9 +163,9 @@ unsafe extern "system" fn call_obj_method_a(
 // }
 
 #[inline]
-pub fn build_interface(jvm: &mut JavaEnv) -> JNINativeInterface_ {
+pub fn build_interface(jvm: &mut Arc<RwLock<JavaEnv>>) -> JNINativeInterface_ {
     JNINativeInterface_ {
-        reserved0: jvm as *mut JavaEnv as *mut c_void,
+        reserved0: jvm as *mut Arc<RwLock<JavaEnv>> as *mut c_void,
         reserved1: null_mut(),
         reserved2: null_mut(),
         reserved3: null_mut(),

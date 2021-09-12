@@ -3,6 +3,7 @@ name = "jvm"
 version = "0.2.0"
 authors = ["Jasper Meggitt <jasper.meggitt@gmail.com>"]
 edition = "2018"
+autobins = false
 
 [lib]
 name = "jvm"
@@ -29,6 +30,7 @@ libloading = "0.7.0"
 libffi = "1.0.1"
 jni = "0.19.0"
 lazy_static = "1.4.0"
+parking_lot = "0.11.2"
 
 thread_profiler = {version = "0.3", optional = true }
 gc = "0.4.1"

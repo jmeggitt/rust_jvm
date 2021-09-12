@@ -116,6 +116,18 @@ impl Display for FieldDescriptor {
 }
 
 impl FieldDescriptor {
+    pub fn word_len(args: &[FieldDescriptor]) -> usize {
+        let mut size = 0;
+        for arg in args {
+            size += match arg {
+                FieldDescriptor::Long | FieldDescriptor::Double => 2,
+                _ => 1,
+            };
+        }
+
+        size
+    }
+
     pub fn assign_from(&self, value: JavaValue) -> Option<JavaValue> {
         Some(match (self, value) {
             (FieldDescriptor::Boolean, JavaValue::Byte(x)) => JavaValue::Byte((x != 0) as _),

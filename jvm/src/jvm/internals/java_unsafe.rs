@@ -324,7 +324,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putChar__JC(
     _env: JNIEnv,
     _this: JObject,
     _val: jlong,
-    _j: char,
+    _j: jchar,
 ) {
     unimplemented!()
 }

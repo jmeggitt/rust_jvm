@@ -3,11 +3,12 @@
 
 use crate::class::{ClassLoader, ClassPath};
 use crate::constant_pool::ClassElement;
-use crate::jvm::call::{build_interface, FlowControl, RawJNIEnv};
+use crate::jvm::call::{build_interface, FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{ConstTypeId, JavaValue, ObjectHandle, ObjectReference, ObjectType};
 use crate::jvm::JavaEnv;
 use jni::sys::*;
 use log::LevelFilter;
+use parking_lot::RwLock;
 use pretty_env_logger::env_logger::Target;
 use pretty_env_logger::formatted_builder;
 use std::collections::hash_map::DefaultHasher;
@@ -17,6 +18,7 @@ use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::process::exit;
 use std::ptr::null_mut;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 macro_rules! obj_expect {
@@ -85,7 +87,7 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
     let interface = build_interface(&mut *jvm);
 
     let vm = JNIInvokeInterface_ {
-        reserved0: Box::leak(jvm) as *mut JavaEnv as _,
+        reserved0: Box::leak(jvm) as *mut Arc<RwLock<JavaEnv>> as _,
         reserved1: null_mut(),
         reserved2: null_mut(),
         DestroyJavaVM: None,
@@ -131,25 +133,25 @@ pub unsafe extern "system" fn JVM_IHashCode_impl(mut env: RawJNIEnv, obj: jobjec
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_MonitorWait_impl(mut env: RawJNIEnv, obj: jobject, ms: jlong) {
+pub unsafe extern "system" fn JVM_MonitorWait_impl(env: RawJNIEnv, obj: jobject, ms: jlong) {
     // TODO: Isn't this for handling synchronous blocks?
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_MonitorNotify_impl(mut env: RawJNIEnv, obj: jobject) {
+pub unsafe extern "system" fn JVM_MonitorNotify_impl(env: RawJNIEnv, obj: jobject) {
     // TODO: Isn't this for handling synchronous blocks?
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_MonitorNotifyAll_impl(mut env: RawJNIEnv, obj: jobject) {
+pub unsafe extern "system" fn JVM_MonitorNotifyAll_impl(env: RawJNIEnv, obj: jobject) {
     // TODO: Isn't this for handling synchronous blocks?
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_Clone_impl(mut env: RawJNIEnv, obj: jobject) -> jobject {
+pub unsafe extern "system" fn JVM_Clone_impl(env: RawJNIEnv, obj: jobject) -> jobject {
     // TODO: Copy a raw object
     unimplemented!()
 }
@@ -158,7 +160,7 @@ pub unsafe extern "system" fn JVM_Clone_impl(mut env: RawJNIEnv, obj: jobject) -
  * java.lang.String
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_InternString_impl(mut env: RawJNIEnv, str: jstring) -> jstring {
+pub unsafe extern "system" fn JVM_InternString_impl(env: RawJNIEnv, str: jstring) -> jstring {
     // TODO: Should ensure that this string object is returned whenever it is read from an executable
     unimplemented!()
 }
@@ -167,10 +169,7 @@ pub unsafe extern "system" fn JVM_InternString_impl(mut env: RawJNIEnv, str: jst
  * java.lang.System
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_CurrentTimeMillis_impl(
-    mut env: RawJNIEnv,
-    ignored: jclass,
-) -> jlong {
+pub unsafe extern "system" fn JVM_CurrentTimeMillis_impl(env: RawJNIEnv, ignored: jclass) -> jlong {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time travel occurred")
@@ -178,7 +177,7 @@ pub unsafe extern "system" fn JVM_CurrentTimeMillis_impl(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_NanoTime_impl(mut env: RawJNIEnv, ignored: jclass) -> jlong {
+pub unsafe extern "system" fn JVM_NanoTime_impl(env: RawJNIEnv, ignored: jclass) -> jlong {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time travel occurred")
@@ -187,7 +186,7 @@ pub unsafe extern "system" fn JVM_NanoTime_impl(mut env: RawJNIEnv, ignored: jcl
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ArrayCopy_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     ignored: jclass,
     src: jobject,
     src_pos: jint,
@@ -265,7 +264,7 @@ pub unsafe extern "system" fn JVM_ArrayCopy_impl(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_InitProperties_impl(mut env: RawJNIEnv, p: jobject) -> jobject {
+pub unsafe extern "system" fn JVM_InitProperties_impl(env: RawJNIEnv, p: jobject) -> jobject {
     // TODO: ?
     unimplemented!()
 }
@@ -383,13 +382,13 @@ pub unsafe extern "system" fn JVM_IsNaN_impl(d: jdouble) -> jboolean {
  * java.lang.Throwable
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_FillInStackTrace_impl(mut env: RawJNIEnv, throwable: jobject) {
+pub unsafe extern "system" fn JVM_FillInStackTrace_impl(env: RawJNIEnv, throwable: jobject) {
     unimplemented!()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetStackTraceDepth_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     throwable: jobject,
 ) -> jint {
     unimplemented!()
@@ -397,7 +396,7 @@ pub unsafe extern "system" fn JVM_GetStackTraceDepth_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetStackTraceElement_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     throwable: jobject,
     index: jint,
 ) -> jobject {
@@ -408,13 +407,13 @@ pub unsafe extern "system" fn JVM_GetStackTraceElement_impl(
  * java.lang.Compiler
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_InitializeCompiler_impl(mut env: RawJNIEnv, compCls: jclass) {
+pub unsafe extern "system" fn JVM_InitializeCompiler_impl(env: RawJNIEnv, compCls: jclass) {
     unimplemented!()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_IsSilentCompiler_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     compCls: jclass,
 ) -> jboolean {
     unimplemented!()
@@ -422,7 +421,7 @@ pub unsafe extern "system" fn JVM_IsSilentCompiler_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_CompileClass_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     compCls: jclass,
     cls: jclass,
 ) -> jboolean {
@@ -431,7 +430,7 @@ pub unsafe extern "system" fn JVM_CompileClass_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_CompileClasses_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cls: jclass,
     jname: jstring,
 ) -> jboolean {
@@ -440,7 +439,7 @@ pub unsafe extern "system" fn JVM_CompileClasses_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_CompilerCommand_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     compCls: jclass,
     arg: jobject,
 ) -> jobject {
@@ -448,141 +447,12 @@ pub unsafe extern "system" fn JVM_CompilerCommand_impl(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_EnableCompiler_impl(mut env: RawJNIEnv, compCls: jclass) {
+pub unsafe extern "system" fn JVM_EnableCompiler_impl(env: RawJNIEnv, compCls: jclass) {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_DisableCompiler_impl(mut env: RawJNIEnv, compCls: jclass) {
-    unimplemented!()
-}
-
-/*
- * java.lang.Thread
- */
-#[no_mangle]
-pub unsafe extern "system" fn JVM_StartThread_impl(mut env: RawJNIEnv, thread: jobject) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_StopThread_impl(
-    mut env: RawJNIEnv,
-    thread: jobject,
-    exception: jobject,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_IsThreadAlive_impl(
-    mut env: RawJNIEnv,
-    thread: jobject,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_SuspendThread_impl(mut env: RawJNIEnv, thread: jobject) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_ResumeThread_impl(mut env: RawJNIEnv, thread: jobject) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_SetThreadPriority_impl(
-    mut env: RawJNIEnv,
-    thread: jobject,
-    prio: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_Yield_impl(mut env: RawJNIEnv, threadClass: jclass) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_Sleep_impl(
-    mut env: RawJNIEnv,
-    threadClass: jclass,
-    millis: jlong,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_CurrentThread_impl(
-    mut env: RawJNIEnv,
-    threadClass: jclass,
-) -> jobject {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_CountStackFrames_impl(
-    mut env: RawJNIEnv,
-    thread: jobject,
-) -> jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_Interrupt_impl(mut env: RawJNIEnv, thread: jobject) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_IsInterrupted_impl(
-    mut env: RawJNIEnv,
-    thread: jobject,
-    clearInterrupted: jboolean,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_HoldsLock_impl(
-    mut env: RawJNIEnv,
-    threadClass: jclass,
-    obj: jobject,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_DumpAllStacks_impl(mut env: RawJNIEnv, unused: jclass) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_GetAllThreads_impl(
-    mut env: RawJNIEnv,
-    dummy: jclass,
-) -> jobjectArray {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_SetNativeThreadName_impl(
-    mut env: RawJNIEnv,
-    jthread: jobject,
-    name: jstring,
-) {
-    unimplemented!()
-}
-
-/* getStackTrace_impl() and getAllStackTraces_impl() method */
-#[no_mangle]
-pub unsafe extern "system" fn JVM_DumpThreads_impl(
-    mut env: RawJNIEnv,
-    threadClass: jclass,
-    threads: jobjectArray,
-) -> jobjectArray {
+pub unsafe extern "system" fn JVM_DisableCompiler_impl(env: RawJNIEnv, compCls: jclass) {
     unimplemented!()
 }
 
@@ -590,27 +460,27 @@ pub unsafe extern "system" fn JVM_DumpThreads_impl(
  * java.lang.SecurityManager
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_CurrentLoadedClass_impl(mut env: RawJNIEnv) -> jclass {
+pub unsafe extern "system" fn JVM_CurrentLoadedClass_impl(env: RawJNIEnv) -> jclass {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_CurrentClassLoader_impl(mut env: RawJNIEnv) -> jobject {
+pub unsafe extern "system" fn JVM_CurrentClassLoader_impl(env: RawJNIEnv) -> jobject {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassContext_impl(mut env: RawJNIEnv) -> jobjectArray {
+pub unsafe extern "system" fn JVM_GetClassContext_impl(env: RawJNIEnv) -> jobjectArray {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_ClassDepth_impl(mut env: RawJNIEnv, name: jstring) -> jint {
+pub unsafe extern "system" fn JVM_ClassDepth_impl(env: RawJNIEnv, name: jstring) -> jint {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_ClassLoaderDepth_impl(mut env: RawJNIEnv) -> jint {
+pub unsafe extern "system" fn JVM_ClassLoaderDepth_impl(env: RawJNIEnv) -> jint {
     unimplemented!()
 }
 
@@ -618,15 +488,12 @@ pub unsafe extern "system" fn JVM_ClassLoaderDepth_impl(mut env: RawJNIEnv) -> j
  * java.lang.Package
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetSystemPackage_impl(
-    mut env: RawJNIEnv,
-    name: jstring,
-) -> jstring {
+pub unsafe extern "system" fn JVM_GetSystemPackage_impl(env: RawJNIEnv, name: jstring) -> jstring {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetSystemPackages_impl(mut env: RawJNIEnv) -> jobjectArray {
+pub unsafe extern "system" fn JVM_GetSystemPackages_impl(env: RawJNIEnv) -> jobjectArray {
     unimplemented!()
 }
 
@@ -635,7 +502,7 @@ pub unsafe extern "system" fn JVM_GetSystemPackages_impl(mut env: RawJNIEnv) -> 
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_AllocateNewObject_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     obj: jobject,
     currClass: jclass,
     initClass: jclass,
@@ -645,7 +512,7 @@ pub unsafe extern "system" fn JVM_AllocateNewObject_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_AllocateNewArray_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     obj: jobject,
     currClass: jclass,
     length: jint,
@@ -654,7 +521,7 @@ pub unsafe extern "system" fn JVM_AllocateNewArray_impl(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_LatestUserDefinedLoader_impl(mut env: RawJNIEnv) -> jobject {
+pub unsafe extern "system" fn JVM_LatestUserDefinedLoader_impl(env: RawJNIEnv) -> jobject {
     unimplemented!()
 }
 
@@ -664,7 +531,7 @@ pub unsafe extern "system" fn JVM_LatestUserDefinedLoader_impl(mut env: RawJNIEn
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_LoadClass0_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     obj: jobject,
     currClass: jclass,
     currClassName: jstring,
@@ -676,13 +543,13 @@ pub unsafe extern "system" fn JVM_LoadClass0_impl(
  * java.lang.reflect.Array
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetArrayLength_impl(mut env: RawJNIEnv, arr: jobject) -> jint {
+pub unsafe extern "system" fn JVM_GetArrayLength_impl(env: RawJNIEnv, arr: jobject) -> jint {
     unimplemented!()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetArrayElement_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     arr: jobject,
     index: jint,
 ) -> jobject {
@@ -691,7 +558,7 @@ pub unsafe extern "system" fn JVM_GetArrayElement_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetPrimitiveArrayElement_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     arr: jobject,
     index: jint,
     wCode: jint,
@@ -701,7 +568,7 @@ pub unsafe extern "system" fn JVM_GetPrimitiveArrayElement_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_SetArrayElement_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     arr: jobject,
     index: jint,
     val: jobject,
@@ -711,7 +578,7 @@ pub unsafe extern "system" fn JVM_SetArrayElement_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_SetPrimitiveArrayElement_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     arr: jobject,
     index: jint,
     v: jvalue,
@@ -722,7 +589,7 @@ pub unsafe extern "system" fn JVM_SetPrimitiveArrayElement_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_NewArray_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     eltClass: jclass,
     length: jint,
 ) -> jobject {
@@ -731,7 +598,7 @@ pub unsafe extern "system" fn JVM_NewArray_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_NewMultiArray_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     eltClass: jclass,
     dim: jintArray,
 ) -> jobject {
@@ -755,8 +622,9 @@ pub unsafe extern "system" fn JVM_NewMultiArray_impl(
  * an error if it is not marked propertly.
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetCallerClass_impl(mut env: RawJNIEnv, depth: i32) -> jclass {
-    let len = env.call_stack.len();
+pub unsafe extern "system" fn JVM_GetCallerClass_impl(env: RawJNIEnv, depth: i32) -> jclass {
+    let jvm = env.read();
+    let len = jvm.call_stack.len();
 
     if len < 3 {
         panic!("Attempted to call Java_sun_reflect_Reflection_getCallerClass__ without caller");
@@ -766,7 +634,7 @@ pub unsafe extern "system" fn JVM_GetCallerClass_impl(mut env: RawJNIEnv, depth:
     // len - 2 = Target class
     // len - 3 = Caller class
 
-    let class = env.call_stack[(len as jint - depth - 2) as usize].0.clone();
+    let class = jvm.call_stack[(len as jint - depth - 2) as usize].0.clone();
 
     // FIXME: Make explicit memory leak because current value is stored on the stack and we can't
     // make a policy of freeing results since it wont apply in all cases. It could be solved by a
@@ -781,18 +649,18 @@ pub unsafe extern "system" fn JVM_GetCallerClass_impl(mut env: RawJNIEnv, depth:
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindPrimitiveClass_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     utf: *const i8,
 ) -> jclass {
     let str = CStr::from_ptr(utf);
-    env.class_instance(&str.to_string_lossy()).ptr()
+    env.write().class_instance(&str.to_string_lossy()).ptr()
 }
 
 /*
  * Link the class
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_ResolveClass_impl(mut env: RawJNIEnv, cls: jclass) {
+pub unsafe extern "system" fn JVM_ResolveClass_impl(env: RawJNIEnv, cls: jclass) {
     unimplemented!()
 }
 
@@ -801,7 +669,7 @@ pub unsafe extern "system" fn JVM_ResolveClass_impl(mut env: RawJNIEnv, cls: jcl
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindClassFromBootLoader_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     name: *mut u8,
 ) -> jclass {
     unimplemented!()
@@ -814,7 +682,7 @@ pub unsafe extern "system" fn JVM_FindClassFromBootLoader_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindClassFromClassLoader_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     name: *mut u8,
     init: jboolean,
     loader: jobject,
@@ -828,7 +696,7 @@ pub unsafe extern "system" fn JVM_FindClassFromClassLoader_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindClassFromClass_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     name: *mut u8,
     init: jboolean,
     from: jclass,
@@ -839,7 +707,7 @@ pub unsafe extern "system" fn JVM_FindClassFromClass_impl(
 /* Find a loaded class cached by the VM */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindLoadedClass_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     loader: jobject,
     name: jstring,
 ) -> jclass {
@@ -849,7 +717,7 @@ pub unsafe extern "system" fn JVM_FindLoadedClass_impl(
 /* Define a class */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_DefineClass_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     name: *mut u8,
     loader: jobject,
     buf: *mut jbyte,
@@ -862,7 +730,7 @@ pub unsafe extern "system" fn JVM_DefineClass_impl(
 /* Define a class with a source _impl(added in JDK1.5) */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_DefineClassWithSource_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     name: *mut u8,
     loader: jobject,
     buf: *mut jbyte,
@@ -878,31 +746,31 @@ pub unsafe extern "system" fn JVM_DefineClassWithSource_impl(
  */
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassName_impl(mut env: RawJNIEnv, cls: jclass) -> jstring {
+pub unsafe extern "system" fn JVM_GetClassName_impl(env: RawJNIEnv, cls: jclass) -> jstring {
     unimplemented!()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassInterfaces_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cls: jclass,
 ) -> jobjectArray {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassLoader_impl(mut env: RawJNIEnv, cls: jclass) -> jobject {
+pub unsafe extern "system" fn JVM_GetClassLoader_impl(env: RawJNIEnv, cls: jclass) -> jobject {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_IsInterface_impl(mut env: RawJNIEnv, cls: jclass) -> jboolean {
+pub unsafe extern "system" fn JVM_IsInterface_impl(env: RawJNIEnv, cls: jclass) -> jboolean {
     unimplemented!()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassSigners_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cls: jclass,
 ) -> jobjectArray {
     unimplemented!()
@@ -910,7 +778,7 @@ pub unsafe extern "system" fn JVM_GetClassSigners_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_SetClassSigners_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cls: jclass,
     signers: jobjectArray,
 ) {
@@ -918,39 +786,33 @@ pub unsafe extern "system" fn JVM_SetClassSigners_impl(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetProtectionDomain_impl(
-    mut env: RawJNIEnv,
-    cls: jclass,
-) -> jobject {
+pub unsafe extern "system" fn JVM_GetProtectionDomain_impl(env: RawJNIEnv, cls: jclass) -> jobject {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_IsArrayClass_impl(mut env: RawJNIEnv, cls: jclass) -> jboolean {
+pub unsafe extern "system" fn JVM_IsArrayClass_impl(env: RawJNIEnv, cls: jclass) -> jboolean {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_IsPrimitiveClass_impl(
-    mut env: RawJNIEnv,
-    cls: jclass,
-) -> jboolean {
+pub unsafe extern "system" fn JVM_IsPrimitiveClass_impl(env: RawJNIEnv, cls: jclass) -> jboolean {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetComponentType_impl(mut env: RawJNIEnv, cls: jclass) -> jclass {
+pub unsafe extern "system" fn JVM_GetComponentType_impl(env: RawJNIEnv, cls: jclass) -> jclass {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassModifiers_impl(mut env: RawJNIEnv, cls: jclass) -> jint {
+pub unsafe extern "system" fn JVM_GetClassModifiers_impl(env: RawJNIEnv, cls: jclass) -> jint {
     unimplemented!()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetDeclaredClasses_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     ofClass: jclass,
 ) -> jobjectArray {
     unimplemented!()
@@ -958,7 +820,7 @@ pub unsafe extern "system" fn JVM_GetDeclaredClasses_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetDeclaringClass_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     ofClass: jclass,
 ) -> jclass {
     unimplemented!()
@@ -966,17 +828,14 @@ pub unsafe extern "system" fn JVM_GetDeclaringClass_impl(
 
 /* Generics support _impl(JDK 1.5) */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassSignature_impl(
-    mut env: RawJNIEnv,
-    cls: jclass,
-) -> jstring {
+pub unsafe extern "system" fn JVM_GetClassSignature_impl(env: RawJNIEnv, cls: jclass) -> jstring {
     unimplemented!()
 }
 
 /* Annotations support _impl(JDK 1.5) */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassAnnotations_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cls: jclass,
 ) -> jbyteArray {
     unimplemented!()
@@ -986,7 +845,7 @@ pub unsafe extern "system" fn JVM_GetClassAnnotations_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassTypeAnnotations_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cls: jclass,
 ) -> jbyteArray {
     unimplemented!()
@@ -994,7 +853,7 @@ pub unsafe extern "system" fn JVM_GetClassTypeAnnotations_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetFieldTypeAnnotations_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     field: jobject,
 ) -> jbyteArray {
     unimplemented!()
@@ -1002,7 +861,7 @@ pub unsafe extern "system" fn JVM_GetFieldTypeAnnotations_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodTypeAnnotations_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     method: jobject,
 ) -> jbyteArray {
     unimplemented!()
@@ -1014,7 +873,7 @@ pub unsafe extern "system" fn JVM_GetMethodTypeAnnotations_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassDeclaredMethods_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     ofClass: jclass,
     publicOnly: jboolean,
 ) -> jobjectArray {
@@ -1023,7 +882,7 @@ pub unsafe extern "system" fn JVM_GetClassDeclaredMethods_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassDeclaredFields_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     ofClass: jclass,
     publicOnly: jboolean,
 ) -> jobjectArray {
@@ -1032,7 +891,7 @@ pub unsafe extern "system" fn JVM_GetClassDeclaredFields_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassDeclaredConstructors_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     ofClass: jclass,
     publicOnly: jboolean,
 ) -> jobjectArray {
@@ -1046,10 +905,7 @@ pub unsafe extern "system" fn JVM_GetClassDeclaredConstructors_impl(
  the low 13 bits _impl(i.e., a mask of 0x1FFF) are guaranteed to be
  valid. */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassAccessFlags_impl(
-    mut env: RawJNIEnv,
-    cls: jclass,
-) -> jint {
+pub unsafe extern "system" fn JVM_GetClassAccessFlags_impl(env: RawJNIEnv, cls: jclass) -> jint {
     unimplemented!()
 }
 
@@ -1059,7 +915,7 @@ pub unsafe extern "system" fn JVM_GetClassAccessFlags_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_InvokeMethod_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     method: jobject,
     obj: jobject,
     args0: jobjectArray,
@@ -1072,7 +928,7 @@ pub unsafe extern "system" fn JVM_InvokeMethod_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_NewInstanceFromConstructor_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     c: jobject,
     args0: jobjectArray,
 ) -> jobject {
@@ -1085,7 +941,7 @@ pub unsafe extern "system" fn JVM_NewInstanceFromConstructor_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassConstantPool_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cls: jclass,
 ) -> jobject {
     unimplemented!()
@@ -1093,7 +949,7 @@ pub unsafe extern "system" fn JVM_GetClassConstantPool_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetSize_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
 ) -> jint {
@@ -1102,7 +958,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetSize_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetClassAt_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1112,7 +968,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetClassAt_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetClassAtIfLoaded_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1122,7 +978,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetClassAtIfLoaded_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetMethodAt_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1132,7 +988,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetMethodAt_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetMethodAtIfLoaded_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1142,7 +998,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetMethodAtIfLoaded_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetFieldAt_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1152,7 +1008,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetFieldAt_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetFieldAtIfLoaded_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1162,7 +1018,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetFieldAtIfLoaded_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetMemberRefInfoAt_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1172,7 +1028,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetMemberRefInfoAt_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetIntAt_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1182,7 +1038,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetIntAt_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetLongAt_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1192,7 +1048,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetLongAt_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetFloatAt_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1202,7 +1058,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetFloatAt_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetDoubleAt_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1212,7 +1068,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetDoubleAt_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetStringAt_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1222,7 +1078,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetStringAt_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetUTF8At_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jobject,
     jcpool: jobject,
     index: jint,
@@ -1236,7 +1092,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetUTF8At_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodParameters_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     method: jobject,
 ) -> jobjectArray {
     unimplemented!()
@@ -1273,7 +1129,7 @@ pub unsafe extern "system" fn JVM_DoPrivileged_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetInheritedAccessControlContext_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cls: jclass,
 ) -> jobject {
     unimplemented!()
@@ -1281,10 +1137,11 @@ pub unsafe extern "system" fn JVM_GetInheritedAccessControlContext_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetStackAccessControlContext_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cls: jclass,
 ) -> jobject {
-    unimplemented!()
+    // TODO: Actually implement JVM_GetStackAccessControlContext
+    null_mut()
 }
 
 /*
@@ -1317,7 +1174,7 @@ pub unsafe extern "system" fn JVM_FindSignal_impl(name: *mut u8) -> jint {
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_DesiredAssertionStatus_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jclass,
     cls: jclass,
 ) -> jboolean {
@@ -1330,7 +1187,7 @@ pub unsafe extern "system" fn JVM_DesiredAssertionStatus_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_AssertionStatusDirectives_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     unused: jclass,
 ) -> jobject {
     unimplemented!()
@@ -1379,7 +1236,7 @@ pub unsafe extern "system" fn JVM_DefineClassWithSourceCond_impl(
 // field is a handle to a java.lang.reflect.Field object
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetFieldAnnotations_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     field: jobject,
 ) -> jbyteArray {
     unimplemented!()
@@ -1388,7 +1245,7 @@ pub unsafe extern "system" fn JVM_GetFieldAnnotations_impl(
 // method is a handle to a java.lang.reflect.Method object
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodAnnotations_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     method: jobject,
 ) -> jbyteArray {
     unimplemented!()
@@ -1397,7 +1254,7 @@ pub unsafe extern "system" fn JVM_GetMethodAnnotations_impl(
 // method is a handle to a java.lang.reflect.Method object
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodDefaultAnnotationValue_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     method: jobject,
 ) -> jbyteArray {
     unimplemented!()
@@ -1406,7 +1263,7 @@ pub unsafe extern "system" fn JVM_GetMethodDefaultAnnotationValue_impl(
 // method is a handle to a java.lang.reflect.Method object
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodParameterAnnotations_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     method: jobject,
 ) -> jbyteArray {
     unimplemented!()
@@ -1459,7 +1316,7 @@ pub struct JVM_DTraceProvider {
  * Get the version number the JVM was built with
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_DTraceGetVersion_impl(mut env: RawJNIEnv) -> jint {
+pub unsafe extern "system" fn JVM_DTraceGetVersion_impl(env: RawJNIEnv) -> jint {
     unimplemented!()
 }
 
@@ -1471,7 +1328,7 @@ pub unsafe extern "system" fn JVM_DTraceGetVersion_impl(mut env: RawJNIEnv) -> j
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_DTraceActivate_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     version: jint,
     module_name: jstring,
     providers_count: jint,
@@ -1485,7 +1342,7 @@ pub unsafe extern "system" fn JVM_DTraceActivate_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_DTraceIsProbeEnabled_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     method: jmethodID,
 ) -> jboolean {
     unimplemented!()
@@ -1495,7 +1352,7 @@ pub unsafe extern "system" fn JVM_DTraceIsProbeEnabled_impl(
  * Destroy custom DOF
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_DTraceDispose_impl(mut env: RawJNIEnv, activation_handle: jlong) {
+pub unsafe extern "system" fn JVM_DTraceDispose_impl(env: RawJNIEnv, activation_handle: jlong) {
     unimplemented!()
 }
 
@@ -1503,7 +1360,7 @@ pub unsafe extern "system" fn JVM_DTraceDispose_impl(mut env: RawJNIEnv, activat
  * Check to see if DTrace is supported by OS
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_DTraceIsSupported_impl(mut env: RawJNIEnv) -> jboolean {
+pub unsafe extern "system" fn JVM_DTraceIsSupported_impl(env: RawJNIEnv) -> jboolean {
     unimplemented!()
 }
 
@@ -1518,10 +1375,7 @@ PART 2: Support for the Verifier and Class File Format Checker
  * in any way.
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassNameUTF_impl(
-    mut env: RawJNIEnv,
-    cb: jclass,
-) -> *const u8 {
+pub unsafe extern "system" fn JVM_GetClassNameUTF_impl(env: RawJNIEnv, cb: jclass) -> *const u8 {
     unimplemented!()
 }
 
@@ -1529,11 +1383,7 @@ pub unsafe extern "system" fn JVM_GetClassNameUTF_impl(
  * Returns the constant pool types in the buffer provided by "types."
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassCPTypes_impl(
-    mut env: RawJNIEnv,
-    cb: jclass,
-    types: *mut u8,
-) {
+pub unsafe extern "system" fn JVM_GetClassCPTypes_impl(env: RawJNIEnv, cb: jclass, types: *mut u8) {
     unimplemented!()
 }
 
@@ -1541,10 +1391,7 @@ pub unsafe extern "system" fn JVM_GetClassCPTypes_impl(
  * Returns the number of Constant Pool entries.
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassCPEntriesCount_impl(
-    mut env: RawJNIEnv,
-    cb: jclass,
-) -> jint {
+pub unsafe extern "system" fn JVM_GetClassCPEntriesCount_impl(env: RawJNIEnv, cb: jclass) -> jint {
     unimplemented!()
 }
 
@@ -1552,15 +1399,12 @@ pub unsafe extern "system" fn JVM_GetClassCPEntriesCount_impl(
  * Returns the number of *declared* fields or methods.
  */
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassFieldsCount_impl(mut env: RawJNIEnv, cb: jclass) -> jint {
+pub unsafe extern "system" fn JVM_GetClassFieldsCount_impl(env: RawJNIEnv, cb: jclass) -> jint {
     unimplemented!()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_GetClassMethodsCount_impl(
-    mut env: RawJNIEnv,
-    cb: jclass,
-) -> jint {
+pub unsafe extern "system" fn JVM_GetClassMethodsCount_impl(env: RawJNIEnv, cb: jclass) -> jint {
     unimplemented!()
 }
 
@@ -1572,7 +1416,7 @@ pub unsafe extern "system" fn JVM_GetClassMethodsCount_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxExceptionIndexes_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     method_index: jint,
     exceptions: *mut u16,
@@ -1585,7 +1429,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxExceptionIndexes_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxExceptionsCount_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     method_index: jint,
 ) -> jint {
@@ -1600,7 +1444,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxExceptionsCount_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxByteCode_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     method_index: jint,
     code: *mut u8,
@@ -1614,7 +1458,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxByteCode_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxByteCodeLength_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     method_index: jint,
 ) -> jint {
@@ -1640,7 +1484,7 @@ pub struct JVM_ExceptionTableEntryType {
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxExceptionTableEntry_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     method_index: jint,
     entry_index: jint,
@@ -1655,7 +1499,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxExceptionTableEntry_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxExceptionTableLength_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
 ) -> jint {
@@ -1668,7 +1512,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxExceptionTableLength_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetFieldIxModifiers_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
 ) -> jint {
@@ -1681,7 +1525,7 @@ pub unsafe extern "system" fn JVM_GetFieldIxModifiers_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxModifiers_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
 ) -> jint {
@@ -1694,7 +1538,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxModifiers_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxLocalsCount_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
 ) -> jint {
@@ -1707,7 +1551,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxLocalsCount_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxArgsSize_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
 ) -> jint {
@@ -1720,7 +1564,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxArgsSize_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxMaxStack_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
 ) -> jint {
@@ -1733,7 +1577,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxMaxStack_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_IsConstructorIx_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
 ) -> jboolean {
@@ -1746,7 +1590,7 @@ pub unsafe extern "system" fn JVM_IsConstructorIx_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_IsVMGeneratedMethodIx_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
 ) -> jboolean {
@@ -1762,7 +1606,7 @@ pub unsafe extern "system" fn JVM_IsVMGeneratedMethodIx_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxNameUTF_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: jint,
 ) -> *const u8 {
@@ -1778,7 +1622,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxNameUTF_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetMethodIxSignatureUTF_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: jint,
 ) -> *const u8 {
@@ -1797,7 +1641,7 @@ pub unsafe extern "system" fn JVM_GetMethodIxSignatureUTF_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCPFieldNameUTF_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: jint,
 ) -> *const u8 {
@@ -1816,7 +1660,7 @@ pub unsafe extern "system" fn JVM_GetCPFieldNameUTF_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCPMethodNameUTF_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: jint,
 ) -> *const u8 {
@@ -1835,7 +1679,7 @@ pub unsafe extern "system" fn JVM_GetCPMethodNameUTF_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCPMethodSignatureUTF_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: jint,
 ) -> *const u8 {
@@ -1854,7 +1698,7 @@ pub unsafe extern "system" fn JVM_GetCPMethodSignatureUTF_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCPFieldSignatureUTF_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: jint,
 ) -> *const u8 {
@@ -1872,7 +1716,7 @@ pub unsafe extern "system" fn JVM_GetCPFieldSignatureUTF_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCPClassNameUTF_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: jint,
 ) -> *const u8 {
@@ -1892,7 +1736,7 @@ pub unsafe extern "system" fn JVM_GetCPClassNameUTF_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCPFieldClassNameUTF_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: jint,
 ) -> *const u8 {
@@ -1913,7 +1757,7 @@ pub unsafe extern "system" fn JVM_GetCPFieldClassNameUTF_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCPMethodClassNameUTF_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: jint,
 ) -> *const u8 {
@@ -1931,7 +1775,7 @@ pub unsafe extern "system" fn JVM_GetCPMethodClassNameUTF_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCPFieldModifiers_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
     calledClass: jclass,
@@ -1947,7 +1791,7 @@ pub unsafe extern "system" fn JVM_GetCPFieldModifiers_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCPMethodModifiers_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     cb: jclass,
     index: i32,
     calledClass: jclass,
@@ -1968,7 +1812,7 @@ pub unsafe extern "system" fn JVM_ReleaseUTF_impl(utf: *const u8) {
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_IsSameClassPackage_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     class1: jclass,
     class2: jclass,
 ) -> jboolean {
@@ -2472,7 +2316,7 @@ pub unsafe extern "system" fn JVM_GetManagement_impl(version: jint) -> *mut c_vo
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_InitAgentProperties_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     agent_props: jobject,
 ) -> jobject {
     unimplemented!()
@@ -2491,7 +2335,7 @@ pub unsafe extern "system" fn JVM_InitAgentProperties_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetEnclosingMethodInfo_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     ofClass: jclass,
 ) -> jobjectArray {
     unimplemented!()
@@ -2516,7 +2360,7 @@ pub const JAVA_THREAD_STATE_COUNT: jint = 6;
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetThreadStateValues_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     javaThreadState: jint,
 ) -> jintArray {
     unimplemented!()
@@ -2532,7 +2376,7 @@ pub unsafe extern "system" fn JVM_GetThreadStateValues_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetThreadStateNames_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     javaThreadState: jint,
     values: jintArray,
 ) -> jobjectArray {
@@ -2598,7 +2442,7 @@ pub struct jvm_version_info {
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetVersionInfo_impl(
-    mut env: RawJNIEnv,
+    env: RawJNIEnv,
     info: *mut jvm_version_info,
     info_size: usize,
 ) {
@@ -2686,6 +2530,5 @@ pub struct JDK1_1InitArgs {
 }
 
 extern "C" {
-    #[no_mangle]
     static JDK1_1InitArgs: JDK1_1InitArgs;
 }

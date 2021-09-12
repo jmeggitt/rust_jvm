@@ -29,10 +29,13 @@ pub use interface::build_interface;
 pub use interpreter::*;
 use jni::sys::{jthrowable, JNIEnv, JNINativeInterface_};
 pub use native::*;
+use parking_lot::RwLock;
 pub use stack::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+use std::process::id;
 use std::ptr::null_mut;
+use std::sync::Arc;
 
 pub trait Method: 'static {
     fn exec(&self, jvm: &mut JavaEnv, args: &[JavaValue]) -> Result<Option<JavaValue>, JavaValue>;
@@ -69,67 +72,137 @@ pub struct JavaVTable {
 /// current thread.
 ///
 /// TODO: Support invokedynamic, invokeinterface, invokespecial, invokestatic, and invokevirtual
-impl JavaVTable {
-    // TODO: Impl index instead
-    pub fn fn_from_offset(&self, index: usize) -> &dyn Method {
-        &*self.fns[index]
-    }
+// impl JavaVTable {
+//     // TODO: Impl index instead
+//     pub fn fn_from_offset(&self, index: usize) -> &dyn Method {
+//         &*self.fns[index]
+//     }
+//
+//     /// Call a regular instance method
+//     /// ... [arg1, [arg2 ...]] ->
+//     /// ... [result]
+//     ///
+//     pub fn invoke_virtual(&self, index: usize) {
+//         unimplemented!()
+//     }
+//
+//     /// Invokes the superclass implementation of a method or the default implementation of an
+//     /// interface.
+//     pub fn invoke_special(&self, index: usize) {
+//         unimplemented!()
+//     }
+//
+//     pub fn invoke_interface(&self, index: usize) {
+//         unimplemented!()
+//     }
+//
+//     /// TODO: This will be the hardest to implement. Come back to later.
+//     /// Invoke a dynamically-computed call site. Formed from CONSTANT_InvokeDynamic_info.
+//     /// ... [arg1, [arg2 ...]] ->
+//     /// ... [result]
+//     ///
+//     /// The symbolic reference is resolved (§5.4.3.6) for this specific invokedynamic instruction to
+//     /// obtain a reference to an instance of java.lang.invoke.CallSite. The instance of
+//     /// java.lang.invoke.CallSite is considered "bound" to this specific invokedynamic instruction.
+//     ///
+//     pub fn invoke_dynamic(&self, index: usize) {
+//         unimplemented!()
+//     }
+//
+//     /// Invoke a class (static) method
+//     /// ... [arg1, [arg2 ...]] ->
+//     /// ... [result]
+//     ///
+//     /// The nargs argument values are consecutively made the values of local variables of the new
+//     /// frame, with arg1 in local variable 0 (or, if arg1 is of type long or double, in local
+//     /// variables 0 and 1) and so on. Any argument value that is of a floating-point type undergoes
+//     /// value set conversion (§2.8.3) prior to being stored in a local variable.
+//     ///
+//     /// Example:
+//     /// ```java
+//     /// public static long add(int a, int b) {
+//     ///     return (long) (a + b);
+//     /// }
+//     /// ```
+//     pub fn invoke_static(&self, index: usize) {
+//         unimplemented!()
+//     }
+//
+//     // pub fn perform(&self, index: usize, jvm: &mut JavaEnv, target: )
+// }
 
-    /// Call a regular instance method
-    /// ... [arg1, [arg2 ...]] ->
-    /// ... [result]
-    ///
-    pub fn invoke_virtual(&self, index: usize) {
-        unimplemented!()
-    }
+pub trait JavaEnvInvoke {
+    fn init_class(&mut self, class: &str);
 
-    /// Invokes the superclass implementation of a method or the default implementation of an
-    /// interface.
-    pub fn invoke_special(&self, index: usize) {
-        unimplemented!()
-    }
+    fn invoke(
+        &mut self,
+        element: ClassElement,
+        locals: Vec<JavaValue>,
+    ) -> Result<Option<JavaValue>, FlowControl>;
 
-    pub fn invoke_interface(&self, index: usize) {
-        unimplemented!()
-    }
+    fn invoke_special(
+        &mut self,
+        method: ClassElement,
+        target: ObjectHandle,
+        args: Vec<JavaValue>,
+    ) -> Result<Option<JavaValue>, FlowControl>;
 
-    /// TODO: This will be the hardest to implement. Come back to later.
-    /// Invoke a dynamically-computed call site. Formed from CONSTANT_InvokeDynamic_info.
-    /// ... [arg1, [arg2 ...]] ->
-    /// ... [result]
-    ///
-    /// The symbolic reference is resolved (§5.4.3.6) for this specific invokedynamic instruction to
-    /// obtain a reference to an instance of java.lang.invoke.CallSite. The instance of
-    /// java.lang.invoke.CallSite is considered "bound" to this specific invokedynamic instruction.
-    ///
-    pub fn invoke_dynamic(&self, index: usize) {
-        unimplemented!()
-    }
+    fn invoke_virtual(
+        &mut self,
+        method: ClassElement,
+        target: ObjectHandle,
+        args: Vec<JavaValue>,
+    ) -> Result<Option<JavaValue>, FlowControl>;
 
-    /// Invoke a class (static) method
-    /// ... [arg1, [arg2 ...]] ->
-    /// ... [result]
-    ///
-    /// The nargs argument values are consecutively made the values of local variables of the new
-    /// frame, with arg1 in local variable 0 (or, if arg1 is of type long or double, in local
-    /// variables 0 and 1) and so on. Any argument value that is of a floating-point type undergoes
-    /// value set conversion (§2.8.3) prior to being stored in a local variable.
-    ///
-    /// Example:
-    /// ```java
-    /// public static long add(int a, int b) {
-    ///     return (long) (a + b);
-    /// }
-    /// ```
-    pub fn invoke_static(&self, index: usize) {
-        unimplemented!()
-    }
-
-    // pub fn perform(&self, index: usize, jvm: &mut JavaEnv, target: )
+    fn invoke_static(
+        &mut self,
+        method: ClassElement,
+        args: Vec<JavaValue>,
+    ) -> Result<Option<JavaValue>, FlowControl>;
 }
 
-impl JavaEnv {
-    pub fn invoke(
+impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
+    fn init_class(&mut self, class: &str) {
+        if !self.read().static_load.contains(class) {
+            {
+                let mut jvm = self.write();
+                jvm.class_loader.attempt_load(class).unwrap();
+                jvm.static_load.insert(class.to_string());
+            }
+
+            if class != "java/lang/Object" {
+                let super_class = self
+                    .write()
+                    .class_loader
+                    .class(class)
+                    .unwrap()
+                    .super_class();
+                self.init_class(&super_class);
+            }
+
+            let method = {
+                let mut jvm = self.write();
+                let instance = jvm.class_loader.class(class).unwrap();
+
+                match instance.get_method("<clinit>", "()V") {
+                    Some(_) => Some(ClassElement::new(class, "<clinit>", "()V")),
+                    None => None,
+                }
+            };
+
+            if let Some(method_ref) = method {
+                self.invoke_static(method_ref, vec![]).unwrap();
+            }
+            // let instance = self.write().class_loader.class(class).unwrap();
+            // if instance.get_method("<clinit>", "()V").is_some() {
+            //     let method = ClassElement::new(class, "<clinit>", "()V");
+            //     self.invoke_static(method, vec![]).unwrap();
+            //     // self.exec_static(class, "<clinit>", "()V", vec![]).unwrap();
+            // }
+        }
+    }
+
+    fn invoke(
         &mut self,
         element: ClassElement,
         mut locals: Vec<JavaValue>,
@@ -138,27 +211,31 @@ impl JavaEnv {
         for (idx, local) in locals.iter().enumerate() {
             debug!("\t{}: {:?}", idx, local);
         }
-        self.debug_print_call_stack();
+        self.read().debug_print_call_stack();
+        StackFrame::verify_computational_types(&locals);
         let (class_name, method, constants) =
-            match self.find_instance_method(&element.class, &element.element, &element.desc) {
+            match self
+                .read()
+                .find_instance_method(&element.class, &element.element, &element.desc)
+            {
                 Some(v) => v,
                 _ => panic!("Unable to find {:?}", element),
             };
 
         let ret = if method.access.contains(AccessFlags::NATIVE) {
-            let fn_ptr =
-                match self
-                    .linked_libraries
-                    .get_fn_ptr(&class_name, &element.element, &element.desc)
-                {
-                    Some(v) => v,
-                    None => panic!("Unable to find function {:?}", element),
-                };
+            let fn_ptr = match self.write().linked_libraries.get_fn_ptr(
+                &class_name,
+                &element.element,
+                &element.desc,
+            ) {
+                Some(v) => v,
+                None => panic!("Unable to find function {:?}", element),
+            };
             let native_call = NativeCall::new(fn_ptr, element.build_desc());
 
             // Native static methods require the class
             let target = if method.access.contains(AccessFlags::STATIC) {
-                self.class_instance(&class_name)
+                self.write().class_instance(&class_name)
             } else {
                 match locals.remove(0) {
                     JavaValue::Reference(Some(v)) => v,
@@ -184,47 +261,151 @@ impl JavaEnv {
         }
     }
 
-    pub fn invoke_special(
+    fn invoke_special(
         &mut self,
         method: ClassElement,
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
         profile_scope_cfg!("special {:?}", &method);
-        let class = self.class_instance(&target.get_class());
-        self.call_stack.push((class, format!("{:?}", &method)));
+
+        assert!(self
+            .read()
+            .instanceof(&target.get_class(), &method.class)
+            .unwrap());
+
+        // if !self.instanceof(&method.class, &target.get_class()).unwrap() {
+        //     panic!("Expected: {:?}, Got: {:?}", &method.class, &target.get_class());
+        // }
+
+        // let descriptor = match FieldDescriptor::read_str(&method.desc).unwrap() {
+        //     FieldDescriptor::Method {args, ..} => args,
+        //     _ => panic!("Called method with non method element!"),
+        // };
+
+        // let mut locals_idx = 0;
+        // for idx in 0..descriptor.len() {
+        //     match descriptor[idx].assign_from(args[locals_idx]) {
+        //         Some(JavaValue::Long(x)) => {
+        //             args[locals_idx] = JavaValue::Long(x);
+        //             args[locals_idx + 1] = JavaValue::Long(x);
+        //             locals_idx += 1;
+        //         },
+        //         Some(JavaValue::Double(x)) => {
+        //             args[locals_idx] = JavaValue::Double(x);
+        //             args[locals_idx + 1] = JavaValue::Double(x);
+        //             locals_idx += 1;
+        //         }
+        //         Some(x) => args[idx] = x,
+        //         None => panic!("Expected: {:?}, Got: {:?}", &descriptor, &args),
+        //     };
+        //     locals_idx += 1;
+        // }
+
+        StackFrame::verify_computational_types(&args);
+
+        {
+            let mut jvm = self.write();
+            let class = jvm.class_instance(&target.get_class());
+            jvm.call_stack.push((class, format!("{:?}", &method)));
+        }
         args.insert(0, JavaValue::Reference(Some(target)));
         let ret = self.invoke(method, args);
-        self.call_stack.pop().unwrap();
+        self.write().call_stack.pop().unwrap();
         ret
     }
 
-    pub fn invoke_virtual(
+    fn invoke_virtual(
         &mut self,
         mut method: ClassElement,
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
         profile_scope_cfg!("virtual {:?}", &method);
+
+        assert!(self
+            .read()
+            .instanceof(&target.get_class(), &method.class)
+            .unwrap());
+
+        // if !self.instanceof(&target.get_class(), &method.class).unwrap() {
+        //     panic!("Expected: {:?}, Got: {:?}", &method.class, &target.get_class());
+        // }
+
+        // let descriptor = match FieldDescriptor::read_str(&method.desc).unwrap() {
+        //     FieldDescriptor::Method { args, .. } => args,
+        //     _ => panic!("Called method with non method element!"),
+        // };
+
+        // let mut locals_idx = 0;
+        // for idx in 0..descriptor.len() {
+        //     match descriptor[idx].assign_from(args[locals_idx]) {
+        //         Some(JavaValue::Long(x)) => {
+        //             args[locals_idx] = JavaValue::Long(x);
+        //             args[locals_idx+1] = JavaValue::Long(x);
+        //             locals_idx += 1;
+        //         },
+        //         Some(JavaValue::Double(x)) => {
+        //             args[locals_idx] = JavaValue::Double(x);
+        //             args[locals_idx + 1] = JavaValue::Double(x);
+        //             locals_idx += 1;
+        //         }
+        //         Some(x) => args[idx] = x,
+        //         None => panic!("Expected: {:?}, Got: {:?}", &descriptor, &args),
+        //     };
+        //     locals_idx += 1;
+        // }
+
         method.class = target.get_class();
-        let class = self.class_instance(&target.get_class());
-        self.call_stack.push((class, format!("{:?}", &method)));
+
+        {
+            let mut jvm = self.write();
+            let class = jvm.class_instance(&target.get_class());
+            jvm.call_stack.push((class, format!("{:?}", &method)));
+        }
         args.insert(0, JavaValue::Reference(Some(target)));
         let ret = self.invoke(method, args);
-        self.call_stack.pop().unwrap();
+        self.write().call_stack.pop().unwrap();
         ret
     }
 
-    pub fn invoke_static(
+    fn invoke_static(
         &mut self,
         mut method: ClassElement,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
         profile_scope_cfg!("static {:?}", &method);
-        let class = self.class_instance(&method.class);
-        self.call_stack.push((class, format!("{:?}", &method)));
+
+        // let descriptor = match FieldDescriptor::read_str(&method.desc).unwrap() {
+        //     FieldDescriptor::Method {args, ..} => args,
+        //     _ => panic!("Called method with non method element!"),
+        // };
+
+        // let mut locals_idx = 0;
+        // for idx in 0..descriptor.len() {
+        //     match descriptor[idx].assign_from(args[locals_idx]) {
+        //         Some(JavaValue::Long(x)) => {
+        //             args[locals_idx] = JavaValue::Long(x);
+        //             args[locals_idx + 1] = JavaValue::Long(x);
+        //             locals_idx += 1;
+        //         },
+        //         Some(JavaValue::Double(x)) => {
+        //             args[locals_idx + 1] = JavaValue::Double(x);
+        //             locals_idx += 1;
+        //         }
+        //         Some(x) => args[idx] = x,
+        //         None => panic!("Expected: {:?}, Got: {:?}", &descriptor, &args),
+        //     };
+        //     locals_idx += 1;
+        // }
+
+        {
+            let mut jvm = self.write();
+            let class = jvm.class_instance(&method.class);
+            jvm.call_stack.push((class, format!("{:?}", &method)));
+        }
         let ret = self.invoke(method, args);
-        self.call_stack.pop().unwrap();
+        self.write().call_stack.pop().unwrap();
         ret
     }
 
@@ -373,11 +554,11 @@ impl<'a> RawJNIEnv<'a> {
 }
 
 impl<'a> Deref for RawJNIEnv<'a> {
-    type Target = JavaEnv;
+    type Target = Arc<RwLock<JavaEnv>>;
 
     fn deref(&self) -> &Self::Target {
         unsafe {
-            let jvm = (&**self.ptr).reserved0 as *mut JavaEnv;
+            let jvm = (&**self.ptr).reserved0 as *mut Arc<RwLock<JavaEnv>>;
             &*jvm
         }
     }
@@ -386,7 +567,7 @@ impl<'a> Deref for RawJNIEnv<'a> {
 impl<'a> DerefMut for RawJNIEnv<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe {
-            let jvm = (&**self.ptr).reserved0 as *mut JavaEnv;
+            let jvm = (&**self.ptr).reserved0 as *mut Arc<RwLock<JavaEnv>>;
             &mut *jvm
         }
     }

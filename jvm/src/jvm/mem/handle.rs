@@ -86,7 +86,7 @@ impl<T: Trace> ObjectWrapper<T> {
 
     #[inline]
     pub fn into_raw(self) -> jobject {
-        unsafe { Gc::into_raw(ManuallyDrop::into_inner(self.ptr)) as jobject }
+        Gc::into_raw(ManuallyDrop::into_inner(self.ptr)) as jobject
         // unsafe { Rc::into_raw(Pin::into_inner_unchecked(self.ptr)) as jobject }
     }
 
