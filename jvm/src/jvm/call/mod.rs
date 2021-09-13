@@ -19,24 +19,22 @@ mod interpreter;
 mod native;
 mod stack;
 
-use crate::attribute::CodeAttribute;
-use crate::class::{AccessFlags, BufferedRead, MethodInfo};
-use crate::constant_pool::{ClassElement, Constant};
-use crate::jvm::mem::{FieldDescriptor, JavaValue, ObjectHandle, ObjectReference};
+use crate::class::AccessFlags;
+use crate::constant_pool::ClassElement;
+use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
+use crate::jvm::thread::handle_thread_updates;
 use crate::jvm::JavaEnv;
 use crate::profile_scope_cfg;
 pub use interface::build_interface;
 pub use interpreter::*;
-use jni::sys::{jthrowable, JNIEnv, JNINativeInterface_};
+use jni::sys::JNIEnv;
 pub use native::*;
 use parking_lot::RwLock;
 pub use stack::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
-use std::process::id;
 use std::ptr::null_mut;
 use std::sync::Arc;
-use crate::jvm::thread::handle_thread_updates;
 
 pub trait Method: 'static {
     fn exec(&self, jvm: &mut JavaEnv, args: &[JavaValue]) -> Result<Option<JavaValue>, JavaValue>;
@@ -183,7 +181,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             }
 
             let method = {
-                let mut jvm = self.write();
+                let jvm = self.write();
                 let instance = jvm.class_loader.class(class).unwrap();
 
                 match instance.get_method("<clinit>", "()V") {
@@ -227,6 +225,13 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
                 _ => panic!("Unable to find {:?}", element),
             };
 
+        {
+            let mut jvm = self.write();
+            let class = jvm.class_instance(&class_name);
+            jvm.thread_manager.push_call_stack(class, element.clone());
+            // jvm.call_stack.push((class, format!("{:?}", &method)));
+        }
+
         let ret = if method.access.contains(AccessFlags::NATIVE) {
             // If attempting to call a native method, the class must be initialized first
             self.init_class(&class_name);
@@ -262,6 +267,8 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             );
             frame.exec(self, &instructions)
         };
+
+        self.write().thread_manager.pop_call_stack();
 
         match ret {
             Err(FlowControl::Return(v)) => Ok(v),
@@ -312,14 +319,14 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
 
         StackFrame::verify_computational_types(&args);
 
-        {
-            let mut jvm = self.write();
-            let class = jvm.class_instance(&target.get_class());
-            jvm.call_stack.push((class, format!("{:?}", &method)));
-        }
+        // {
+        //     let mut jvm = self.write();
+        //     let class = jvm.class_instance(&target.get_class());
+        //     jvm.call_stack.push((class, format!("{:?}", &method)));
+        // }
         args.insert(0, JavaValue::Reference(Some(target)));
         let ret = self.invoke(method, args);
-        self.write().call_stack.pop().unwrap();
+        // self.write().call_stack.pop().unwrap();
         ret
     }
 
@@ -366,21 +373,21 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
 
         method.class = target.get_class();
 
-        {
-            let mut jvm = self.write();
-            let class = jvm.class_instance(&target.get_class());
-            jvm.call_stack.push((class, format!("{:?}", &method)));
-        }
+        // {
+        //     let mut jvm = self.write();
+        //     let class = jvm.class_instance(&target.get_class());
+        //     jvm.call_stack.push((class, format!("{:?}", &method)));
+        // }
         args.insert(0, JavaValue::Reference(Some(target)));
         let ret = self.invoke(method, args);
-        self.write().call_stack.pop().unwrap();
+        // self.write().call_stack.pop().unwrap();
         ret
     }
 
     fn invoke_static(
         &mut self,
-        mut method: ClassElement,
-        mut args: Vec<JavaValue>,
+        method: ClassElement,
+        args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
         profile_scope_cfg!("static {:?}", &method);
 
@@ -407,13 +414,13 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         //     locals_idx += 1;
         // }
 
-        {
-            let mut jvm = self.write();
-            let class = jvm.class_instance(&method.class);
-            jvm.call_stack.push((class, format!("{:?}", &method)));
-        }
+        // {
+        //     let mut jvm = self.write();
+        //     let class = jvm.class_instance(&method.class);
+        //     jvm.call_stack.push((class, format!("{:?}", &method)));
+        // }
         let ret = self.invoke(method, args);
-        self.write().call_stack.pop().unwrap();
+        // self.write().call_stack.pop().unwrap();
         ret
     }
 
@@ -534,7 +541,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
 }
 
 #[repr(transparent)]
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct RawJNIEnv<'a> {
     ptr: *mut JNIEnv,
     _phantom: PhantomData<&'a ()>,
@@ -548,16 +555,19 @@ impl<'a> RawJNIEnv<'a> {
         }
     }
 
-    pub unsafe fn set_thrown(&mut self, throwable: Option<ObjectHandle>) {
-        (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 = match throwable {
-            None => null_mut(),
-            Some(v) => v.ptr() as _,
-        }
+    pub fn write_thrown(&self, throwable: Option<ObjectHandle>) {
+        self.write().thread_manager.set_sticky_exception(throwable)
+        // lock.
+        // (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 = match throwable {
+        //     None => null_mut(),
+        //     Some(v) => v.ptr() as _,
+        // }
     }
 
-    pub unsafe fn read_thrown(&self) -> Option<ObjectHandle> {
-        let ptr = (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 as jthrowable;
-        ObjectHandle::from_ptr(ptr)
+    pub fn read_thrown(&self) -> Option<ObjectHandle> {
+        self.read().thread_manager.get_sticky_exception()
+        // let ptr = (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 as jthrowable;
+        // ObjectHandle::from_ptr(ptr)
     }
 }
 

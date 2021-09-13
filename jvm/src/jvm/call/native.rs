@@ -156,6 +156,9 @@ pub struct NativeManager {
     loaded_fns: HashMap<String, *const c_void>,
 }
 
+unsafe impl Send for NativeManager {}
+unsafe impl Sync for NativeManager {}
+
 impl NativeManager {
     pub fn new() -> Self {
         let mut manager = NativeManager::default();

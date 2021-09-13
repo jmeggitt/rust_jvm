@@ -3,7 +3,7 @@
 
 use crate::class::{ClassLoader, ClassPath};
 use crate::constant_pool::ClassElement;
-use crate::jvm::call::{build_interface, FlowControl, JavaEnvInvoke, RawJNIEnv};
+use crate::jvm::call::{build_interface, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{ConstTypeId, JavaValue, ObjectHandle, ObjectReference, ObjectType};
 use crate::jvm::JavaEnv;
 use jni::sys::*;
@@ -13,7 +13,7 @@ use pretty_env_logger::env_logger::Target;
 use pretty_env_logger::formatted_builder;
 use std::collections::hash_map::DefaultHasher;
 use std::env::var;
-use std::ffi::{c_void, CStr, CString};
+use std::ffi::{c_void, CStr};
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::process::exit;
@@ -30,7 +30,7 @@ macro_rules! obj_expect {
             Some(v) => v,
             None => {
                 // TODO: throw null pointer exception
-                $env.set_thrown(None);
+                $env.write_thrown(None);
                 return $ret;
             }
         }
@@ -624,9 +624,10 @@ pub unsafe extern "system" fn JVM_NewMultiArray_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetCallerClass_impl(env: RawJNIEnv, depth: i32) -> jclass {
     let jvm = env.read();
-    let len = jvm.call_stack.len();
+    let call_stack = jvm.thread_manager.get_current_call_stack().unwrap();
+    // let len = jvm.call_stack.len();
 
-    if len < 3 {
+    if call_stack.len() < 3 {
         panic!("Attempted to call Java_sun_reflect_Reflection_getCallerClass__ without caller");
     }
 
@@ -634,13 +635,8 @@ pub unsafe extern "system" fn JVM_GetCallerClass_impl(env: RawJNIEnv, depth: i32
     // len - 2 = Target class
     // len - 3 = Caller class
 
-    let class = jvm.call_stack[(len as jint - depth - 2) as usize].0.clone();
-
-    // FIXME: Make explicit memory leak because current value is stored on the stack and we can't
-    // make a policy of freeing results since it wont apply in all cases. It could be solved by a
-    // reference table, but that does not work well with rust.
-    // Box::leak(Box::new(class)) as *mut Rc<UnsafeCell<Object>> as jclass
-    class.unwrap_unknown().into_raw()
+    let class = call_stack[(call_stack.len() as jint - depth - 2) as usize].0;
+    class.ptr()
 }
 
 /*

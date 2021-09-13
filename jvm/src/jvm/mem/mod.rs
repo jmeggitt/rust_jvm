@@ -4,7 +4,7 @@ use std::mem::transmute_copy;
 
 use jni::sys::{jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
 
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 
 pub use handle::*;
 use hashbrown::HashSet;
@@ -199,7 +199,7 @@ impl NonCircularDebug for jchar {
     fn non_cyclical_fmt(
         &self,
         f: &mut Formatter<'_>,
-        touched: &mut HashSet<ObjectHandle>,
+        _touched: &mut HashSet<ObjectHandle>,
     ) -> std::fmt::Result {
         write!(f, "{:?}", std::char::from_u32(*self as u32).unwrap())
     }

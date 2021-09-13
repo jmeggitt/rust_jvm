@@ -6,7 +6,7 @@ use std::ffi::c_void;
 mod java_unsafe;
 pub mod reflection;
 mod system;
-mod thread;
+// mod thread;
 
 // TODO: mod java_unsafe;
 
@@ -69,8 +69,8 @@ pub fn register_natives(natives: &mut NativeManager) {
     );
 }
 
-/// A dummy function to register native functions to avoid/skip their usage later on.
-/// This is mainly focused on all of the registerNatives() functions in internal classes.
-pub unsafe extern "system" fn empty(_env: *mut JNIEnv, _cls: JClass) {
-    warn!("Executed dummy function! No Operation was performed.");
-}
+// /// A dummy function to register native functions to avoid/skip their usage later on.
+// /// This is mainly focused on all of the registerNatives() functions in internal classes.
+// pub unsafe extern "system" fn empty(_env: *mut JNIEnv, _cls: JClass) {
+//     warn!("Executed dummy function! No Operation was performed.");
+// }

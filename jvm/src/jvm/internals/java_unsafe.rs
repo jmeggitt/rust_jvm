@@ -1,12 +1,11 @@
 use crate::class::BufferedRead;
 use crate::jvm::mem::{FieldDescriptor, ManualInstanceReference, ObjectHandle};
-use jni::objects::{JClass, JObject};
+use jni::objects::JObject;
 use jni::sys::{
     jboolean, jbyte, jbyteArray, jchar, jclass, jdouble, jdoubleArray, jfloat, jint, jlong,
     jobjectArray, jshort, jstring, jthrowable,
 };
 use jni::JNIEnv;
-use std::io::Error;
 use std::mem::size_of;
 
 // TODO: Fill in unsafe

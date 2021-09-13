@@ -131,6 +131,10 @@ impl<T: Trace> Deref for ObjectWrapper<T> {
 #[repr(transparent)]
 pub struct ObjectHandle(NonNull<_jobject>);
 
+// ObjectHandle needs to pretend to be thread safe to mimic the functionality of Java
+unsafe impl Sync for ObjectHandle {}
+unsafe impl Send for ObjectHandle {}
+
 impl Finalize for ObjectHandle {}
 
 unsafe impl Trace for ObjectHandle {

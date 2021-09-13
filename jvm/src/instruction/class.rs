@@ -31,7 +31,7 @@ impl getstatic {
         let descriptor = FieldDescriptor::read_str(desc).ok()?;
         let ret = descriptor.initial_local();
 
-        let field_reference = format!("{}_{}", clean_str(class), clean_str(desc));
+        let field_reference = format!("{}_{}", clean_str(class), clean_str(field));
         jvm.static_fields.insert(field_reference, ret.clone());
         Some(ret)
     }
@@ -343,7 +343,7 @@ impl InstructionAction for invokespecial {
             .expect_utf8()
             .unwrap();
 
-        let (method_class, main_method, constants) =
+        let (method_class, _main_method, _constants) =
             match jvm
                 .read()
                 .find_instance_method(&class_name, &field_name, &descriptor)

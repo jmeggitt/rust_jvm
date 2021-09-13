@@ -12,10 +12,10 @@ use crate::constant_pool::{
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
 use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::JavaValue;
+use crate::jvm::thread::SynchronousMonitor;
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
 use std::sync::Arc;
-use crate::jvm::thread::SynchronousMonitor;
 
 instruction! {athrow, 0xbf}
 instruction! {dcmpg, 0x98}
@@ -177,7 +177,7 @@ instruction! {@partial goto, 0xa7, i16}
 impl InstructionAction for goto {
     fn exec(
         &self,
-        frame: &mut StackFrame,
+        _frame: &mut StackFrame,
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let goto(offset) = *self;
@@ -247,7 +247,7 @@ instruction! {@partial r#return, 0xb1}
 impl InstructionAction for r#return {
     fn exec(
         &self,
-        frame: &mut StackFrame,
+        _frame: &mut StackFrame,
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         Err(FlowControl::Return(None))

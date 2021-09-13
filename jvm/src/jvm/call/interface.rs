@@ -65,7 +65,7 @@ pub unsafe extern "system" fn register_natives(
 }
 
 unsafe extern "system" fn get_object_class(env: *mut JNIEnv, obj: jobject) -> jclass {
-    let mut env = RawJNIEnv::new(env);
+    let env = RawJNIEnv::new(env);
 
     // let jvm = (&**env).reserved0 as *mut JavaEnv;
     match ObjectHandle::from_ptr(obj) {
@@ -99,15 +99,18 @@ unsafe extern "system" fn get_method_id(
 }
 
 unsafe extern "system" fn exception_check(env: *mut JNIEnv) -> jboolean {
-    !(&**env).reserved1.is_null() as jboolean
+    RawJNIEnv::new(env).read_thrown().is_some() as jboolean
+    // !(&**env).reserved1.is_null() as jboolean
 }
 
 unsafe extern "system" fn exception_clear(env: *mut JNIEnv) {
-    (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 = null_mut();
+    RawJNIEnv::new(env).write_thrown(None)
+    // (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 = null_mut();
 }
 
 unsafe extern "system" fn exception_occurred(env: *mut JNIEnv) -> jthrowable {
-    (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 as _
+    RawJNIEnv::new(env).read_thrown().pack().l
+    // (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 as _
 }
 
 unsafe extern "system" fn exception_describe(env: *mut JNIEnv) {
@@ -147,7 +150,7 @@ unsafe extern "system" fn call_obj_method_a(
     match env.invoke_virtual(element.clone(), target, parsed_args) {
         Ok(Some(JavaValue::Reference(v))) => v.pack().l,
         Err(FlowControl::Throws(x)) => {
-            env.set_thrown(x);
+            env.write_thrown(x);
             // (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 = x.pack().l as _;
             null_mut()
         }

@@ -339,7 +339,7 @@ impl InstanceReference<JavaValue> for RawObject<Vec<jvalue>> {
     fn write_field(&self, offset: usize, val: JavaValue) {
         let field = self.schema.get_field_from_offset(offset);
         if let Some(v) = field.desc.assign_from(val) {
-            <Self as InstanceReference<jvalue>>::write_field(self, offset, val.into());
+            <Self as InstanceReference<jvalue>>::write_field(self, offset, v.into());
         } else {
             panic!("{:?} does not match {:?}", field.desc, val);
         }

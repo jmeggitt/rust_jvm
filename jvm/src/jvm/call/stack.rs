@@ -1,7 +1,6 @@
 use crate::jvm::call::FlowControl;
 use crate::jvm::mem::JavaValue;
 use jni::sys::jlong;
-use std::alloc::{alloc, dealloc, Layout};
 use std::mem::size_of;
 
 /// Mimics the functionality of a cpu for call invocations

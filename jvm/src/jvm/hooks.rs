@@ -9,7 +9,6 @@ use crate::jvm::call::{clean_str, JavaEnvInvoke};
 use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
-use std::os::raw::c_char;
 use std::sync::Arc;
 
 pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {

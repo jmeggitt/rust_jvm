@@ -6,16 +6,13 @@ use hashbrown::{HashMap, HashSet};
 use jni::sys::jchar;
 use walkdir::WalkDir;
 
-use crate::class::{AccessFlags, BufferedRead, Class, ClassLoader, MethodInfo};
-use crate::constant_pool::{ClassElement, Constant};
-use crate::jvm::call::{FlowControl, NativeManager, StackFrame, VirtualMachine};
+use crate::class::{Class, ClassLoader, MethodInfo};
+use crate::constant_pool::Constant;
+use crate::jvm::call::{NativeManager, VirtualMachine};
 use crate::jvm::hooks::register_hooks;
-use crate::jvm::mem::{
-    ClassSchema, FieldDescriptor, JavaValue, ManualInstanceReference, ObjectHandle, ObjectReference,
-};
-use parking_lot::RwLock;
-use std::thread::ThreadId;
+use crate::jvm::mem::{ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle};
 use crate::jvm::thread::JavaThreadManager;
+use parking_lot::RwLock;
 
 // macro_rules! fatal_error {
 //     ($($arg:tt),*) => {{
@@ -45,12 +42,10 @@ pub struct JavaEnv {
 
     pub registered_classes: HashMap<String, ObjectHandle>,
 
-    pub call_stack: Vec<(ObjectHandle, String)>,
-
+    // pub call_stack: Vec<(ObjectHandle, String)>,
     pub thread_manager: JavaThreadManager,
     // pub threads: HashMap<ThreadId, ObjectHandle>,
     // pub sys_thread_group: Option<ObjectHandle>,
-
     schemas: HashMap<String, Arc<ClassSchema>>,
 }
 
@@ -65,7 +60,7 @@ impl JavaEnv {
             vm: VirtualMachine::default(),
             // locals: vec![JavaValue::Int(0); 255],
             registered_classes: HashMap::new(),
-            call_stack: Vec::new(),
+            // call_stack: Vec::new(),
             // threads: HashMap::new(),
             // sys_thread_group: None,
             thread_manager: JavaThreadManager::default(),
@@ -243,11 +238,12 @@ impl JavaEnv {
 
     pub fn debug_print_call_stack(&self) {
         debug!("Call stack:");
-        let mut padding = String::new();
-        for debug_str in &self.call_stack {
-            debug!("{}{}", &padding, debug_str.1);
-            padding.push_str("   ");
-        }
+        self.thread_manager.debug_print_call_stack();
+        // let mut padding = String::new();
+        // for debug_str in &self.call_stack {
+        //     debug!("{}{}", &padding, debug_str.1);
+        //     padding.push_str("   ");
+        // }
     }
 
     // pub fn entry_point(&mut self, class: &str, args: Vec<String>) -> io::Result<()> {

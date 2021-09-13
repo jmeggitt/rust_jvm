@@ -5,10 +5,9 @@ use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;
 use crate::profile_scope_cfg;
 
-use parking_lot::RwLock;
-use std::mem::replace;
-use std::sync::Arc;
 use crate::jvm::thread::handle_thread_updates;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 pub struct StackFrame {
     // Comparable to the .text section of a binary
@@ -126,7 +125,7 @@ impl StackFrame {
             debug!("Executing instruction {:?}", &code.instructions[rip]);
             {
                 #[cfg(feature = "profile")]
-                    let type_name = format!("{:?}", &code.instructions[rip].1);
+                let type_name = format!("{:?}", &code.instructions[rip].1);
                 profile_scope_cfg!(
                     "{}",
                     &type_name[..type_name.find('(').unwrap_or(type_name.len())]

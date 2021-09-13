@@ -10,6 +10,8 @@ use byteorder::ReadBytesExt;
 use hashbrown::HashMap;
 use parking_lot::RwLock;
 
+pub use class::getstatic;
+
 use array::*;
 use class::*;
 use cmp::*;
@@ -22,8 +24,6 @@ use stack::*;
 
 use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::JavaEnv;
-
-pub use getstatic;
 
 #[macro_use]
 mod macros;
