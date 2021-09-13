@@ -211,7 +211,7 @@ impl NativeManager {
         );
         let long_name = format!(
             "Java_{}_{}__{}",
-            clean_str(class),
+            clean_str(&class.replace('.', "/")),
             clean_str(name),
             Self::clean_desc(desc).unwrap()
         );

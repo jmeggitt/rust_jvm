@@ -11,7 +11,7 @@ use crate::constant_pool::Constant;
 use crate::jvm::call::{NativeManager, VirtualMachine};
 use crate::jvm::hooks::register_hooks;
 use crate::jvm::mem::{ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle};
-use crate::jvm::thread::JavaThreadManager;
+use crate::jvm::thread::{first_time_sys_thread_init, JavaThreadManager};
 use parking_lot::RwLock;
 
 // macro_rules! fatal_error {
@@ -44,6 +44,8 @@ pub struct JavaEnv {
 
     // pub call_stack: Vec<(ObjectHandle, String)>,
     pub thread_manager: JavaThreadManager,
+
+    pub interned_strings: HashMap<String, ObjectHandle>,
     // pub threads: HashMap<ThreadId, ObjectHandle>,
     // pub sys_thread_group: Option<ObjectHandle>,
     schemas: HashMap<String, Arc<ClassSchema>>,
@@ -64,6 +66,7 @@ impl JavaEnv {
             // threads: HashMap::new(),
             // sys_thread_group: None,
             thread_manager: JavaThreadManager::default(),
+            interned_strings: HashMap::new(),
             schemas: HashMap::new(),
         };
 
@@ -79,6 +82,8 @@ impl JavaEnv {
         // warn!("Loading core")
         jvm.load_core_libs().unwrap();
         let mut jvm = Arc::new(RwLock::new(jvm));
+
+        first_time_sys_thread_init(&mut jvm);
         register_hooks(&mut jvm);
 
         jvm
@@ -104,7 +109,7 @@ impl JavaEnv {
         let class = ObjectHandle::new(schema);
         let instance = class.expect_instance();
 
-        instance.write_named_field("name", self.build_string(name));
+        instance.write_named_field("name", self.build_string(&name.replace('/', ".")));
 
         self.registered_classes
             .insert(name.to_string(), class.clone());
@@ -112,7 +117,8 @@ impl JavaEnv {
     }
 
     pub fn instanceof(&self, instance: &str, target: &str) -> Option<bool> {
-        if instance == target {
+        warn!("Performing instanceof {} {}", instance, target);
+        if instance == target || target == "java/lang/Object" {
             return Some(true);
         }
 
@@ -143,6 +149,11 @@ impl JavaEnv {
         method: &str,
         desc: &str,
     ) -> Option<(String, MethodInfo, Vec<Constant>)> {
+        // For arrays, defer to java/lang/Object
+        if class.starts_with('[') {
+            return self.find_instance_method("java/lang/Object", method, desc);
+        }
+
         let entry_class = self.class_loader.class(class)?;
 
         if let Some(main_method) = entry_class.get_method(method, desc) {
@@ -219,6 +230,10 @@ impl JavaEnv {
     }
 
     pub fn build_string(&mut self, string: &str) -> JavaValue {
+        if self.interned_strings.contains_key(string) {
+            return JavaValue::Reference(Some(*self.interned_strings.get(string).unwrap()));
+        }
+
         let mut handle = ObjectHandle::new(self.class_schema("java/lang/String").clone());
         let object = handle.expect_instance();
 
@@ -228,6 +243,7 @@ impl JavaEnv {
             .collect::<Vec<jchar>>();
 
         object.write_named_field("value", Some(ObjectHandle::array_from_data(char_array)));
+        self.interned_strings.insert(string.to_string(), handle);
         JavaValue::Reference(Some(handle))
     }
 

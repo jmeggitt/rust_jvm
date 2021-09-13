@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::instruction::InstructionAction;
 use crate::jvm::call::{FlowControl, StackFrame};
-use crate::jvm::mem::JavaValue;
+use crate::jvm::mem::{FieldDescriptor, JavaValue};
 use crate::jvm::JavaEnv;
 
 macro_rules! math_instruction {
@@ -12,7 +12,8 @@ macro_rules! math_instruction {
         instruction! {@partial $name, $inst}
 
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, _: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
+            fn exec(&self, frame: &mut StackFrame, jvm: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
+                // jvm.read().debug_print_call_stack();
                 math_instruction!(@impl $type frame ($($x,)* $a) => $res);
                 Ok(())
             }
@@ -27,6 +28,7 @@ macro_rules! math_instruction {
         $frame.stack.push(JavaValue::Long($res));
     };
     (@impl Int $frame:ident ($($x:ident),+) => $res:expr) => {
+        // $frame.debug_print();
         $(math_instruction!(@pop_int $frame $x -> i32);)+
         $frame.stack.push(JavaValue::Int($res));
     };
@@ -75,7 +77,7 @@ math_instruction! {fsub, 0x66, Float (x, y) => x - y}
 math_instruction! {iadd, 0x60, Int (x, y) => x + y}
 math_instruction! {iand, 0x7e, Int (x, y) => x & y}
 math_instruction! {idiv, 0x6c, Int (x, y) => x / y}
-math_instruction! {imul, 0x68, Int (x, y) => x * y}
+math_instruction! {imul, 0x68, Int (x, y) => x.overflowing_mul(y).0}
 math_instruction! {ineg, 0x74, Int (x) => -x}
 math_instruction! {ior, 0x80, Int (x, y) => x | y}
 math_instruction! {irem, 0x70, Int (x, y) =>  x % y}
@@ -91,8 +93,93 @@ math_instruction! {lmul, 0x69, Long (x, y) => x * y}
 math_instruction! {lneg, 0x75, Long (x) => -x}
 math_instruction! {lor, 0x81, Long (x, y) => x | y}
 math_instruction! {lrem, 0x71, Long (x, y) => x % y}
-math_instruction! {lshl, 0x79, Long (x, y) => x.overflowing_shl(y as _).0}
-math_instruction! {lshr, 0x7b, Long (x, y) => x.overflowing_shr(y as _).0}
+// math_instruction! {lshl, 0x79, Long (x, y) => x.overflowing_shl(y as _).0}
+// math_instruction! {lshr, 0x7b, Long (x, y) => x.overflowing_shr(y as _).0}
 math_instruction! {lsub, 0x65, Long (x, y) => x - y}
-math_instruction! {lushr, 0x7d, Long (x, y) => x.unsigned_shr(y as _)}
+// math_instruction! {lushr, 0x7d, Long (x, y) => x.unsigned_shr(y as _)}
 math_instruction! {lxor, 0x83, Long (x, y) => x ^ y}
+
+instruction! {@partial lshl, 0x79}
+instruction! {@partial lshr, 0x7b}
+instruction! {@partial lushr, 0x7d}
+
+impl InstructionAction for lshl {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        let value2 = frame.stack.pop().unwrap();
+        frame.stack.pop().unwrap();
+        let value1 = frame.stack.pop().unwrap();
+
+        if let (JavaValue::Long(x), Some(JavaValue::Int(shift))) =
+            (value1, FieldDescriptor::Int.assign_from(value2))
+        {
+            frame
+                .stack
+                .push(JavaValue::Long(x.overflowing_shl(shift as _).0));
+            frame
+                .stack
+                .push(JavaValue::Long(x.overflowing_shl(shift as _).0));
+        } else {
+            panic!("Expected Long with Int shift for lsh")
+        }
+
+        Ok(())
+    }
+}
+
+impl InstructionAction for lshr {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        let value2 = frame.stack.pop().unwrap();
+        frame.stack.pop().unwrap();
+        let value1 = frame.stack.pop().unwrap();
+
+        if let (JavaValue::Long(x), Some(JavaValue::Int(shift))) =
+            (value1, FieldDescriptor::Int.assign_from(value2))
+        {
+            frame
+                .stack
+                .push(JavaValue::Long(x.overflowing_shr(shift as _).0));
+            frame
+                .stack
+                .push(JavaValue::Long(x.overflowing_shr(shift as _).0));
+        } else {
+            panic!("Expected Long with Int shift for lsh")
+        }
+
+        Ok(())
+    }
+}
+
+impl InstructionAction for lushr {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        let value2 = frame.stack.pop().unwrap();
+        frame.stack.pop().unwrap();
+        let value1 = frame.stack.pop().unwrap();
+
+        if let (JavaValue::Long(x), Some(JavaValue::Int(shift))) =
+            (value1, FieldDescriptor::Int.assign_from(value2))
+        {
+            frame
+                .stack
+                .push(JavaValue::Long(x.unsigned_shr(shift as _)));
+            frame
+                .stack
+                .push(JavaValue::Long(x.unsigned_shr(shift as _)));
+        } else {
+            panic!("Expected Long with Int shift for lushr")
+        }
+
+        Ok(())
+    }
+}

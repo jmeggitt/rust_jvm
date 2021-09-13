@@ -52,10 +52,10 @@ fn main() {
         false => LevelFilter::Error,
     };
 
-    formatted_builder()
-        .target(Target::Stdout)
-        .filter_level(log_level)
-        .init();
+    // formatted_builder()
+    //     .target(Target::Stdout)
+    //     .filter_level(log_level)
+    //     .init();
 
     if opts.has_flag("verbose") {
         info!("Arguments: {:?}", get_java_args());

@@ -128,9 +128,12 @@ impl PartialOrd for JavaValue {
             // (JavaValue::Reference(Some(a)), JavaValue::Reference(Some(b))) => {
             //     a.get().partial_cmp(&b.get())
             // }
-            (JavaValue::Reference(Some(_)), JavaValue::Reference(_)) => Some(Ordering::Greater),
-            (JavaValue::Reference(_), JavaValue::Reference(Some(_))) => Some(Ordering::Less),
-            (JavaValue::Reference(_), JavaValue::Reference(_)) => Some(Ordering::Equal),
+            (JavaValue::Reference(Some(_)), JavaValue::Reference(None)) => Some(Ordering::Greater),
+            (JavaValue::Reference(None), JavaValue::Reference(Some(_))) => Some(Ordering::Less),
+            (JavaValue::Reference(None), JavaValue::Reference(None)) => Some(Ordering::Equal),
+            (JavaValue::Reference(Some(a)), JavaValue::Reference(Some(b))) => {
+                a.ptr().partial_cmp(&b.ptr())
+            }
             (a, b) => match (a.as_int(), b.as_int()) {
                 (Some(x), Some(y)) => x.partial_cmp(&y),
                 _ => None,

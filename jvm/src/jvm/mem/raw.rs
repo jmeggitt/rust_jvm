@@ -222,7 +222,7 @@ where
             write!(f, "[")?;
             (&*self.fields.get()).non_cyclical_fmt(f, touched)?;
             // write!(f, "[{:?}]", &*self.fields.get())
-            write!(f, "[")
+            write!(f, "]")
         }
     }
 }

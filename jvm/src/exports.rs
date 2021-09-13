@@ -1,23 +1,33 @@
 #![allow(dead_code, unused_variables, non_snake_case, non_camel_case_types)]
 #![deny(improper_ctypes_definitions)]
 
-use crate::class::{ClassLoader, ClassPath};
+use crate::class::{AccessFlags, BufferedRead, ClassLoader, ClassPath};
 use crate::constant_pool::ClassElement;
 use crate::jvm::call::{build_interface, JavaEnvInvoke, RawJNIEnv};
-use crate::jvm::mem::{ConstTypeId, JavaValue, ObjectHandle, ObjectReference, ObjectType};
+use crate::jvm::mem::{
+    ConstTypeId, FieldDescriptor, JavaValue, ManualInstanceReference, ObjectHandle,
+    ObjectReference, ObjectType,
+};
 use crate::jvm::JavaEnv;
 use jni::sys::*;
 use log::LevelFilter;
 use parking_lot::RwLock;
-use pretty_env_logger::env_logger::Target;
-use pretty_env_logger::formatted_builder;
+// use pretty_env_logger::env_logger::Target;
+// use pretty_env_logger::formatted_builder;
+use simplelog::{
+    ColorChoice, CombinedLogger, Config, ConfigBuilder, TermLogger, TerminalMode, ThreadLogMode,
+    WriteLogger,
+};
 use std::collections::hash_map::DefaultHasher;
 use std::env::var;
 use std::ffi::{c_void, CStr};
+use std::fs::File;
 use std::hash::{Hash, Hasher};
+use std::mem::zeroed;
+use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::process::exit;
-use std::ptr::null_mut;
+use std::ptr::{null_mut, write_bytes};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -57,10 +67,22 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
     // TODO: Apply init arguments instead of hard coding values
     let _init_args = *(args as *mut JavaVMInitArgs);
 
-    formatted_builder()
-        .target(Target::Stdout)
-        .filter_level(LevelFilter::Debug)
-        .init();
+    CombinedLogger::init(vec![
+        TermLogger::new(
+            LevelFilter::Debug,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Always,
+        ),
+        WriteLogger::new(
+            LevelFilter::Debug,
+            ConfigBuilder::new()
+                .set_thread_mode(ThreadLogMode::IDs)
+                .build(),
+            File::create("execution.log").unwrap(),
+        ),
+    ])
+    .unwrap();
 
     let java_dir = var("JAVA_HOME").ok().map(PathBuf::from);
     let class_path = match ClassPath::new(
@@ -82,6 +104,10 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
         eprintln!("Error loading class path: {:?}", e);
         return -1;
     }
+
+    // class_loader.attempt_load("java/lang/reflect/Modifier").unwrap();
+    // class_loader.class("java/lang/reflect/Modifier").unwrap().print_method();
+    // panic!();
 
     let mut jvm = Box::new(JavaEnv::new(class_loader));
     let interface = build_interface(&mut *jvm);
@@ -133,24 +159,6 @@ pub unsafe extern "system" fn JVM_IHashCode_impl(mut env: RawJNIEnv, obj: jobjec
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_MonitorWait_impl(env: RawJNIEnv, obj: jobject, ms: jlong) {
-    // TODO: Isn't this for handling synchronous blocks?
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_MonitorNotify_impl(env: RawJNIEnv, obj: jobject) {
-    // TODO: Isn't this for handling synchronous blocks?
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn JVM_MonitorNotifyAll_impl(env: RawJNIEnv, obj: jobject) {
-    // TODO: Isn't this for handling synchronous blocks?
-    unimplemented!()
-}
-
-#[no_mangle]
 pub unsafe extern "system" fn JVM_Clone_impl(env: RawJNIEnv, obj: jobject) -> jobject {
     // TODO: Copy a raw object
     unimplemented!()
@@ -161,8 +169,16 @@ pub unsafe extern "system" fn JVM_Clone_impl(env: RawJNIEnv, obj: jobject) -> jo
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_InternString_impl(env: RawJNIEnv, str: jstring) -> jstring {
-    // TODO: Should ensure that this string object is returned whenever it is read from an executable
-    unimplemented!()
+    let obj = obj_expect!(env, str, null_mut());
+    let raw_str = obj.expect_string();
+
+    let mut jvm = env.write();
+    if jvm.interned_strings.contains_key(&raw_str) {
+        return jvm.interned_strings.get(&raw_str).unwrap().ptr();
+    }
+
+    jvm.interned_strings.insert(raw_str, obj);
+    str
 }
 
 /*
@@ -383,7 +399,7 @@ pub unsafe extern "system" fn JVM_IsNaN_impl(d: jdouble) -> jboolean {
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FillInStackTrace_impl(env: RawJNIEnv, throwable: jobject) {
-    unimplemented!()
+    unimplemented!("JVM_FillInStackTrace")
 }
 
 #[no_mangle]
@@ -666,11 +682,21 @@ pub unsafe extern "system" fn JVM_ResolveClass_impl(env: RawJNIEnv, cls: jclass)
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindClassFromBootLoader_impl(
     env: RawJNIEnv,
-    name: *mut u8,
+    name: *const c_char,
 ) -> jclass {
-    unimplemented!()
+    JVM_FindPrimitiveClass_impl(env, name)
 }
 
+#[no_mangle]
+pub unsafe extern "system" fn JVM_FindClassFromCaller_impl(
+    env: RawJNIEnv,
+    name: *const c_char,
+    init: jboolean,
+    loader: jobject,
+    caller: jclass,
+) -> jclass {
+    JVM_FindPrimitiveClass_impl(env, name)
+}
 /*
  * Find a class from a given class loader. Throw ClassNotFoundException
  * or NoClassDefFoundError depending on the value of the last
@@ -679,12 +705,12 @@ pub unsafe extern "system" fn JVM_FindClassFromBootLoader_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindClassFromClassLoader_impl(
     env: RawJNIEnv,
-    name: *mut u8,
+    name: *const c_char,
     init: jboolean,
     loader: jobject,
     throwError: jboolean,
 ) -> jclass {
-    unimplemented!()
+    JVM_FindPrimitiveClass_impl(env, name)
 }
 
 /*
@@ -693,11 +719,11 @@ pub unsafe extern "system" fn JVM_FindClassFromClassLoader_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindClassFromClass_impl(
     env: RawJNIEnv,
-    name: *mut u8,
+    name: *const c_char,
     init: jboolean,
     from: jclass,
 ) -> jclass {
-    unimplemented!()
+    JVM_FindPrimitiveClass_impl(env, name)
 }
 
 /* Find a loaded class cached by the VM */
@@ -761,7 +787,19 @@ pub unsafe extern "system" fn JVM_GetClassLoader_impl(env: RawJNIEnv, cls: jclas
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_IsInterface_impl(env: RawJNIEnv, cls: jclass) -> jboolean {
-    unimplemented!()
+    let jstring_name: Option<ObjectHandle> = obj_expect!(env, cls, JNI_FALSE)
+        .expect_instance()
+        .read_named_field("name");
+    let class_name = jstring_name.unwrap().expect_string().replace('.', "/");
+
+    // TODO: Is this right? I picked it at random
+    let mut jvm = env.write();
+    jvm.class_loader.attempt_load(&class_name).unwrap();
+    jvm.class_loader
+        .class(&class_name)
+        .unwrap()
+        .access_flags
+        .contains(AccessFlags::INTERFACE) as jboolean
 }
 
 #[no_mangle]
@@ -880,18 +918,148 @@ pub unsafe extern "system" fn JVM_GetClassDeclaredMethods_impl(
 pub unsafe extern "system" fn JVM_GetClassDeclaredFields_impl(
     env: RawJNIEnv,
     ofClass: jclass,
-    publicOnly: jboolean,
+    public_only: jboolean,
 ) -> jobjectArray {
-    unimplemented!()
+    let class = obj_expect!(env, ofClass, null_mut());
+
+    let mut jvm = env.write();
+    let field_schema = jvm.class_schema("java/lang/reflect/Field");
+
+    let jstring_name: Option<ObjectHandle> = class.expect_instance().read_named_field("name");
+    let class_name = jstring_name.unwrap().expect_string().replace('.', "/");
+
+    let target_class_schema = jvm.class_schema(&class_name);
+    let raw_class = jvm.class_loader.class(&class_name).unwrap().to_owned();
+
+    let mut fields = Vec::with_capacity(target_class_schema.field_lookup.len());
+
+    for (slot, field) in target_class_schema.field_lookup.iter().enumerate() {
+        let raw_field = raw_class
+            .get_field(&field.name, &format!("{:?}", &field.desc))
+            .unwrap();
+        if public_only == JNI_TRUE && !raw_field.access.contains(AccessFlags::PUBLIC) {
+            continue;
+        }
+
+        let field_obj = ObjectHandle::new(field_schema.clone());
+        let instance = field_obj.expect_instance();
+        instance.write_named_field("clazz", Some(class));
+        instance.write_named_field("slot", slot as jint);
+        instance.write_named_field("name", jvm.build_string(&field.name));
+
+        let type_class = match &field.desc {
+            FieldDescriptor::Byte => jvm.class_instance("byte"),
+            FieldDescriptor::Char => jvm.class_instance("char"),
+            FieldDescriptor::Double => jvm.class_instance("double"),
+            FieldDescriptor::Float => jvm.class_instance("float"),
+            FieldDescriptor::Int => jvm.class_instance("int"),
+            FieldDescriptor::Long => jvm.class_instance("long"),
+            FieldDescriptor::Short => jvm.class_instance("short"),
+            FieldDescriptor::Boolean => jvm.class_instance("boolean"),
+            FieldDescriptor::Object(x) => jvm.class_instance(x),
+            FieldDescriptor::Array(x) => jvm.class_instance(&format!("[{:?}", x)),
+            _ => panic!("Can't get classes for these types"),
+        };
+        instance.write_named_field("type", Some(type_class));
+        // raw_field.attributes
+        instance.write_named_field("modifiers", raw_field.access.bits() as jint);
+        // instance.write_named_field("signature", JavaValue::Reference(None));
+        // instance.write_named_field("genericInfo", JavaValue::Reference(None));
+        // instance.write_named_field("annotations", JavaValue::Reference(None));
+        // instance.write_named_field("fieldAccessor", JavaValue::Reference(None));
+        // instance.write_named_field("overrideFieldAccessor", JavaValue::Reference(None));
+        // instance.write_named_field("root", JavaValue::Reference(None));
+        // instance.write_named_field("declaredAnnotations", JavaValue::Reference(None));
+        // instance.write_named_field("signature", JavaValue::Reference(None));
+        fields.push(Some(field_obj));
+    }
+
+    ObjectHandle::array_from_data(fields).ptr()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassDeclaredConstructors_impl(
     env: RawJNIEnv,
     ofClass: jclass,
-    publicOnly: jboolean,
+    public_only: jboolean,
 ) -> jobjectArray {
-    unimplemented!()
+    let class = obj_expect!(env, ofClass, null_mut());
+
+    let mut jvm = env.write();
+    let constructor_schema = jvm.class_schema("java/lang/reflect/Constructor");
+
+    let jstring_name: Option<ObjectHandle> = class.expect_instance().read_named_field("name");
+    let class_name = jstring_name.unwrap().expect_string().replace('.', "/");
+    // warn!("Getting Constructors for {}", &class_name);
+
+    let target_class_schema = jvm.class_schema(&class_name);
+    let raw_class = jvm.class_loader.class(&class_name).unwrap().to_owned();
+    // warn!("{:?}", &raw_class);
+
+    let mut constructors = Vec::with_capacity(target_class_schema.field_lookup.len());
+
+    for raw_field in raw_class.methods {
+        // warn!("Field: {:?}", raw_field.name(&raw_class.constants));
+
+        // let raw_field = raw_class.get_field(&field.name, &format!("{:?}", &field.desc)).unwrap();
+        if public_only == JNI_TRUE && !raw_field.access.contains(AccessFlags::PUBLIC) {
+            // warn!("Skipping Non-public: {:?}", raw_field.name(&raw_class.constants));
+            continue;
+        }
+
+        if raw_field.name(&raw_class.constants).unwrap() != "<init>" {
+            // warn!("Skipping Non-constructor: {:?}", raw_field.name(&raw_class.constants));
+            continue;
+        }
+
+        let field_obj = ObjectHandle::new(constructor_schema.clone());
+        let instance = field_obj.expect_instance();
+        instance.write_named_field("clazz", Some(class));
+        instance.write_named_field("slot", constructors.len() as jint);
+
+        let desc = FieldDescriptor::read_str(&raw_field.descriptor(&raw_class.constants).unwrap())
+            .unwrap();
+
+        if let FieldDescriptor::Method { args, .. } = desc {
+            let mut arg_types = Vec::with_capacity(args.len());
+
+            for arg in &args {
+                arg_types.push(Some(match arg {
+                    FieldDescriptor::Byte => jvm.class_instance("byte"),
+                    FieldDescriptor::Char => jvm.class_instance("char"),
+                    FieldDescriptor::Double => jvm.class_instance("double"),
+                    FieldDescriptor::Float => jvm.class_instance("float"),
+                    FieldDescriptor::Int => jvm.class_instance("int"),
+                    FieldDescriptor::Long => jvm.class_instance("long"),
+                    FieldDescriptor::Short => jvm.class_instance("short"),
+                    FieldDescriptor::Boolean => jvm.class_instance("boolean"),
+                    FieldDescriptor::Object(x) => jvm.class_instance(x),
+                    FieldDescriptor::Array(x) => jvm.class_instance(&format!("[{:?}", x)),
+                    _ => panic!("Can't get classes for these types"),
+                }));
+            }
+
+            instance.write_named_field(
+                "parameterTypes",
+                Some(ObjectHandle::array_from_data(arg_types)),
+            );
+        } else {
+            panic!("Invalid descriptor on constructor");
+        }
+
+        // TODO: Check exception types
+        instance.write_named_field(
+            "exceptionTypes",
+            Some(ObjectHandle::array_from_data::<Option<ObjectHandle>>(
+                vec![],
+            )),
+        );
+        instance.write_named_field("modifiers", raw_field.access.bits() as jint);
+        constructors.push(Some(field_obj));
+    }
+
+    // warn!("Got constructors: {:?}", &constructors);
+    ObjectHandle::array_from_data(constructors).ptr()
 }
 
 /* Differs from JVM_GetClassModifiers in treatment of inner classes.
@@ -2442,7 +2610,10 @@ pub unsafe extern "system" fn JVM_GetVersionInfo_impl(
     info: *mut jvm_version_info,
     info_size: usize,
 ) {
-    unimplemented!()
+    write_bytes(info as *mut u8, 0, info_size);
+
+    // Pretend to be java 16.0.0
+    (&mut *info).jvm_version = 16u32 << 24;
 }
 
 #[repr(C)]

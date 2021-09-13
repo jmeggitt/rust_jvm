@@ -2,7 +2,7 @@
 
 use std::ffi::{c_void, CStr, CString};
 use std::mem::forget;
-use std::ptr::{null, null_mut};
+use std::ptr::{copy_nonoverlapping, null, null_mut, write_bytes};
 
 use jni::sys::{
     jarray, jboolean, jbooleanArray, jbyte, jbyteArray, jchar, jcharArray, jclass, jdouble,
@@ -37,7 +37,7 @@ pub unsafe extern "system" fn register_natives(
     // debug!("Calling JNIEnv::RegisterNatives");
     let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
     let name_obj: Option<ObjectHandle> = a.read_named_field("name");
-    let class = name_obj.unwrap().expect_string();
+    let class = name_obj.unwrap().expect_string().replace('.', "/");
     // let class_object = ObjectHandle::from_ptr(clazz).unwrap();
     // let class = class_object.expect_string();
 
@@ -87,7 +87,7 @@ unsafe extern "system" fn get_method_id(
     let desc_string = CString::from_raw(sig as *mut _);
 
     let element = ClassElement {
-        class: name_obj.unwrap().expect_string(),
+        class: name_obj.unwrap().expect_string().replace('.', "/"),
         element: name_string.to_str().unwrap().to_string(),
         desc: desc_string.to_str().unwrap().to_string(),
     };
@@ -408,6 +408,7 @@ pub fn build_interface(jvm: &mut Arc<RwLock<JavaEnv>>) -> JNINativeInterface_ {
 pub unsafe extern "system" fn GetVersion(env: *mut JNIEnv) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn DefineClass(
     env: *mut JNIEnv,
@@ -418,18 +419,25 @@ pub unsafe extern "system" fn DefineClass(
 ) -> jclass {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn FindClass(env: *mut JNIEnv, name: *const c_char) -> jclass {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let name_cstr = CStr::from_ptr(name);
+    let mut lock = env.write();
+    lock.class_instance(&name_cstr.to_string_lossy()).ptr()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn FromReflectedMethod(env: *mut JNIEnv, method: jobject) -> jmethodID {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn FromReflectedField(env: *mut JNIEnv, field: jobject) -> jfieldID {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ToReflectedMethod(
     env: *mut JNIEnv,
@@ -439,10 +447,12 @@ pub unsafe extern "system" fn ToReflectedMethod(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetSuperclass(env: *mut JNIEnv, sub: jclass) -> jclass {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn IsAssignableFrom(
     env: *mut JNIEnv,
@@ -451,6 +461,7 @@ pub unsafe extern "system" fn IsAssignableFrom(
 ) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ToReflectedField(
     env: *mut JNIEnv,
@@ -460,54 +471,66 @@ pub unsafe extern "system" fn ToReflectedField(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn Throw(env: *mut JNIEnv, obj: jthrowable) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ThrowNew(
     env: *mut JNIEnv,
     clazz: jclass,
     msg: *const c_char,
 ) -> jint {
-    unimplemented!()
+    unimplemented!("Attempting to throw new {:?}", CStr::from_ptr(msg))
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ExceptionOccurred(env: *mut JNIEnv) -> jthrowable {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ExceptionDescribe(env: *mut JNIEnv) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ExceptionClear(env: *mut JNIEnv) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn FatalError(env: *mut JNIEnv, msg: *const c_char) -> ! {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn PushLocalFrame(env: *mut JNIEnv, capacity: jint) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn PopLocalFrame(env: *mut JNIEnv, result: jobject) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewGlobalRef(env: *mut JNIEnv, lobj: jobject) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn DeleteGlobalRef(env: *mut JNIEnv, gref: jobject) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn DeleteLocalRef(env: *mut JNIEnv, obj: jobject) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn IsSameObject(
     env: *mut JNIEnv,
@@ -516,14 +539,17 @@ pub unsafe extern "system" fn IsSameObject(
 ) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewLocalRef(env: *mut JNIEnv, ref_: jobject) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn EnsureLocalCapacity(env: *mut JNIEnv, capacity: jint) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn AllocObject(env: *mut JNIEnv, clazz: jclass) -> jobject {
     unimplemented!()
@@ -538,6 +564,7 @@ pub unsafe extern "system" fn NewObjectV(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewObjectA(
     env: *mut JNIEnv,
@@ -547,10 +574,12 @@ pub unsafe extern "system" fn NewObjectA(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetObjectClass(env: *mut JNIEnv, obj: jobject) -> jclass {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn IsInstanceOf(
     env: *mut JNIEnv,
@@ -569,6 +598,7 @@ pub unsafe extern "system" fn CallObjectMethodV(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallObjectMethodA(
     env: *mut JNIEnv,
@@ -588,6 +618,7 @@ pub unsafe extern "system" fn CallBooleanMethodV(
 ) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallBooleanMethodA(
     env: *mut JNIEnv,
@@ -607,6 +638,7 @@ pub unsafe extern "system" fn CallByteMethodV(
 ) -> jbyte {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallByteMethodA(
     env: *mut JNIEnv,
@@ -626,6 +658,7 @@ pub unsafe extern "system" fn CallCharMethodV(
 ) -> jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallCharMethodA(
     env: *mut JNIEnv,
@@ -645,6 +678,7 @@ pub unsafe extern "system" fn CallShortMethodV(
 ) -> jshort {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallShortMethodA(
     env: *mut JNIEnv,
@@ -664,6 +698,7 @@ pub unsafe extern "system" fn CallIntMethodV(
 ) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallIntMethodA(
     env: *mut JNIEnv,
@@ -683,6 +718,7 @@ pub unsafe extern "system" fn CallLongMethodV(
 ) -> jlong {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallLongMethodA(
     env: *mut JNIEnv,
@@ -702,6 +738,7 @@ pub unsafe extern "system" fn CallFloatMethodV(
 ) -> jfloat {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallFloatMethodA(
     env: *mut JNIEnv,
@@ -711,6 +748,7 @@ pub unsafe extern "system" fn CallFloatMethodA(
 ) -> jfloat {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallDoubleMethodV(
     env: *mut JNIEnv,
@@ -720,6 +758,7 @@ pub unsafe extern "system" fn CallDoubleMethodV(
 ) -> jdouble {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallDoubleMethodA(
     env: *mut JNIEnv,
@@ -729,6 +768,7 @@ pub unsafe extern "system" fn CallDoubleMethodA(
 ) -> jdouble {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallVoidMethodV(
     env: *mut JNIEnv,
@@ -738,6 +778,7 @@ pub unsafe extern "system" fn CallVoidMethodV(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallVoidMethodA(
     env: *mut JNIEnv,
@@ -747,6 +788,7 @@ pub unsafe extern "system" fn CallVoidMethodA(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualObjectMethodV(
     env: *mut JNIEnv,
@@ -757,6 +799,7 @@ pub unsafe extern "system" fn CallNonvirtualObjectMethodV(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualObjectMethodA(
     env: *mut JNIEnv,
@@ -767,6 +810,7 @@ pub unsafe extern "system" fn CallNonvirtualObjectMethodA(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualBooleanMethodV(
     env: *mut JNIEnv,
@@ -777,6 +821,7 @@ pub unsafe extern "system" fn CallNonvirtualBooleanMethodV(
 ) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualBooleanMethodA(
     env: *mut JNIEnv,
@@ -787,6 +832,7 @@ pub unsafe extern "system" fn CallNonvirtualBooleanMethodA(
 ) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualByteMethodV(
     env: *mut JNIEnv,
@@ -797,6 +843,7 @@ pub unsafe extern "system" fn CallNonvirtualByteMethodV(
 ) -> jbyte {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualByteMethodA(
     env: *mut JNIEnv,
@@ -807,6 +854,7 @@ pub unsafe extern "system" fn CallNonvirtualByteMethodA(
 ) -> jbyte {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualCharMethodV(
     env: *mut JNIEnv,
@@ -817,6 +865,7 @@ pub unsafe extern "system" fn CallNonvirtualCharMethodV(
 ) -> jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualCharMethodA(
     env: *mut JNIEnv,
@@ -827,6 +876,7 @@ pub unsafe extern "system" fn CallNonvirtualCharMethodA(
 ) -> jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualShortMethodV(
     env: *mut JNIEnv,
@@ -837,6 +887,7 @@ pub unsafe extern "system" fn CallNonvirtualShortMethodV(
 ) -> jshort {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualShortMethodA(
     env: *mut JNIEnv,
@@ -847,6 +898,7 @@ pub unsafe extern "system" fn CallNonvirtualShortMethodA(
 ) -> jshort {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualIntMethodV(
     env: *mut JNIEnv,
@@ -857,6 +909,7 @@ pub unsafe extern "system" fn CallNonvirtualIntMethodV(
 ) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualIntMethodA(
     env: *mut JNIEnv,
@@ -867,6 +920,7 @@ pub unsafe extern "system" fn CallNonvirtualIntMethodA(
 ) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualLongMethodV(
     env: *mut JNIEnv,
@@ -877,6 +931,7 @@ pub unsafe extern "system" fn CallNonvirtualLongMethodV(
 ) -> jlong {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualLongMethodA(
     env: *mut JNIEnv,
@@ -887,6 +942,7 @@ pub unsafe extern "system" fn CallNonvirtualLongMethodA(
 ) -> jlong {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualFloatMethodV(
     env: *mut JNIEnv,
@@ -897,6 +953,7 @@ pub unsafe extern "system" fn CallNonvirtualFloatMethodV(
 ) -> jfloat {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualFloatMethodA(
     env: *mut JNIEnv,
@@ -907,6 +964,7 @@ pub unsafe extern "system" fn CallNonvirtualFloatMethodA(
 ) -> jfloat {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualDoubleMethodV(
     env: *mut JNIEnv,
@@ -917,6 +975,7 @@ pub unsafe extern "system" fn CallNonvirtualDoubleMethodV(
 ) -> jdouble {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualDoubleMethodA(
     env: *mut JNIEnv,
@@ -927,6 +986,7 @@ pub unsafe extern "system" fn CallNonvirtualDoubleMethodA(
 ) -> jdouble {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualVoidMethodV(
     env: *mut JNIEnv,
@@ -937,6 +997,7 @@ pub unsafe extern "system" fn CallNonvirtualVoidMethodV(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallNonvirtualVoidMethodA(
     env: *mut JNIEnv,
@@ -947,6 +1008,7 @@ pub unsafe extern "system" fn CallNonvirtualVoidMethodA(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetFieldID(
     env: *mut JNIEnv,
@@ -956,6 +1018,7 @@ pub unsafe extern "system" fn GetFieldID(
 ) -> jfieldID {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetObjectField(
     env: *mut JNIEnv,
@@ -964,6 +1027,7 @@ pub unsafe extern "system" fn GetObjectField(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetBooleanField(
     env: *mut JNIEnv,
@@ -972,6 +1036,7 @@ pub unsafe extern "system" fn GetBooleanField(
 ) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetByteField(
     env: *mut JNIEnv,
@@ -980,6 +1045,7 @@ pub unsafe extern "system" fn GetByteField(
 ) -> jbyte {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetCharField(
     env: *mut JNIEnv,
@@ -988,6 +1054,7 @@ pub unsafe extern "system" fn GetCharField(
 ) -> jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetShortField(
     env: *mut JNIEnv,
@@ -996,6 +1063,7 @@ pub unsafe extern "system" fn GetShortField(
 ) -> jshort {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetIntField(
     env: *mut JNIEnv,
@@ -1004,6 +1072,7 @@ pub unsafe extern "system" fn GetIntField(
 ) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetLongField(
     env: *mut JNIEnv,
@@ -1012,6 +1081,7 @@ pub unsafe extern "system" fn GetLongField(
 ) -> jlong {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetFloatField(
     env: *mut JNIEnv,
@@ -1020,6 +1090,7 @@ pub unsafe extern "system" fn GetFloatField(
 ) -> jfloat {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetDoubleField(
     env: *mut JNIEnv,
@@ -1028,6 +1099,7 @@ pub unsafe extern "system" fn GetDoubleField(
 ) -> jdouble {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetObjectField(
     env: *mut JNIEnv,
@@ -1037,6 +1109,7 @@ pub unsafe extern "system" fn SetObjectField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetBooleanField(
     env: *mut JNIEnv,
@@ -1046,6 +1119,7 @@ pub unsafe extern "system" fn SetBooleanField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetByteField(
     env: *mut JNIEnv,
@@ -1055,6 +1129,7 @@ pub unsafe extern "system" fn SetByteField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetCharField(
     env: *mut JNIEnv,
@@ -1064,6 +1139,7 @@ pub unsafe extern "system" fn SetCharField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetShortField(
     env: *mut JNIEnv,
@@ -1073,6 +1149,7 @@ pub unsafe extern "system" fn SetShortField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetIntField(
     env: *mut JNIEnv,
@@ -1082,6 +1159,7 @@ pub unsafe extern "system" fn SetIntField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetLongField(
     env: *mut JNIEnv,
@@ -1091,6 +1169,7 @@ pub unsafe extern "system" fn SetLongField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetFloatField(
     env: *mut JNIEnv,
@@ -1100,6 +1179,7 @@ pub unsafe extern "system" fn SetFloatField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetDoubleField(
     env: *mut JNIEnv,
@@ -1109,6 +1189,7 @@ pub unsafe extern "system" fn SetDoubleField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticMethodID(
     env: *mut JNIEnv,
@@ -1118,6 +1199,7 @@ pub unsafe extern "system" fn GetStaticMethodID(
 ) -> jmethodID {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticObjectMethodV(
     env: *mut JNIEnv,
@@ -1127,6 +1209,7 @@ pub unsafe extern "system" fn CallStaticObjectMethodV(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticObjectMethodA(
     env: *mut JNIEnv,
@@ -1136,6 +1219,7 @@ pub unsafe extern "system" fn CallStaticObjectMethodA(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticBooleanMethodV(
     env: *mut JNIEnv,
@@ -1145,6 +1229,7 @@ pub unsafe extern "system" fn CallStaticBooleanMethodV(
 ) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticBooleanMethodA(
     env: *mut JNIEnv,
@@ -1154,6 +1239,7 @@ pub unsafe extern "system" fn CallStaticBooleanMethodA(
 ) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticByteMethodV(
     env: *mut JNIEnv,
@@ -1163,6 +1249,7 @@ pub unsafe extern "system" fn CallStaticByteMethodV(
 ) -> jbyte {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticByteMethodA(
     env: *mut JNIEnv,
@@ -1172,6 +1259,7 @@ pub unsafe extern "system" fn CallStaticByteMethodA(
 ) -> jbyte {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticCharMethodV(
     env: *mut JNIEnv,
@@ -1181,6 +1269,7 @@ pub unsafe extern "system" fn CallStaticCharMethodV(
 ) -> jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticCharMethodA(
     env: *mut JNIEnv,
@@ -1190,6 +1279,7 @@ pub unsafe extern "system" fn CallStaticCharMethodA(
 ) -> jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticShortMethodV(
     env: *mut JNIEnv,
@@ -1199,6 +1289,7 @@ pub unsafe extern "system" fn CallStaticShortMethodV(
 ) -> jshort {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticShortMethodA(
     env: *mut JNIEnv,
@@ -1208,6 +1299,7 @@ pub unsafe extern "system" fn CallStaticShortMethodA(
 ) -> jshort {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticIntMethodV(
     env: *mut JNIEnv,
@@ -1217,6 +1309,7 @@ pub unsafe extern "system" fn CallStaticIntMethodV(
 ) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticIntMethodA(
     env: *mut JNIEnv,
@@ -1226,6 +1319,7 @@ pub unsafe extern "system" fn CallStaticIntMethodA(
 ) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticLongMethodV(
     env: *mut JNIEnv,
@@ -1235,6 +1329,7 @@ pub unsafe extern "system" fn CallStaticLongMethodV(
 ) -> jlong {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticLongMethodA(
     env: *mut JNIEnv,
@@ -1244,6 +1339,7 @@ pub unsafe extern "system" fn CallStaticLongMethodA(
 ) -> jlong {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticFloatMethodV(
     env: *mut JNIEnv,
@@ -1253,6 +1349,7 @@ pub unsafe extern "system" fn CallStaticFloatMethodV(
 ) -> jfloat {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticFloatMethodA(
     env: *mut JNIEnv,
@@ -1262,6 +1359,7 @@ pub unsafe extern "system" fn CallStaticFloatMethodA(
 ) -> jfloat {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticDoubleMethodV(
     env: *mut JNIEnv,
@@ -1271,6 +1369,7 @@ pub unsafe extern "system" fn CallStaticDoubleMethodV(
 ) -> jdouble {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticDoubleMethodA(
     env: *mut JNIEnv,
@@ -1280,6 +1379,7 @@ pub unsafe extern "system" fn CallStaticDoubleMethodA(
 ) -> jdouble {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticVoidMethodV(
     env: *mut JNIEnv,
@@ -1289,6 +1389,7 @@ pub unsafe extern "system" fn CallStaticVoidMethodV(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn CallStaticVoidMethodA(
     env: *mut JNIEnv,
@@ -1298,6 +1399,7 @@ pub unsafe extern "system" fn CallStaticVoidMethodA(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticFieldID(
     env: *mut JNIEnv,
@@ -1307,6 +1409,7 @@ pub unsafe extern "system" fn GetStaticFieldID(
 ) -> jfieldID {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticObjectField(
     env: *mut JNIEnv,
@@ -1315,6 +1418,7 @@ pub unsafe extern "system" fn GetStaticObjectField(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticBooleanField(
     env: *mut JNIEnv,
@@ -1323,6 +1427,7 @@ pub unsafe extern "system" fn GetStaticBooleanField(
 ) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticByteField(
     env: *mut JNIEnv,
@@ -1331,6 +1436,7 @@ pub unsafe extern "system" fn GetStaticByteField(
 ) -> jbyte {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticCharField(
     env: *mut JNIEnv,
@@ -1339,6 +1445,7 @@ pub unsafe extern "system" fn GetStaticCharField(
 ) -> jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticShortField(
     env: *mut JNIEnv,
@@ -1347,6 +1454,7 @@ pub unsafe extern "system" fn GetStaticShortField(
 ) -> jshort {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticIntField(
     env: *mut JNIEnv,
@@ -1355,6 +1463,7 @@ pub unsafe extern "system" fn GetStaticIntField(
 ) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticLongField(
     env: *mut JNIEnv,
@@ -1363,6 +1472,7 @@ pub unsafe extern "system" fn GetStaticLongField(
 ) -> jlong {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticFloatField(
     env: *mut JNIEnv,
@@ -1371,6 +1481,7 @@ pub unsafe extern "system" fn GetStaticFloatField(
 ) -> jfloat {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticDoubleField(
     env: *mut JNIEnv,
@@ -1379,6 +1490,7 @@ pub unsafe extern "system" fn GetStaticDoubleField(
 ) -> jdouble {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetStaticObjectField(
     env: *mut JNIEnv,
@@ -1388,6 +1500,7 @@ pub unsafe extern "system" fn SetStaticObjectField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetStaticBooleanField(
     env: *mut JNIEnv,
@@ -1397,6 +1510,7 @@ pub unsafe extern "system" fn SetStaticBooleanField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetStaticByteField(
     env: *mut JNIEnv,
@@ -1406,6 +1520,7 @@ pub unsafe extern "system" fn SetStaticByteField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetStaticCharField(
     env: *mut JNIEnv,
@@ -1415,6 +1530,7 @@ pub unsafe extern "system" fn SetStaticCharField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetStaticShortField(
     env: *mut JNIEnv,
@@ -1424,6 +1540,7 @@ pub unsafe extern "system" fn SetStaticShortField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetStaticIntField(
     env: *mut JNIEnv,
@@ -1433,6 +1550,7 @@ pub unsafe extern "system" fn SetStaticIntField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetStaticLongField(
     env: *mut JNIEnv,
@@ -1442,6 +1560,7 @@ pub unsafe extern "system" fn SetStaticLongField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetStaticFloatField(
     env: *mut JNIEnv,
@@ -1451,6 +1570,7 @@ pub unsafe extern "system" fn SetStaticFloatField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetStaticDoubleField(
     env: *mut JNIEnv,
@@ -1460,6 +1580,7 @@ pub unsafe extern "system" fn SetStaticDoubleField(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewString(
     env: *mut JNIEnv,
@@ -1468,10 +1589,13 @@ pub unsafe extern "system" fn NewString(
 ) -> jstring {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStringLength(env: *mut JNIEnv, str: jstring) -> jsize {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    obj_expect!(env, str, 0).expect_string().len() as jsize
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStringChars(
     env: *mut JNIEnv,
@@ -1480,6 +1604,7 @@ pub unsafe extern "system" fn GetStringChars(
 ) -> *const jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseStringChars(
     env: *mut JNIEnv,
@@ -1488,14 +1613,18 @@ pub unsafe extern "system" fn ReleaseStringChars(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewStringUTF(env: *mut JNIEnv, utf: *const c_char) -> jstring {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStringUTFLength(env: *mut JNIEnv, str: jstring) -> jsize {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    obj_expect!(env, str, 0).expect_string().len() as jsize
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStringUTFChars(
     env: *mut JNIEnv,
@@ -1529,6 +1658,7 @@ pub unsafe extern "system" fn ReleaseStringUTFChars(
 pub unsafe extern "system" fn GetArrayLength(env: *mut JNIEnv, array: jarray) -> jsize {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewObjectArray(
     env: *mut JNIEnv,
@@ -1538,6 +1668,7 @@ pub unsafe extern "system" fn NewObjectArray(
 ) -> jobjectArray {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetObjectArrayElement(
     env: *mut JNIEnv,
@@ -1546,6 +1677,7 @@ pub unsafe extern "system" fn GetObjectArrayElement(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetObjectArrayElement(
     env: *mut JNIEnv,
@@ -1555,38 +1687,47 @@ pub unsafe extern "system" fn SetObjectArrayElement(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewBooleanArray(env: *mut JNIEnv, len: jsize) -> jbooleanArray {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewByteArray(env: *mut JNIEnv, len: jsize) -> jbyteArray {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewCharArray(env: *mut JNIEnv, len: jsize) -> jcharArray {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewShortArray(env: *mut JNIEnv, len: jsize) -> jshortArray {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewIntArray(env: *mut JNIEnv, len: jsize) -> jintArray {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewLongArray(env: *mut JNIEnv, len: jsize) -> jlongArray {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewFloatArray(env: *mut JNIEnv, len: jsize) -> jfloatArray {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewDoubleArray(env: *mut JNIEnv, len: jsize) -> jdoubleArray {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetBooleanArrayElements(
     env: *mut JNIEnv,
@@ -1595,6 +1736,7 @@ pub unsafe extern "system" fn GetBooleanArrayElements(
 ) -> *mut jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetByteArrayElements(
     env: *mut JNIEnv,
@@ -1603,6 +1745,7 @@ pub unsafe extern "system" fn GetByteArrayElements(
 ) -> *mut jbyte {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetCharArrayElements(
     env: *mut JNIEnv,
@@ -1611,6 +1754,7 @@ pub unsafe extern "system" fn GetCharArrayElements(
 ) -> *mut jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetShortArrayElements(
     env: *mut JNIEnv,
@@ -1619,6 +1763,7 @@ pub unsafe extern "system" fn GetShortArrayElements(
 ) -> *mut jshort {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetIntArrayElements(
     env: *mut JNIEnv,
@@ -1627,6 +1772,7 @@ pub unsafe extern "system" fn GetIntArrayElements(
 ) -> *mut jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetLongArrayElements(
     env: *mut JNIEnv,
@@ -1635,6 +1781,7 @@ pub unsafe extern "system" fn GetLongArrayElements(
 ) -> *mut jlong {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetFloatArrayElements(
     env: *mut JNIEnv,
@@ -1643,6 +1790,7 @@ pub unsafe extern "system" fn GetFloatArrayElements(
 ) -> *mut jfloat {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetDoubleArrayElements(
     env: *mut JNIEnv,
@@ -1651,6 +1799,7 @@ pub unsafe extern "system" fn GetDoubleArrayElements(
 ) -> *mut jdouble {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseBooleanArrayElements(
     env: *mut JNIEnv,
@@ -1660,6 +1809,7 @@ pub unsafe extern "system" fn ReleaseBooleanArrayElements(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseByteArrayElements(
     env: *mut JNIEnv,
@@ -1669,6 +1819,7 @@ pub unsafe extern "system" fn ReleaseByteArrayElements(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseCharArrayElements(
     env: *mut JNIEnv,
@@ -1678,6 +1829,7 @@ pub unsafe extern "system" fn ReleaseCharArrayElements(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseShortArrayElements(
     env: *mut JNIEnv,
@@ -1687,6 +1839,7 @@ pub unsafe extern "system" fn ReleaseShortArrayElements(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseIntArrayElements(
     env: *mut JNIEnv,
@@ -1696,6 +1849,7 @@ pub unsafe extern "system" fn ReleaseIntArrayElements(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseLongArrayElements(
     env: *mut JNIEnv,
@@ -1705,6 +1859,7 @@ pub unsafe extern "system" fn ReleaseLongArrayElements(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseFloatArrayElements(
     env: *mut JNIEnv,
@@ -1714,6 +1869,7 @@ pub unsafe extern "system" fn ReleaseFloatArrayElements(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseDoubleArrayElements(
     env: *mut JNIEnv,
@@ -1723,6 +1879,7 @@ pub unsafe extern "system" fn ReleaseDoubleArrayElements(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetBooleanArrayRegion(
     env: *mut JNIEnv,
@@ -1733,6 +1890,7 @@ pub unsafe extern "system" fn GetBooleanArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetByteArrayRegion(
     env: *mut JNIEnv,
@@ -1743,6 +1901,7 @@ pub unsafe extern "system" fn GetByteArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetCharArrayRegion(
     env: *mut JNIEnv,
@@ -1753,6 +1912,7 @@ pub unsafe extern "system" fn GetCharArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetShortArrayRegion(
     env: *mut JNIEnv,
@@ -1763,6 +1923,7 @@ pub unsafe extern "system" fn GetShortArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetIntArrayRegion(
     env: *mut JNIEnv,
@@ -1773,6 +1934,7 @@ pub unsafe extern "system" fn GetIntArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetLongArrayRegion(
     env: *mut JNIEnv,
@@ -1783,6 +1945,7 @@ pub unsafe extern "system" fn GetLongArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetFloatArrayRegion(
     env: *mut JNIEnv,
@@ -1793,6 +1956,7 @@ pub unsafe extern "system" fn GetFloatArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetDoubleArrayRegion(
     env: *mut JNIEnv,
@@ -1803,6 +1967,7 @@ pub unsafe extern "system" fn GetDoubleArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetBooleanArrayRegion(
     env: *mut JNIEnv,
@@ -1813,6 +1978,7 @@ pub unsafe extern "system" fn SetBooleanArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetByteArrayRegion(
     env: *mut JNIEnv,
@@ -1823,6 +1989,7 @@ pub unsafe extern "system" fn SetByteArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetCharArrayRegion(
     env: *mut JNIEnv,
@@ -1833,6 +2000,7 @@ pub unsafe extern "system" fn SetCharArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetShortArrayRegion(
     env: *mut JNIEnv,
@@ -1843,6 +2011,7 @@ pub unsafe extern "system" fn SetShortArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetIntArrayRegion(
     env: *mut JNIEnv,
@@ -1853,6 +2022,7 @@ pub unsafe extern "system" fn SetIntArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetLongArrayRegion(
     env: *mut JNIEnv,
@@ -1863,6 +2033,7 @@ pub unsafe extern "system" fn SetLongArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetFloatArrayRegion(
     env: *mut JNIEnv,
@@ -1873,6 +2044,7 @@ pub unsafe extern "system" fn SetFloatArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn SetDoubleArrayRegion(
     env: *mut JNIEnv,
@@ -1883,6 +2055,7 @@ pub unsafe extern "system" fn SetDoubleArrayRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn RegisterNatives(
     env: *mut JNIEnv,
@@ -1892,22 +2065,27 @@ pub unsafe extern "system" fn RegisterNatives(
 ) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn UnregisterNatives(env: *mut JNIEnv, clazz: jclass) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn MonitorEnter(env: *mut JNIEnv, obj: jobject) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn MonitorExit(env: *mut JNIEnv, obj: jobject) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetJavaVM(env: *mut JNIEnv, vm: *mut *mut JavaVM) -> jint {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStringRegion(
     env: *mut JNIEnv,
@@ -1918,6 +2096,7 @@ pub unsafe extern "system" fn GetStringRegion(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStringUTFRegion(
     env: *mut JNIEnv,
@@ -1926,8 +2105,17 @@ pub unsafe extern "system" fn GetStringUTFRegion(
     len: jsize,
     buf: *mut c_char,
 ) {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let mut str = obj_expect!(env, str).expect_string();
+
+    copy_nonoverlapping(
+        &str.as_bytes()[start as usize] as *const u8 as *const c_char,
+        buf,
+        len as usize,
+    );
+    write_bytes(buf.add(len as usize), 0, 1);
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetPrimitiveArrayCritical(
     env: *mut JNIEnv,
@@ -1936,6 +2124,7 @@ pub unsafe extern "system" fn GetPrimitiveArrayCritical(
 ) -> *mut c_void {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleasePrimitiveArrayCritical(
     env: *mut JNIEnv,
@@ -1945,6 +2134,7 @@ pub unsafe extern "system" fn ReleasePrimitiveArrayCritical(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetStringCritical(
     env: *mut JNIEnv,
@@ -1953,6 +2143,7 @@ pub unsafe extern "system" fn GetStringCritical(
 ) -> *const jchar {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ReleaseStringCritical(
     env: *mut JNIEnv,
@@ -1961,18 +2152,22 @@ pub unsafe extern "system" fn ReleaseStringCritical(
 ) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewWeakGlobalRef(env: *mut JNIEnv, obj: jobject) -> jweak {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn DeleteWeakGlobalRef(env: *mut JNIEnv, ref_: jweak) {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn ExceptionCheck(env: *mut JNIEnv) -> jboolean {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn NewDirectByteBuffer(
     env: *mut JNIEnv,
@@ -1981,6 +2176,7 @@ pub unsafe extern "system" fn NewDirectByteBuffer(
 ) -> jobject {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetDirectBufferAddress(
     env: *mut JNIEnv,
@@ -1988,10 +2184,12 @@ pub unsafe extern "system" fn GetDirectBufferAddress(
 ) -> *mut c_void {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetDirectBufferCapacity(env: *mut JNIEnv, buf: jobject) -> jlong {
     unimplemented!()
 }
+
 #[no_mangle]
 pub unsafe extern "system" fn GetObjectRefType(env: *mut JNIEnv, obj: jobject) -> jobjectRefType {
     unimplemented!()

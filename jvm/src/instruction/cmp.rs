@@ -159,3 +159,109 @@ impl InstructionAction for ifnull {
         // }
     }
 }
+
+instruction! {@partial fcmpg, 0x96}
+instruction! {@partial fcmpl, 0x95}
+
+impl InstructionAction for fcmpg {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        let value2 = frame.stack.pop().unwrap();
+        let value1 = frame.stack.pop().unwrap();
+
+        if let (JavaValue::Float(val1), JavaValue::Float(val2)) = (value1, value2) {
+            frame.stack.push(match val1.partial_cmp(&val2) {
+                Some(Ordering::Less) => JavaValue::Int(-1),
+                Some(Ordering::Equal) => JavaValue::Int(0),
+                Some(Ordering::Greater) => JavaValue::Int(1),
+                None => JavaValue::Int(1),
+            });
+        } else {
+            panic!("fcmp requires 2 floats to operate!")
+        }
+
+        Ok(())
+    }
+}
+
+impl InstructionAction for fcmpl {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        let value2 = frame.stack.pop().unwrap();
+        let value1 = frame.stack.pop().unwrap();
+
+        if let (JavaValue::Float(val1), JavaValue::Float(val2)) = (value1, value2) {
+            frame.stack.push(match val1.partial_cmp(&val2) {
+                Some(Ordering::Less) => JavaValue::Int(-1),
+                Some(Ordering::Equal) => JavaValue::Int(0),
+                Some(Ordering::Greater) => JavaValue::Int(1),
+                None => JavaValue::Int(-1),
+            });
+        } else {
+            panic!("fcmp requires 2 floats to operate!")
+        }
+
+        Ok(())
+    }
+}
+
+instruction! {@partial dcmpg, 0x98}
+instruction! {@partial dcmpl, 0x97}
+
+impl InstructionAction for dcmpg {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        frame.stack.pop().unwrap();
+        let value2 = frame.stack.pop().unwrap();
+        frame.stack.pop().unwrap();
+        let value1 = frame.stack.pop().unwrap();
+
+        if let (JavaValue::Double(val1), JavaValue::Double(val2)) = (value1, value2) {
+            frame.stack.push(match val1.partial_cmp(&val2) {
+                Some(Ordering::Less) => JavaValue::Int(-1),
+                Some(Ordering::Equal) => JavaValue::Int(0),
+                Some(Ordering::Greater) => JavaValue::Int(1),
+                None => JavaValue::Int(1),
+            });
+        } else {
+            panic!("dcmp requires 2 doubles to operate!")
+        }
+
+        Ok(())
+    }
+}
+
+impl InstructionAction for dcmpl {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        frame.stack.pop().unwrap();
+        let value2 = frame.stack.pop().unwrap();
+        frame.stack.pop().unwrap();
+        let value1 = frame.stack.pop().unwrap();
+
+        if let (JavaValue::Double(val1), JavaValue::Double(val2)) = (value1, value2) {
+            frame.stack.push(match val1.partial_cmp(&val2) {
+                Some(Ordering::Less) => JavaValue::Int(-1),
+                Some(Ordering::Equal) => JavaValue::Int(0),
+                Some(Ordering::Greater) => JavaValue::Int(1),
+                None => JavaValue::Int(-1),
+            });
+        } else {
+            panic!("dcmp requires 2 doubles to operate!")
+        }
+
+        Ok(())
+    }
+}

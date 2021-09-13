@@ -17,11 +17,6 @@ use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-instruction! {athrow, 0xbf}
-instruction! {dcmpg, 0x98}
-instruction! {dcmpl, 0x97}
-instruction! {fcmpg, 0x96}
-instruction! {fcmpl, 0x95}
 // TODO: goto_w
 // TODO: invokedynamic
 instruction! {jsr, 0xa8, u16}
@@ -32,6 +27,22 @@ instruction! {ret, 0xa9, u8}
 // TODO: multianewarray
 // TODO: tableswitch
 // TODO: wide
+
+instruction! {@partial athrow, 0xbf}
+
+// TODO: I just guessed on how this one works so check if this is actually right
+impl InstructionAction for athrow {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        match frame.stack.pop() {
+            Some(JavaValue::Reference(x)) => Err(FlowControl::Throws(x)),
+            _ => panic!("Expected reference!"),
+        }
+    }
+}
 
 instruction! {@partial checkcast, 0xc0, u16}
 
@@ -161,13 +172,14 @@ impl InstructionAction for ldc2_w {
     ) -> Result<(), FlowControl> {
         let ldc2_w(index) = *self;
 
-        frame
-            .stack
-            .push(match &frame.constants[index as usize - 1] {
-                Constant::Double(ConstantDouble { value }) => JavaValue::Double(*value),
-                Constant::Long(ConstantLong { value }) => JavaValue::Long(*value),
-                x => panic!("Attempted to push {:?} to the stack", x),
-            });
+        let value = match &frame.constants[index as usize - 1] {
+            Constant::Double(ConstantDouble { value }) => JavaValue::Double(*value),
+            Constant::Long(ConstantLong { value }) => JavaValue::Long(*value),
+            x => panic!("Attempted to push {:?} to the stack", x),
+        };
+
+        frame.stack.push(value);
+        frame.stack.push(value);
         Ok(())
     }
 }

@@ -151,6 +151,8 @@ impl InstructionAction for arraylength {
                 Some(v) => frame.stack.push(JavaValue::Int(v as i32)),
                 None => panic!("Attempted to get array length of non-array"),
             }
+        } else {
+            panic!("Got null while attempting to read array length!")
         }
         Ok(())
     }

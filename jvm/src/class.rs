@@ -109,7 +109,7 @@ pub struct Class {
     super_class: u16,
     interfaces: Vec<u16>,
     pub fields: Vec<FieldInfo>,
-    methods: Vec<MethodInfo>,
+    pub methods: Vec<MethodInfo>,
     attributes: Vec<AttributeInfo>,
 }
 

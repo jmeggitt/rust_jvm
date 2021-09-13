@@ -127,9 +127,23 @@ impl<T: Trace> Deref for ObjectWrapper<T> {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct ObjectHandle(NonNull<_jobject>);
+
+impl PartialEq for ObjectHandle {
+    fn eq(&self, other: &Self) -> bool {
+        // Enforce string comparison to get around annoying string internment issues
+        let class = self.get_class();
+        if class == other.get_class() && class == "java/lang/String" {
+            return self.expect_string() == other.expect_string();
+        }
+
+        self.0 == other.0
+    }
+}
+
+impl Eq for ObjectHandle {}
 
 // ObjectHandle needs to pretend to be thread safe to mimic the functionality of Java
 unsafe impl Sync for ObjectHandle {}

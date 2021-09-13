@@ -1,12 +1,14 @@
 use crate::class::BufferedRead;
-use crate::jvm::mem::{FieldDescriptor, ManualInstanceReference, ObjectHandle};
+use crate::jvm::call::RawJNIEnv;
+use crate::jvm::mem::{FieldDescriptor, InstanceReference, ManualInstanceReference, ObjectHandle};
 use jni::objects::JObject;
 use jni::sys::{
     jboolean, jbyte, jbyteArray, jchar, jclass, jdouble, jdoubleArray, jfloat, jint, jlong,
-    jobjectArray, jshort, jstring, jthrowable,
+    jobject, jobjectArray, jshort, jstring, jthrowable, jvalue, JNI_FALSE,
 };
 use jni::JNIEnv;
 use std::mem::size_of;
+use std::sync::atomic::{AtomicI32, AtomicPtr, Ordering};
 
 // TODO: Fill in unsafe
 
@@ -538,11 +540,27 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_staticFieldOffset(
 /// Signature: (Ljava/lang/reflect/Field{ unimplemented!() })J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_objectFieldOffset(
-    _env: JNIEnv,
+    env: RawJNIEnv,
     _this: JObject,
-    _obj: JObject,
-) {
-    unimplemented!()
+    field: jobject,
+) -> jlong {
+    let field = obj_expect!(env, field, 0);
+    let instance = field.expect_instance();
+
+    let class: Option<ObjectHandle> = instance.read_named_field("clazz");
+    let class_name: Option<ObjectHandle> =
+        class.unwrap().expect_instance().read_named_field("name");
+    let class_name = class_name.unwrap().expect_string().replace('.', "/");
+    let field_name: Option<ObjectHandle> = instance.read_named_field("name");
+
+    let mut lock = env.write();
+    let schema = lock.class_schema(&class_name);
+
+    schema
+        .field_offsets
+        .get(&field_name.unwrap().expect_string())
+        .unwrap()
+        .offset as jlong
 }
 
 /// Class:     sun_misc_Unsafe
@@ -604,7 +622,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_arrayIndexScale(
 ) -> jint {
     let a = ObjectHandle::from_ptr(target).unwrap().expect_instance();
     let name_obj: Option<ObjectHandle> = a.read_named_field("name");
-    let name = name_obj.unwrap().expect_string();
+    let name = name_obj.unwrap().expect_string().replace('.', "/");
     if let Ok(FieldDescriptor::Array(arr)) = FieldDescriptor::read_str(&name) {
         match &*arr {
             FieldDescriptor::Byte => return size_of::<jbyte>() as i32,
@@ -737,17 +755,28 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_throwException(
 
 /// Class:     sun_misc_Unsafe
 /// Method:    compareAndSwapObject
-/// Signature: (Ljava/lang/Object{ unimplemented!() }JLjava/lang/Object{ unimplemented!() }Ljava/lang/Object{ unimplemented!() })Z
+/// Signature: (Ljava/lang/Object;JLjava/lang/Object;Ljava/lang/Object;)Z
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapObject(
-    _env: JNIEnv,
+    env: RawJNIEnv,
     _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _objb: JObject,
-    _objc: JObject,
-) {
-    unimplemented!()
+    obj: jobject,
+    offset: jlong,
+    expected: jobject,
+    x: jobject,
+) -> jboolean {
+    let obj = obj_expect!(env, obj, JNI_FALSE);
+    let instance = obj.expect_instance();
+    assert_eq!(offset as usize % size_of::<jvalue>(), 0);
+    let index = offset as usize / size_of::<jvalue>();
+
+    let mut fields = instance.raw_fields();
+    assert!(index < fields.len());
+
+    let ptr = &mut fields[index] as *mut jvalue as *const AtomicPtr<_>;
+
+    let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+    res.is_ok() as jboolean
 }
 
 /// Class:     sun_misc_Unsafe
@@ -755,14 +784,25 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapObject(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JII)Z
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapInt(
-    _env: JNIEnv,
+    env: RawJNIEnv,
     _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _valb: jint,
-    _valc: jint,
-) {
-    unimplemented!()
+    obj: jobject,
+    offset: jlong,
+    expected: jint,
+    x: jint,
+) -> jboolean {
+    let obj = obj_expect!(env, obj, JNI_FALSE);
+    let instance = obj.expect_instance();
+    assert_eq!(offset as usize % size_of::<jvalue>(), 0);
+    let index = offset as usize / size_of::<jvalue>();
+
+    let mut fields = instance.raw_fields();
+    assert!(index < fields.len());
+
+    let ptr = &mut fields[index] as *mut jvalue as *const AtomicI32;
+
+    let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+    res.is_ok() as jboolean
 }
 
 /// Class:     sun_misc_Unsafe
@@ -812,12 +852,14 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putObjectVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)I
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getIntVolatile(
-    _env: JNIEnv,
+    env: RawJNIEnv,
     _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    obj: jobject,
+    offset: jlong,
+) -> jint {
+    obj_expect!(env, obj, 0)
+        .expect_instance()
+        .read_field(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe

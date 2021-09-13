@@ -55,10 +55,12 @@ pub enum FlowControl {
 
 impl FlowControl {
     pub fn error<S: AsRef<str>>(class: S) -> Self {
+        debug!("Attempted to build error: {}", class.as_ref());
         unimplemented!("Attempted to build error: {}", class.as_ref())
     }
 
     pub fn throw<S: AsRef<str>>(class: S) -> Self {
+        debug!("Attempted to build exception: {}", class.as_ref());
         unimplemented!("Attempted to build exception: {}", class.as_ref())
     }
 }

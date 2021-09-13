@@ -59,6 +59,7 @@ JVM_FillInStackTrace
 JVM_FindClassFromClass
 JVM_FindClassFromClassLoader
 JVM_FindClassFromBootLoader
+JVM_FindClassFromCaller
 JVM_FindLibraryEntry
 JVM_FindLoadedClass
 JVM_FindPrimitiveClass

@@ -116,7 +116,7 @@ impl InstructionAction for invokestatic {
             .expect_class()
             .unwrap();
         let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
-        // jvm.init_class(&class_name);
+        jvm.init_class(&class_name);
         jvm.write().class_loader.attempt_load(&class_name).unwrap();
 
         let field = frame.constants[desc_index as usize - 1]
@@ -300,7 +300,7 @@ impl InstructionAction for new {
             .expect("Expected class from constant pool");
         let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
 
-        // jvm.init_class(&class_name);
+        jvm.init_class(&class_name);
         jvm.write().class_loader.attempt_load(&class_name).unwrap();
 
         let object = ObjectHandle::new(jvm.write().class_schema(&class_name));
@@ -601,7 +601,7 @@ impl InstructionAction for invokeinterface {
                 Some(JavaValue::Reference(Some(v))) => v,
                 _ => {
                     // raise_null_pointer_exception(frame, jvm);
-                    warn!(
+                    debug!(
                         "Raised NullPointerException while trying to call {}::{} {}",
                         &class_name, &field_name, &descriptor
                     );
