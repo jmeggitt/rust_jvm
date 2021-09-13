@@ -15,6 +15,7 @@ use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
 use std::sync::Arc;
+use crate::jvm::thread::SynchronousMonitor;
 
 instruction! {athrow, 0xbf}
 instruction! {dcmpg, 0x98}
@@ -316,9 +317,10 @@ instruction! {@partial monitorexit, 0xc3}
 impl InstructionAction for monitorenter {
     fn exec(
         &self,
-        _frame: &mut StackFrame,
-        _jvm: &mut Arc<RwLock<JavaEnv>>,
+        frame: &mut StackFrame,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
+        jvm.lock(frame.pop_reference()?);
         Ok(())
     }
 }
@@ -326,9 +328,10 @@ impl InstructionAction for monitorenter {
 impl InstructionAction for monitorexit {
     fn exec(
         &self,
-        _frame: &mut StackFrame,
-        _jvm: &mut Arc<RwLock<JavaEnv>>,
+        frame: &mut StackFrame,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
+        jvm.unlock(frame.pop_reference()?);
         Ok(())
     }
 }

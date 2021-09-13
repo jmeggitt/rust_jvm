@@ -36,6 +36,7 @@ use std::ops::{Deref, DerefMut};
 use std::process::id;
 use std::ptr::null_mut;
 use std::sync::Arc;
+use crate::jvm::thread::handle_thread_updates;
 
 pub trait Method: 'static {
     fn exec(&self, jvm: &mut JavaEnv, args: &[JavaValue]) -> Result<Option<JavaValue>, JavaValue>;
@@ -48,9 +49,10 @@ pub struct CallSite {
 
 #[derive(Debug)]
 pub enum FlowControl {
+    Branch(i64),
     Return(Option<JavaValue>),
     Throws(Option<ObjectHandle>),
-    Branch(i64),
+    ThreadInterrupt,
 }
 
 impl FlowControl {
@@ -207,6 +209,9 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         element: ClassElement,
         mut locals: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
+        // Check for sticky actions on current thread
+        handle_thread_updates(self)?;
+
         debug!("Running {:?}", &element);
         for (idx, local) in locals.iter().enumerate() {
             debug!("\t{}: {:?}", idx, local);
@@ -223,6 +228,9 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             };
 
         let ret = if method.access.contains(AccessFlags::NATIVE) {
+            // If attempting to call a native method, the class must be initialized first
+            self.init_class(&class_name);
+
             let fn_ptr = match self.write().linked_libraries.get_fn_ptr(
                 &class_name,
                 &element.element,
@@ -526,7 +534,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
 }
 
 #[repr(transparent)]
-#[derive(Copy, Clone)]
+#[derive(Copy)]
 pub struct RawJNIEnv<'a> {
     ptr: *mut JNIEnv,
     _phantom: PhantomData<&'a ()>,

@@ -40,12 +40,12 @@ pub fn register_natives(natives: &mut NativeManager) {
     //     empty as *mut c_void,
     // );
 
-    natives.register_fn(
-        "java/lang/Thread",
-        "currentThread",
-        "()Ljava/lang/Thread",
-        thread::Java_java_lang_Thread_currentThread__ as *mut c_void,
-    );
+    // natives.register_fn(
+    //     "java/lang/Thread",
+    //     "currentThread",
+    //     "()Ljava/lang/Thread",
+    //     thread::Java_java_lang_Thread_currentThread__ as *mut c_void,
+    // );
 
     natives.register_fn(
         "sun/misc/Unsafe",

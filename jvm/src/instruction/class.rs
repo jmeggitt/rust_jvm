@@ -16,7 +16,7 @@ use std::sync::Arc;
 instruction! {@partial getstatic, 0xb2, u16}
 
 impl getstatic {
-    fn check_static_init(
+    pub fn check_static_init(
         jvm: &mut JavaEnv,
         class: &str,
         field: &str,

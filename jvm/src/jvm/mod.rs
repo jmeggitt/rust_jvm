@@ -15,6 +15,7 @@ use crate::jvm::mem::{
 };
 use parking_lot::RwLock;
 use std::thread::ThreadId;
+use crate::jvm::thread::JavaThreadManager;
 
 // macro_rules! fatal_error {
 //     ($($arg:tt),*) => {{
@@ -46,8 +47,9 @@ pub struct JavaEnv {
 
     pub call_stack: Vec<(ObjectHandle, String)>,
 
-    pub threads: HashMap<ThreadId, ObjectHandle>,
-    pub sys_thread_group: Option<ObjectHandle>,
+    pub thread_manager: JavaThreadManager,
+    // pub threads: HashMap<ThreadId, ObjectHandle>,
+    // pub sys_thread_group: Option<ObjectHandle>,
 
     schemas: HashMap<String, Arc<ClassSchema>>,
 }
@@ -64,8 +66,9 @@ impl JavaEnv {
             // locals: vec![JavaValue::Int(0); 255],
             registered_classes: HashMap::new(),
             call_stack: Vec::new(),
-            threads: HashMap::new(),
-            sys_thread_group: None,
+            // threads: HashMap::new(),
+            // sys_thread_group: None,
+            thread_manager: JavaThreadManager::default(),
             schemas: HashMap::new(),
         };
 

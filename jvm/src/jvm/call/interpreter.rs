@@ -8,6 +8,7 @@ use crate::profile_scope_cfg;
 use parking_lot::RwLock;
 use std::mem::replace;
 use std::sync::Arc;
+use crate::jvm::thread::handle_thread_updates;
 
 pub struct StackFrame {
     // Comparable to the .text section of a binary
@@ -40,6 +41,24 @@ impl StackFrame {
             stack: Vec::with_capacity(max_stack),
         }
     }
+
+    pub fn pop_nullable_reference(&mut self) -> Result<Option<ObjectHandle>, FlowControl> {
+        match self.stack.pop() {
+            Some(JavaValue::Reference(v)) => Ok(v),
+            Some(_) => Err(FlowControl::throw("VirtualMachineError")),
+            None => panic!("Stack Frame Lower Bounds Violated"),
+        }
+    }
+
+    pub fn pop_reference(&mut self) -> Result<ObjectHandle, FlowControl> {
+        match self.stack.pop() {
+            Some(JavaValue::Reference(Some(v))) => Ok(v),
+            Some(_) => Err(FlowControl::throw("VirtualMachineError")),
+            None => panic!("Stack Frame Lower Bounds Violated"),
+        }
+    }
+
+    // TODO: Implement methods for other computational types
 
     pub fn verify_computational_types(buffer: &[JavaValue]) {
         let mut idx = 0;
@@ -89,6 +108,7 @@ impl StackFrame {
             trace!("\t{}:\t{:?}", offset, instruction);
         }
 
+        let mut instruction_counter = 0;
         let mut rip = 0;
         loop {
             if rip >= code.instructions.len() {
@@ -96,11 +116,17 @@ impl StackFrame {
                 // return Ok(None);
             }
 
+            instruction_counter = (instruction_counter + 1) % 10000;
+            if instruction_counter == 0 {
+                // Check for sticky actions on current thread
+                handle_thread_updates(jvm)?;
+            }
+
             // let instruction = &self.code.instructions[self.rip];
             debug!("Executing instruction {:?}", &code.instructions[rip]);
             {
                 #[cfg(feature = "profile")]
-                let type_name = format!("{:?}", &code.instructions[rip].1);
+                    let type_name = format!("{:?}", &code.instructions[rip].1);
                 profile_scope_cfg!(
                     "{}",
                     &type_name[..type_name.find('(').unwrap_or(type_name.len())]

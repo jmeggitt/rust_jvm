@@ -23,6 +23,8 @@ use stack::*;
 use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::JavaEnv;
 
+pub use getstatic;
+
 #[macro_use]
 mod macros;
 
