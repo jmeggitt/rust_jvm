@@ -2,9 +2,11 @@
 Cargo.lock
 
 *.iml
-.idea/*
+.idea/
 
 *.class
 java_libs
 std/out
 std/includes
+
+test-env/

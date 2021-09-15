@@ -584,6 +584,25 @@ impl ClassLoader {
         Ok(data)
     }
 
+    pub fn read_buffer(&mut self, bytes: &[u8]) -> io::Result<()> {
+        let class = Class::parse(bytes.to_vec())?;
+        let class_name_index = match &class.constants[class.this_class as usize - 1] {
+            Constant::Class(class) => class.name_index,
+            _ => return Err(Error::new(ErrorKind::Other, "Class name not found!")),
+        };
+
+        let class_name = match &class.constants[class_name_index as usize - 1].expect_utf8() {
+            Some(v) => v.clone(),
+            None => return Err(Error::new(ErrorKind::Other, "Class name not found!")),
+        };
+
+        debug!("Loaded Class {}", &class_name);
+        // log_dump!(class_loader, "[Explicit Load] {}: {}", &class_name, path.display());
+        // log_dump!(class_loader, "[Explicit Load]");
+        self.loaded.insert(class_name, class);
+        Ok(())
+    }
+
     pub fn load_new(&mut self, path: &PathBuf) -> io::Result<()> {
         let data = ClassLoader::read_file(path)?;
         let class = Class::parse(data)?;

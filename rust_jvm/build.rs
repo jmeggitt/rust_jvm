@@ -1,6 +1,8 @@
 use std::env::var;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
+use std::process::Command;
+use walkdir::WalkDir;
 
 const VERSION_NODE: &str = "SUNWprivate_1.1";
 
@@ -41,6 +43,7 @@ fn write_symbol_list(path: &str, symbols: &[String]) -> io::Result<()> {
 }
 
 fn main() {
+    build_stdlib().unwrap();
     println!("cargo:rerun-if-changed=jvm_symbols.in");
     println!("cargo:rustc-cdylib-link-arg=-fuse-ld=lld");
 
@@ -61,3 +64,28 @@ fn main() {
         );
     }
 }
+
+
+pub fn build_stdlib() -> io::Result<()> {
+    println!("cargo:rerun-if-changed=java/*");
+    let target = format!("{}/java_std", var("OUT_DIR").unwrap());
+
+
+    for entry in WalkDir::new("java") {
+        let entry = entry?;
+
+        if !entry.path().is_file() {
+            continue;
+        }
+
+        if entry.path().extension() == Some("java".as_ref()) {
+            Command::new("javac")
+                .arg(entry.path())
+                .args(&["-d", &target])
+                .status()?;
+        }
+    }
+
+    Ok(())
+}
+

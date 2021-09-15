@@ -1,4 +1,4 @@
-package jvm.hooks;
+package java.hooks;
 
 import java.io.IOException;
 import java.io.OutputStream;

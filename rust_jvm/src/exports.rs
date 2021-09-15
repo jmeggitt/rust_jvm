@@ -86,7 +86,7 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
     let class_path = match ClassPath::new(
         java_dir,
         Some(vec![
-            "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_std/out".into(),
+            // "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_std/out".into(),
             ".".into(),
         ]),
     ) {

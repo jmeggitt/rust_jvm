@@ -1,9 +1,8 @@
 [package]
-name = "jvm"
+name = "rust_jvm"
 version = "0.2.0"
 authors = ["Jasper Meggitt <jasper.meggitt@gmail.com>"]
 edition = "2018"
-autobins = false
 
 [lib]
 name = "jvm"
@@ -63,4 +62,5 @@ optional = true
 version = "0.4"
 features = ["max_level_debug", "release_max_level_debug", "std", "serde"]
 
-
+[build-dependencies]
+walkdir = "2.3.2"

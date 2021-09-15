@@ -1,9 +1,8 @@
 
 [workspace]
 members = [
-    "jvm",
+    "rust_jvm",
     "java",
-    "java_std"
 ]
 
 

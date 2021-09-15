@@ -161,6 +161,9 @@ pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
     //     }
     // }
 
+    let print_hooks = include_bytes!(concat!(env!("OUT_DIR"), "/java_std/java/hooks/PrintStreamHook.class"));
+    jvm.write().class_loader.read_buffer(print_hooks).unwrap();
+
     // TODO: Implement a register natives function for sun/misc/Unsafe and more declarations there
     jvm.write().linked_libraries.register_fn(
         "sun/misc/Unsafe",
@@ -237,10 +240,10 @@ pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
     // jvm.init_class("jvm/hooks/PrintStreamHook");
     jvm.write()
         .class_loader
-        .attempt_load("jvm/hooks/PrintStreamHook")
+        .attempt_load("java/hooks/PrintStreamHook")
         .unwrap();
     let method = ClassElement::new(
-        "jvm/hooks/PrintStreamHook",
+        "java/hooks/PrintStreamHook",
         "buildStream",
         "(I)Ljava/io/PrintStream;",
     );
