@@ -66,12 +66,12 @@ impl InstructionAction for getstatic {
                 let lock = jvm.read();
                 let raw_class = lock.class_loader.class(&class_name).unwrap();
                 if raw_class.get_field(&field_name, &descriptor).is_some() {
-                    break
+                    break;
                 }
 
                 // Reached base case, it will error anyway
                 if class_name == "java/lang/Object" {
-                    break
+                    break;
                 }
 
                 class_name = raw_class.super_class();
@@ -92,7 +92,7 @@ impl InstructionAction for getstatic {
                         // Check if the element exists, but has not been initialized yet
                         None => {
                             panic!("Static value not found: {}::{}", &class_name, &field_name)
-                        },
+                        }
                     },
                 }
             };
@@ -209,17 +209,16 @@ impl InstructionAction for putstatic {
             .expect_utf8()
             .unwrap();
 
-
         loop {
             let lock = jvm.read();
             let raw_class = lock.class_loader.class(&class_name).unwrap();
             if raw_class.get_field(&field_name, &descriptor).is_some() {
-                break
+                break;
             }
 
             // Reached base case, it will error anyway
             if class_name == "java/lang/Object" {
-                break
+                break;
             }
 
             class_name = raw_class.super_class();

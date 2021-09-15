@@ -65,11 +65,9 @@ fn main() {
     }
 }
 
-
 pub fn build_stdlib() -> io::Result<()> {
     println!("cargo:rerun-if-changed=java/*");
     let target = format!("{}/java_std", var("OUT_DIR").unwrap());
-
 
     for entry in WalkDir::new("java") {
         let entry = entry?;
@@ -88,4 +86,3 @@ pub fn build_stdlib() -> io::Result<()> {
 
     Ok(())
 }
-

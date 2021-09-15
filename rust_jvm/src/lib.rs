@@ -1,6 +1,3 @@
-// #![feature(drain_filter)]
-#![cfg_attr(feature = "profile", feature(type_name_of_val))]
-#![feature(const_type_id)]
 // Ensure each result error is either unwrapped or returned
 #![deny(unused_must_use)]
 
@@ -48,8 +45,6 @@ macro_rules! log_dump {
         $name.lock().flush().unwrap();
     };
 }
-
-
 
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};

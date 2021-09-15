@@ -7,7 +7,7 @@ use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::{FieldDescriptor, JavaValue};
 use crate::jvm::JavaEnv;
 
-use jni::sys::{jint, jlong, jfloat, jdouble};
+use jni::sys::{jdouble, jfloat, jint, jlong};
 
 macro_rules! math_instruction {
     ($name:ident, $inst:literal, $type:ident ($a:ident $(,$x:ident)*) => $res:expr) => {
@@ -202,7 +202,7 @@ impl InstructionAction for lushr {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::class::{ClassPath, ClassLoader};
+    use crate::class::{ClassLoader, ClassPath};
     use crate::constant_pool::ClassElement;
     use crate::jvm::call::JavaEnvInvoke;
 
@@ -253,18 +253,27 @@ pub mod tests {
         let empty = jvm.write().build_string("").expect_object();
         let simple = jvm.write().build_string("abc").expect_object();
         let simple2 = jvm.write().build_string("utf-8").expect_object();
-        let longer = jvm.write().build_string("qwertyuiopasdfghjklzxcvbnm").expect_object();
+        let longer = jvm
+            .write()
+            .build_string("qwertyuiopasdfghjklzxcvbnm")
+            .expect_object();
 
-        assert_eq!(jvm.invoke_virtual(element.clone(), empty, vec![]).unwrap(), Some(JavaValue::Int(0)));
-        assert_eq!(jvm.invoke_virtual(element.clone(), simple, vec![]).unwrap(), Some(JavaValue::Int(96354)));
-        assert_eq!(jvm.invoke_virtual(element.clone(), simple2, vec![]).unwrap(), Some(JavaValue::Int(111607186)));
-        assert_eq!(jvm.invoke_virtual(element.clone(), longer, vec![]).unwrap(), Some(JavaValue::Int(144599175)));
-
+        assert_eq!(
+            jvm.invoke_virtual(element.clone(), empty, vec![]).unwrap(),
+            Some(JavaValue::Int(0))
+        );
+        assert_eq!(
+            jvm.invoke_virtual(element.clone(), simple, vec![]).unwrap(),
+            Some(JavaValue::Int(96354))
+        );
+        assert_eq!(
+            jvm.invoke_virtual(element.clone(), simple2, vec![])
+                .unwrap(),
+            Some(JavaValue::Int(111607186))
+        );
+        assert_eq!(
+            jvm.invoke_virtual(element.clone(), longer, vec![]).unwrap(),
+            Some(JavaValue::Int(144599175))
+        );
     }
-
-
-
-
 }
-
-

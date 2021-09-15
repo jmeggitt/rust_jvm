@@ -3,7 +3,7 @@
 use std::io;
 use std::io::Cursor;
 
-use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::constant_pool::{
     Constant, ConstantClass, ConstantDouble, ConstantFloat, ConstantInteger, ConstantLong,
@@ -11,7 +11,7 @@ use crate::constant_pool::{
 };
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
 use crate::jvm::call::{FlowControl, StackFrame};
-use crate::jvm::mem::{JavaValue, FieldDescriptor};
+use crate::jvm::mem::{FieldDescriptor, JavaValue};
 use crate::jvm::thread::SynchronousMonitor;
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
@@ -50,10 +50,16 @@ impl StaticInstruct for lookupswitch {
         let mut match_offset = Vec::with_capacity(num_pairs);
 
         for _ in 0..num_pairs {
-            match_offset.push((buffer.read_i32::<BigEndian>()?, buffer.read_i32::<BigEndian>()?));
+            match_offset.push((
+                buffer.read_i32::<BigEndian>()?,
+                buffer.read_i32::<BigEndian>()?,
+            ));
         }
 
-        Ok(Box::new(lookupswitch { default, match_offset }))
+        Ok(Box::new(lookupswitch {
+            default,
+            match_offset,
+        }))
     }
 }
 
@@ -75,29 +81,38 @@ impl Instruction for lookupswitch {
 
         Ok(())
     }
-    fn exec(&self, stack: &mut crate::jvm::call::StackFrame, jvm: &mut std::sync::Arc<parking_lot::RwLock<crate::jvm::JavaEnv>>) -> Result<(), crate::jvm::call::FlowControl> {
+    fn exec(
+        &self,
+        stack: &mut crate::jvm::call::StackFrame,
+        jvm: &mut std::sync::Arc<parking_lot::RwLock<crate::jvm::JavaEnv>>,
+    ) -> Result<(), crate::jvm::call::FlowControl> {
         <Self as crate::instruction::InstructionAction>::exec(self, stack, jvm)
     }
 }
 
 impl InstructionAction for lookupswitch {
-    fn exec(&self, frame: &mut StackFrame, _: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
-        if let Some(JavaValue::Int(key)) = FieldDescriptor::Int.assign_from(frame.stack.pop().unwrap()) {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        _: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        if let Some(JavaValue::Int(key)) =
+            FieldDescriptor::Int.assign_from(frame.stack.pop().unwrap())
+        {
             // debug!("{} -> {:?}", key, self);
             for (match_val, offset) in &self.match_offset {
                 if key == *match_val {
-                    return Err(FlowControl::Branch(*offset as _))
+                    return Err(FlowControl::Branch(*offset as _));
                 } else if key < *match_val {
-                    break
+                    break;
                 }
             }
 
-            return Err(FlowControl::Branch(self.default as _))
+            return Err(FlowControl::Branch(self.default as _));
         }
         panic!("Expected int to use in lookup table")
     }
 }
-
 
 instruction! {@partial athrow, 0xbf}
 

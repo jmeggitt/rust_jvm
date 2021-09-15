@@ -541,10 +541,8 @@ pub fn print_bytes(buffer: &[u8]) {
     }
 }
 
-
 use crate::log_dump;
 log_dump!(class_loader);
-
 
 #[derive(Debug, Default)]
 pub struct UnpackedJar {
@@ -729,7 +727,6 @@ impl ClassLoader {
         &self.class_path
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct ClassPath {

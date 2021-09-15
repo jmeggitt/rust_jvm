@@ -199,7 +199,7 @@ impl ObjectHandle {
     where
         RawObject<Vec<T>>: Trace,
     {
-        if self.memory_layout() != ObjectType::Array(TypeId::of::<T>()) {
+        if self.memory_layout() != ObjectType::Array(T::ID) {
             panic!("Expected invalid primitive array");
         }
 

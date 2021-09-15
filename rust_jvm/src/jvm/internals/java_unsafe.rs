@@ -7,9 +7,9 @@ use jni::sys::{
     jobject, jobjectArray, jshort, jstring, jthrowable, jvalue, JNI_FALSE,
 };
 use jni::JNIEnv;
+use libc::{free, malloc, realloc};
 use std::mem::{size_of, transmute};
 use std::sync::atomic::{AtomicI32, AtomicPtr, Ordering};
-use libc::{malloc, realloc, free};
 
 // TODO: Fill in unsafe
 
@@ -346,7 +346,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getInt__J(
     _env: JNIEnv,
     _this: JObject,
     offset: jlong,
-) ->jint {
+) -> jint {
     let ptr: *mut _ = transmute(offset);
     *ptr
 }

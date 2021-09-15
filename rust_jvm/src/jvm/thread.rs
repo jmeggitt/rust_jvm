@@ -13,14 +13,14 @@ use jni::sys::{
 use std::thread::{current, park, sleep, spawn, yield_now, Thread, ThreadId};
 
 use crate::instruction::getstatic;
+#[cfg(feature = "callstack")]
+use crate::jvm::call::callstack_trace::CallTracer;
 use crate::jvm::JavaEnv;
 use parking_lot::{Condvar, Mutex, RwLock};
 use std::sync::{Arc, Barrier};
 use std::time::Duration;
 #[cfg(feature = "thread-priority")]
 use thread_priority::{ThreadId as NativeThreadId, ThreadPriority};
-#[cfg(feature = "callstack")]
-use crate::jvm::call::callstack_trace::CallTracer;
 
 pub trait SynchronousMonitor<T> {
     fn lock(&self, target: T);
@@ -69,7 +69,12 @@ impl JavaThreadManager {
         self.threads.get(&current().id()).map(|x| &x.call_stack[..])
     }
 
-    pub fn push_call_stack(&mut self, target: ObjectHandle, element: ClassElement, args: &[JavaValue]) {
+    pub fn push_call_stack(
+        &mut self,
+        target: ObjectHandle,
+        element: ClassElement,
+        args: &[JavaValue],
+    ) {
         let current_thread = current();
         let mut info = self
             .threads
@@ -79,7 +84,6 @@ impl JavaThreadManager {
         if info.call_stack.is_empty() {
             info.state = ThreadState::Running;
         }
-
 
         #[cfg(feature = "callstack")]
         info.call_trace.push_call(&element, args);
@@ -104,7 +108,6 @@ impl JavaThreadManager {
             .get_mut(&current_thread.id())
             .expect("Unable to find current thread");
         info.call_stack.pop().unwrap();
-
 
         #[cfg(feature = "callstack")]
         info.call_trace.pop_call(ret);
@@ -157,7 +160,7 @@ impl SynchronousMonitor<ObjectHandle> for Arc<RwLock<JavaEnv>> {
             // Lock is already held by this thread increment counter and continue
             if guard.unwrap().0 == current_thread {
                 guard.unwrap().1 += 1;
-                return
+                return;
             }
 
             pair.1.wait(&mut guard);
@@ -287,7 +290,7 @@ pub fn prepare_sys_thread_group(env: &mut Arc<RwLock<JavaEnv>>) {
             sys_group,
             vec![],
         )
-            .unwrap();
+        .unwrap();
 
         env.write().thread_manager.system_thread_group = Some(sys_group);
     }
@@ -461,13 +464,13 @@ pub unsafe extern "system" fn JVM_StartThread_impl(env: RawJNIEnv, thread: jobje
     let mut barrier_clone = barrier.clone();
 
     #[cfg(feature = "crossbeam-channel")]
-        let (send, recv) = crossbeam_channel::bounded(1);
+    let (send, recv) = crossbeam_channel::bounded(1);
 
     let new_thread = spawn(move || {
         #[cfg(all(feature = "thread-priority", feature = "crossbeam-channel"))]
-            {
-                send.send(thread_priority::thread_native_id()).unwrap();
-            }
+        {
+            send.send(thread_priority::thread_native_id()).unwrap();
+        }
         {
             barrier_clone.wait();
         }
@@ -501,8 +504,8 @@ pub unsafe extern "system" fn JVM_StartThread_impl(env: RawJNIEnv, thread: jobje
             }
         }
     })
-        .thread()
-        .to_owned();
+    .thread()
+    .to_owned();
 
     let info = ThreadInfo {
         java_thread: Some(target_thread),
@@ -599,30 +602,30 @@ pub unsafe extern "system" fn JVM_SetThreadPriority_impl(
     warn!("Opting to ignore request to set thread priority");
 
     #[cfg(feature = "thread-priority")]
-        {
-            let thread_handle = ObjectHandle::from_ptr(thread).unwrap();
-            let lock = env.read();
+    {
+        let thread_handle = ObjectHandle::from_ptr(thread).unwrap();
+        let lock = env.read();
 
-            // Java object field is set for me
-            if let Some(info) = lock.thread_manager.get_info(thread_handle) {
-                let priority = ThreadPriority::Specific(prio as _);
+        // Java object field is set for me
+        if let Some(info) = lock.thread_manager.get_info(thread_handle) {
+            let priority = ThreadPriority::Specific(prio as _);
 
-                #[cfg(windows)]
-                    thread_priority::set_thread_priority(info.native_thread, priority).unwrap();
+            #[cfg(windows)]
+            thread_priority::set_thread_priority(info.native_thread, priority).unwrap();
 
-                #[cfg(unix)]
-                    {
-                        use thread_priority::unix::{NormalThreadSchedulePolicy, ThreadSchedulePolicy};
-                        let policy = ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Normal);
-                        thread_priority::set_thread_priority_and_policy(
-                            info.native_thread,
-                            priority,
-                            policy,
-                        )
-                            .unwrap();
-                    }
+            #[cfg(unix)]
+            {
+                use thread_priority::unix::{NormalThreadSchedulePolicy, ThreadSchedulePolicy};
+                let policy = ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Normal);
+                thread_priority::set_thread_priority_and_policy(
+                    info.native_thread,
+                    priority,
+                    policy,
+                )
+                .unwrap();
             }
         }
+    }
 }
 
 #[no_mangle]

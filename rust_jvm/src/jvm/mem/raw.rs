@@ -2,6 +2,7 @@ use std::any::{type_name, TypeId};
 use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
 
+use crate::jvm::call::RawJNIEnv;
 use crate::jvm::mem::{
     ClassSchema, JavaPrimitive, JavaValue, NonCircularDebug, ObjectHandle, ObjectType,
 };
@@ -12,7 +13,6 @@ use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem::size_of;
 use std::sync::Arc;
-use crate::jvm::call::RawJNIEnv;
 
 pub struct RawObject<T: ?Sized> {
     pub schema: Arc<ClassSchema>,
@@ -23,7 +23,7 @@ impl<T: Clone> Clone for RawObject<T> {
     fn clone(&self) -> Self {
         RawObject {
             schema: self.schema.clone(),
-            fields: unsafe { UnsafeCell::new((&*self.fields.get()).clone()) }
+            fields: unsafe { UnsafeCell::new((&*self.fields.get()).clone()) },
         }
     }
 }
@@ -214,7 +214,7 @@ where
         f: &mut Formatter<'_>,
         touched: &mut HashSet<ObjectHandle>,
     ) -> std::fmt::Result {
-        match TypeId::of::<T>() {
+        match T::ID {
             jboolean::ID => write!(f, "boolean"),
             jbyte::ID => write!(f, "byte"),
             jchar::ID => write!(f, "char"),
@@ -464,11 +464,54 @@ where
     }
 }
 
-/// Utility trait to match type ids
-pub trait ConstTypeId {
-    const ID: TypeId;
+#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
+pub enum JavaTypeEnum {
+    Boolean,
+    Byte,
+    Short,
+    Char,
+    Int,
+    Long,
+    Float,
+    Double,
+    Reference,
+    NonNullReference,
 }
 
-impl<T: ?Sized + 'static> ConstTypeId for T {
-    const ID: TypeId = TypeId::of::<Self>();
+/// Utility trait to match type ids
+pub trait ConstTypeId {
+    const ID: JavaTypeEnum;
+}
+
+impl ConstTypeId for jboolean {
+    const ID: JavaTypeEnum = JavaTypeEnum::Boolean;
+}
+impl ConstTypeId for jbyte {
+    const ID: JavaTypeEnum = JavaTypeEnum::Byte;
+}
+impl ConstTypeId for jshort {
+    const ID: JavaTypeEnum = JavaTypeEnum::Short;
+}
+impl ConstTypeId for jchar {
+    const ID: JavaTypeEnum = JavaTypeEnum::Char;
+}
+impl ConstTypeId for jint {
+    const ID: JavaTypeEnum = JavaTypeEnum::Int;
+}
+impl ConstTypeId for jlong {
+    const ID: JavaTypeEnum = JavaTypeEnum::Long;
+}
+impl ConstTypeId for jfloat {
+    const ID: JavaTypeEnum = JavaTypeEnum::Float;
+}
+impl ConstTypeId for jdouble {
+    const ID: JavaTypeEnum = JavaTypeEnum::Double;
+}
+impl ConstTypeId for Option<ObjectHandle> {
+    const ID: JavaTypeEnum = JavaTypeEnum::Reference;
+}
+
+/// I doubt this will ever apply, but use it for matching debug formatting
+impl ConstTypeId for ObjectHandle {
+    const ID: JavaTypeEnum = JavaTypeEnum::NonNullReference;
 }

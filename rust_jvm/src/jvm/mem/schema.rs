@@ -1,6 +1,6 @@
 use crate::class::{AccessFlags, BufferedRead, Class};
 // use crate::jvm::call::interface::GLOBAL_JVM;
-use crate::jvm::mem::{ConstTypeId, FieldDescriptor, JavaPrimitive, ObjectHandle};
+use crate::jvm::mem::{ConstTypeId, FieldDescriptor, JavaPrimitive, JavaTypeEnum, ObjectHandle};
 use crate::jvm::JavaEnv;
 use hashbrown::HashMap;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
@@ -20,7 +20,7 @@ pub struct FieldSchema {
 #[derive(Eq, PartialEq, Copy, Clone)]
 pub enum ObjectType {
     Instance,
-    Array(TypeId),
+    Array(JavaTypeEnum),
 }
 
 impl Debug for ObjectType {
@@ -52,9 +52,9 @@ impl ObjectType {
         matches!(self, ObjectType::Instance)
     }
 
-    pub fn is_array_of<T: 'static + ?Sized>(&self) -> bool {
+    pub fn is_array_of<T: 'static + ?Sized + JavaPrimitive>(&self) -> bool {
         if let ObjectType::Array(id) = *self {
-            return id == TypeId::of::<T>();
+            return id == T::ID;
         }
         false
     }
@@ -141,7 +141,7 @@ impl ClassSchema {
 
 impl ClassSchema {
     pub fn array_schema<T: JavaPrimitive>() -> Arc<ClassSchema> {
-        match TypeId::of::<T>() {
+        match T::ID {
             jboolean::ID => ARRAY_BOOL_SCHEMA.clone(),
             jbyte::ID => ARRAY_BYTE_SCHEMA.clone(),
             jchar::ID => ARRAY_CHAR_SCHEMA.clone(),
@@ -158,7 +158,7 @@ impl ClassSchema {
     fn init_array_schema<T: JavaPrimitive>() -> ClassSchema {
         ClassSchema {
             name: FieldDescriptor::Array(Box::new(T::descriptor())).to_string(),
-            data_form: ObjectType::Array(TypeId::of::<T>()),
+            data_form: ObjectType::Array(T::ID),
             super_class: Some(OBJECT_SCHEMA.clone()),
             field_offsets: HashMap::new(),
             field_lookup: Vec::new(),
@@ -187,7 +187,7 @@ macro_rules! array_schema {
         lazy_static! {
             pub static ref $name: Arc<ClassSchema> = Arc::new(ClassSchema {
                 name: $fd.to_string(),
-                data_form: ObjectType::Array(TypeId::of::<$type>()),
+                data_form: ObjectType::Array(<$type>::ID),
                 super_class: Some(OBJECT_SCHEMA.clone()),
                 field_offsets: HashMap::new(),
                 field_lookup: Vec::new(),

@@ -233,7 +233,8 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         {
             let mut jvm = self.write();
             let class = jvm.class_instance(&class_name);
-            jvm.thread_manager.push_call_stack(class, element.clone(), &locals);
+            jvm.thread_manager
+                .push_call_stack(class, element.clone(), &locals);
             // jvm.call_stack.push((class, format!("{:?}", &method)));
         }
 

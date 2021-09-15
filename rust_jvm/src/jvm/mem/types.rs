@@ -5,13 +5,14 @@ use hashbrown::HashSet;
 use jni::sys::jvalue;
 
 use crate::class::BufferedRead;
+use crate::jvm::mem::ConstTypeId;
 use crate::jvm::{JavaValue, ObjectHandle};
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort};
 use libffi::middle::{Cif, Type};
 use std::fmt::{Debug, Display, Formatter};
 use std::ptr::null_mut;
 
-pub trait JavaPrimitive: 'static + Sized + Copy {
+pub trait JavaPrimitive: 'static + Sized + Copy + ConstTypeId {
     fn pack(self) -> jvalue;
     fn unpack(val: jvalue) -> Self;
 
