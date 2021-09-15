@@ -32,7 +32,7 @@ pub unsafe extern "system" fn register_natives(
     methods: *const JNINativeMethod,
     num_methods: jint,
 ) -> jint {
-    let mut env = RawJNIEnv::new(env);
+    let env = RawJNIEnv::new(env);
 
     // debug!("Calling JNIEnv::RegisterNatives");
     let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
@@ -1669,7 +1669,7 @@ pub unsafe extern "system" fn GetStringUTFChars(
     str: jstring,
     is_copy: *mut jboolean,
 ) -> *const c_char {
-    let mut jvm = RawJNIEnv::new(env);
+    let jvm = RawJNIEnv::new(env);
     if !is_copy.is_null() {
         *is_copy = JNI_TRUE;
     }
@@ -2144,7 +2144,7 @@ pub unsafe extern "system" fn GetStringUTFRegion(
     buf: *mut c_char,
 ) {
     let env = RawJNIEnv::new(env);
-    let mut str = obj_expect!(env, str).expect_string();
+    let str = obj_expect!(env, str).expect_string();
 
     copy_nonoverlapping(
         &str.as_bytes()[start as usize] as *const u8 as *const c_char,

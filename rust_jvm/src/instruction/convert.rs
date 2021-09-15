@@ -16,12 +16,12 @@ macro_rules! convert_instruction {
                 frame: &mut StackFrame,
                 _jvm: &mut Arc<RwLock<JavaEnv>>,
             ) -> Result<(), FlowControl> {
-                convert_instruction!{@repeat $from, let popped = frame.stack.pop().unwrap();}
-                if let Some(JavaValue::$from(x)) = FieldDescriptor::$from.assign_from(popped) {
+                convert_instruction!{@repeat $from, let _popped = frame.stack.pop().unwrap();}
+                if let Some(JavaValue::$from(x)) = FieldDescriptor::$from.assign_from(_popped) {
                     convert_instruction!{@repeat $to, frame.stack.push(JavaValue::$to(x as _));}
                     Ok(())
                 } else {
-                    panic!("Could not perform {:?} for {:?}", self, popped);
+                    panic!("Could not perform {:?} for {:?}", self, _popped);
                 }
             }
         }

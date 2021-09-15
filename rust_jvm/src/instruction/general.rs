@@ -15,6 +15,7 @@ use crate::jvm::mem::{FieldDescriptor, JavaValue};
 use crate::jvm::thread::SynchronousMonitor;
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
+use std::cmp::Ordering;
 use std::sync::Arc;
 
 // TODO: goto_w
@@ -38,8 +39,6 @@ impl StaticInstruct for lookupswitch {
     const FORM: u8 = 0xab;
 
     fn read(_: u8, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>> {
-        use byteorder::ReadBytesExt;
-
         // 0-3 bytes padding to get proper alignment
         while buffer.position() % 4 != 0 {
             buffer.read_u8()?;
@@ -101,10 +100,10 @@ impl InstructionAction for lookupswitch {
         {
             // debug!("{} -> {:?}", key, self);
             for (match_val, offset) in &self.match_offset {
-                if key == *match_val {
-                    return Err(FlowControl::Branch(*offset as _));
-                } else if key < *match_val {
-                    break;
+                match key.cmp(match_val) {
+                    Ordering::Greater => {}
+                    Ordering::Equal => return Err(FlowControl::Branch(*offset as _)),
+                    Ordering::Less => break,
                 }
             }
 

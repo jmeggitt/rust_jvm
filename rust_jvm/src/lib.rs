@@ -36,7 +36,7 @@ macro_rules! log_dump {
     ($name:ident) => {
         lazy_static::lazy_static!{
             pub static ref $name: parking_lot::Mutex<std::io::BufWriter<std::fs::File>> = {
-                parking_lot::Mutex::new(std::io::BufWriter::new(std::fs::File::create(format!("{}.dump", stringify!($name))).unwrap()))
+                parking_lot::Mutex::new(std::io::BufWriter::new(std::fs::File::create(format!("{}.dump", stringify!($name).to_lowercase())).unwrap()))
             };
         }
     };

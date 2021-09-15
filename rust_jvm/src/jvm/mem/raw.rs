@@ -1,8 +1,6 @@
-use std::any::{type_name, TypeId};
 use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
 
-use crate::jvm::call::RawJNIEnv;
 use crate::jvm::mem::{
     ClassSchema, JavaPrimitive, JavaValue, NonCircularDebug, ObjectHandle, ObjectType,
 };
@@ -36,6 +34,9 @@ impl<T> RawObject<T> {
         }
     }
 
+    /// # Safety
+    /// For correct usage, the type of the object might be check before attempting to read the raw
+    /// fields. If this is not done, it will give incorrect values.
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn raw_fields(&self) -> &mut T {
         &mut *self.fields.get()
@@ -225,7 +226,6 @@ where
             jdouble::ID => write!(f, "double"),
             ObjectHandle::ID => write!(f, "Object"),
             <Option<ObjectHandle>>::ID => write!(f, "Object"),
-            _ => write!(f, "{}", type_name::<T>()),
         }?;
 
         unsafe {

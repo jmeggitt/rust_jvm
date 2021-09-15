@@ -110,23 +110,13 @@ impl InstructionAction for ifnonnull {
         let Self(jmp) = *self;
 
         match frame.stack.pop() {
-            Some(JavaValue::Reference(Some(_))) => {
-                debug!("Branching by {}", jmp);
-                return Err(FlowControl::Branch(jmp as i64));
-            }
+            Some(JavaValue::Reference(Some(_))) => Err(FlowControl::Branch(jmp as i64)),
             Some(JavaValue::Reference(_)) => Ok(()),
             x => {
                 frame.debug_print();
                 panic!("ifnonnull only accepts references: {:?}", x)
             }
         }
-        // if let Some(JavaValue::Reference(Some(_))) = frame.stack.pop() {
-        //     debug!("Branching by {}", jmp);
-        //     // frame.branch_offset += jmp as i64;
-        //     return Err(FlowControl::Branch(jmp as i64));
-        // } else {
-        //     panic!("ifnonnull only accepts references")
-        // }
     }
 }
 
@@ -139,24 +129,13 @@ impl InstructionAction for ifnull {
         let Self(jmp) = *self;
 
         match frame.stack.pop() {
-            Some(JavaValue::Reference(None)) => {
-                debug!("Branching by {}", jmp);
-                return Err(FlowControl::Branch(jmp as i64));
-            }
+            Some(JavaValue::Reference(None)) => Err(FlowControl::Branch(jmp as i64)),
             Some(JavaValue::Reference(_)) => Ok(()),
             x => {
                 frame.debug_print();
                 panic!("ifnull only accepts references: {:?}", x)
             }
         }
-
-        // if let Some(JavaValue::Reference(None)) = frame.stack.pop() {
-        //     debug!("Branching by {}", jmp);
-        //     return Err(FlowControl::Branch(jmp as i64));
-        //     // frame.branch_offset += jmp as i64;
-        // } else {
-        //     panic!("ifnull only accepts references")
-        // }
     }
 }
 

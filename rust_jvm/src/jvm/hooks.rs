@@ -8,7 +8,6 @@ use crate::constant_pool::ClassElement;
 use crate::jvm::call::{clean_str, JavaEnvInvoke};
 use crate::jvm::mem::{JavaValue, ObjectHandle};
 use crate::jvm::JavaEnv;
-use hashbrown::HashMap;
 use home::home_dir;
 use parking_lot::RwLock;
 use std::env::current_dir;
@@ -72,7 +71,7 @@ pub fn build_system_properties(jvm: &mut Arc<RwLock<JavaEnv>>) {
 
     set_property(jvm, obj, "os.name", std::env::consts::OS);
     set_property(jvm, obj, "os.arch", std::env::consts::ARCH);
-    set_property(jvm, obj, "os.version", std::env::consts::OS); // idk
+    set_property(jvm, obj, "os.version", &whoami::distro()); // idk
 
     if cfg!(windows) {
         set_property(jvm, obj, "file.separator", "\\");
@@ -84,14 +83,10 @@ pub fn build_system_properties(jvm: &mut Arc<RwLock<JavaEnv>>) {
         set_property(jvm, obj, "line.separator", "\n");
     }
 
-    set_property(
-        jvm,
-        obj,
-        "user.name",
-        &users::get_current_username()
-            .map(|x| x.to_string_lossy().into_owned())
-            .unwrap_or_default(),
-    );
+    set_property(jvm, obj, "user.name", &whoami::username());
+    if let Some(language) = whoami::lang().next() {
+        set_property(jvm, obj, "user.language", &language);
+    }
     set_property(
         jvm,
         obj,

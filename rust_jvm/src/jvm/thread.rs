@@ -1,11 +1,9 @@
 //! This module handles all of the threading and synchronous activities of the jvm
-#![allow(unused_variables)]
+#![allow(clippy::missing_safety_doc)]
 
 use crate::constant_pool::ClassElement;
 use crate::jvm::call::{clean_str, FlowControl, JavaEnvInvoke, RawJNIEnv};
-use crate::jvm::mem::{
-    ArrayReference, InstanceReference, JavaValue, ManualInstanceReference, ObjectHandle,
-};
+use crate::jvm::mem::{ArrayReference, JavaValue, ManualInstanceReference, ObjectHandle};
 use hashbrown::HashMap;
 use jni::sys::{
     jboolean, jclass, jint, jlong, jobject, jobjectArray, jstring, JNI_FALSE, JNI_TRUE,
@@ -32,8 +30,58 @@ pub trait SynchronousMonitor<T> {
 pub struct JavaThreadManager {
     thread_handles: HashMap<ObjectHandle, ThreadId>,
     threads: HashMap<ThreadId, ThreadInfo>,
-    monitor: HashMap<ObjectHandle, Arc<(Mutex<Option<(ThreadId, u64)>>, Condvar)>>,
+    monitor: HashMap<ObjectHandle, Arc<ObjectMonitor>>,
     system_thread_group: Option<ObjectHandle>,
+}
+
+#[derive(Default)]
+struct ObjectMonitor {
+    mutex: Mutex<Option<(ThreadId, u64)>>,
+    condvar: Condvar,
+}
+
+impl ObjectMonitor {
+    fn lock(&self) {
+        let current_thread = current().id();
+        let mut guard = self.mutex.lock();
+
+        while guard.is_some() {
+            // Lock is already held by this thread increment counter and continue
+            if guard.unwrap().0 == current_thread {
+                guard.unwrap().1 += 1;
+                return;
+            }
+
+            self.condvar.wait(&mut guard);
+        }
+
+        *guard = Some((current().id(), 1));
+    }
+
+    fn unlock(&self) {
+        let mut guard = self.mutex.lock();
+        let mut break_lock = false;
+
+        if let Some((lock_holder, count)) = &mut *guard {
+            if *lock_holder == current().id() {
+                *count -= 1;
+            }
+
+            if *count == 0 {
+                break_lock = true;
+            }
+        }
+
+        if break_lock {
+            *guard = None;
+        }
+
+        self.condvar.notify_one();
+    }
+
+    fn check_lock(&self) -> bool {
+        self.mutex.lock().is_some()
+    }
 }
 
 impl JavaThreadManager {
@@ -73,7 +121,7 @@ impl JavaThreadManager {
         &mut self,
         target: ObjectHandle,
         element: ClassElement,
-        args: &[JavaValue],
+        _args: &[JavaValue],
     ) {
         let current_thread = current();
         let mut info = self
@@ -86,7 +134,7 @@ impl JavaThreadManager {
         }
 
         #[cfg(feature = "callstack")]
-        info.call_trace.push_call(&element, args);
+        info.call_trace.push_call(&element, _args);
         info.call_stack.push((target, element));
     }
 
@@ -101,7 +149,7 @@ impl JavaThreadManager {
         info.call_trace.dump();
     }
 
-    pub fn pop_call_stack(&mut self, ret: &Result<Option<JavaValue>, FlowControl>) {
+    pub fn pop_call_stack(&mut self, _ret: &Result<Option<JavaValue>, FlowControl>) {
         let current_thread = current();
         let mut info = self
             .threads
@@ -110,7 +158,7 @@ impl JavaThreadManager {
         info.call_stack.pop().unwrap();
 
         #[cfg(feature = "callstack")]
-        info.call_trace.pop_call(ret);
+        info.call_trace.pop_call(_ret);
 
         if info.call_stack.is_empty() {
             info.state = ThreadState::Stopped;
@@ -119,7 +167,7 @@ impl JavaThreadManager {
 
     pub fn debug_print_call_stack(&self) {
         let current_thread = current();
-        let mut info = self
+        let info = self
             .threads
             .get(&current_thread.id())
             .expect("Unable to find current thread");
@@ -145,61 +193,32 @@ impl JavaThreadManager {
 
 impl SynchronousMonitor<ObjectHandle> for Arc<RwLock<JavaEnv>> {
     fn lock(&self, target: ObjectHandle) {
-        let pair = self
+        let monitor = self
             .write()
             .thread_manager
             .monitor
             .entry(target)
-            .or_insert_with(|| Arc::new((Mutex::new(None), Condvar::new())))
+            .or_default()
             .clone();
 
-        let current_thread = current().id();
-        let mut guard = pair.0.lock();
-
-        while guard.is_some() {
-            // Lock is already held by this thread increment counter and continue
-            if guard.unwrap().0 == current_thread {
-                guard.unwrap().1 += 1;
-                return;
-            }
-
-            pair.1.wait(&mut guard);
-        }
-
-        *guard = Some((current().id(), 1));
+        monitor.lock();
     }
 
     fn unlock(&self, target: ObjectHandle) {
-        let pair = self
+        let monitor = self
             .read()
             .thread_manager
             .monitor
             .get(&target)
             .unwrap()
             .clone();
-        let mut guard = pair.0.lock();
-        let mut break_lock = false;
 
-        if let Some((lock_holder, count)) = &mut *guard {
-            if *lock_holder == current().id() {
-                *count -= 1;
-            }
-
-            if *count == 0 {
-                break_lock = true;
-            }
-        }
-
-        if break_lock {
-            *guard = None;
-        }
-
-        pair.1.notify_one();
+        monitor.unlock();
     }
 
     fn check_lock(&self, target: ObjectHandle) -> bool {
         match self.read().thread_manager.monitor.get(&target) {
-            Some(v) => v.0.lock().is_some(),
+            Some(v) => v.check_lock(),
             None => false,
         }
     }
@@ -209,43 +228,44 @@ impl SynchronousMonitor<ObjectHandle> for Arc<RwLock<JavaEnv>> {
 pub unsafe extern "system" fn JVM_MonitorWait_impl(env: RawJNIEnv, obj: jobject, ms: jlong) {
     // TODO: Should this also acquire the lock?
     let target = obj_expect!(env, obj);
-    let pair = env
+    let monitor = env
         .write()
         .thread_manager
         .monitor
         .entry(target)
-        .or_insert_with(|| Arc::new((Mutex::new(None), Condvar::new())))
+        .or_default()
         .clone();
 
-    let mut guard = pair.0.lock();
-    pair.1
+    let mut guard = monitor.mutex.lock();
+    monitor
+        .condvar
         .wait_for(&mut guard, Duration::from_millis(ms as u64));
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_MonitorNotify_impl(env: RawJNIEnv, obj: jobject) {
     let target = obj_expect!(env, obj);
-    let pair = env
+    let monitor = env
         .write()
         .thread_manager
         .monitor
         .entry(target)
-        .or_insert_with(|| Arc::new((Mutex::new(None), Condvar::new())))
+        .or_default()
         .clone();
-    pair.1.notify_one();
+    monitor.condvar.notify_one();
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_MonitorNotifyAll_impl(env: RawJNIEnv, obj: jobject) {
     let target = obj_expect!(env, obj);
-    let pair = env
+    let monitor = env
         .write()
         .thread_manager
         .monitor
         .entry(target)
-        .or_insert_with(|| Arc::new((Mutex::new(None), Condvar::new())))
+        .or_default()
         .clone();
-    pair.1.notify_all();
+    monitor.condvar.notify_all();
 }
 
 pub struct ThreadInfo {
@@ -346,24 +366,25 @@ pub fn first_time_sys_thread_init(env: &mut Arc<RwLock<JavaEnv>>) {
 
     // Hard code the operation of java/lang/ThreadGroup::add(Ljava/lang/Thread;)V to avoid an infinite loop
     env.lock(group);
-    let mut group_instance = group.expect_instance();
+    let group_instance = group.expect_instance();
 
     let group_threads: Option<ObjectHandle> = group_instance.read_named_field("threads");
     let n_threads: jint = group_instance.read_named_field("nthreads");
 
-    if group_threads.is_none() {
+    if let Some(group_threads_obj) = group_threads {
+        if n_threads as usize == group_threads_obj.unknown_array_length().unwrap() {
+            let new_array: Vec<Option<ObjectHandle>> = vec![None; n_threads as usize * 2];
+            let new_array = ObjectHandle::array_from_data(new_array);
+            group_threads_obj
+                .expect_array::<Option<ObjectHandle>>()
+                .array_copy(new_array, 0, 0, n_threads as usize);
+            group_instance.write_named_field("threads", Some(new_array));
+        }
+    } else {
         let mut new_threads = vec![None; 4];
         new_threads[0] = Some(obj);
         group_instance
             .write_named_field("threads", Some(ObjectHandle::array_from_data(new_threads)));
-    } else if n_threads as usize == group_threads.unwrap().unknown_array_length().unwrap() {
-        let new_array: Vec<Option<ObjectHandle>> = vec![None; n_threads as usize * 2];
-        let new_array = ObjectHandle::array_from_data(new_array);
-        group_threads
-            .unwrap()
-            .expect_array::<Option<ObjectHandle>>()
-            .array_copy(new_array, 0, 0, n_threads as usize);
-        group_instance.write_named_field("threads", Some(new_array));
     }
 
     let group_threads: Option<ObjectHandle> = group_instance.read_named_field("threads");
@@ -379,16 +400,6 @@ pub fn first_time_sys_thread_init(env: &mut Arc<RwLock<JavaEnv>>) {
     env.unlock(group);
 
     let thread_handle = current().id();
-    // let info = ThreadInfo {
-    //     java_thread: Some(obj),
-    //     state: ThreadState::Running,
-    //     state_request: None,
-    //     rust_thread: thread_handle.clone(),
-    //     #[cfg(feature = "thread-priority")]
-    //     native_thread: thread_priority::thread_native_id(),
-    //     sticky_exception: None,
-    //     call_stack: vec![],
-    // };
 
     let mut jvm = env.write();
     jvm.thread_manager.thread_handles.insert(obj, thread_handle);
@@ -397,7 +408,6 @@ pub fn first_time_sys_thread_init(env: &mut Arc<RwLock<JavaEnv>>) {
         .get_mut(&thread_handle)
         .unwrap()
         .java_thread = Some(obj);
-    // jvm.thread_manager.threads.insert(thread_handle.id(), info);
 }
 
 pub fn handle_thread_updates(env: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
@@ -461,7 +471,7 @@ pub unsafe extern "system" fn JVM_StartThread_impl(env: RawJNIEnv, thread: jobje
     // Use a barrier so we can register the new thread before is starts execution
     let barrier = Arc::new(Barrier::new(2));
     let mut env_handle: Arc<RwLock<JavaEnv>> = Arc::clone(&*env);
-    let mut barrier_clone = barrier.clone();
+    let barrier_clone = barrier.clone();
 
     #[cfg(feature = "crossbeam-channel")]
     let (send, recv) = crossbeam_channel::bounded(1);
@@ -538,8 +548,13 @@ pub unsafe extern "system" fn JVM_StopThread_impl(
 ) {
     let exception_handle = obj_expect!(env, exception);
 
-    let mut lock = env.write();
-    if let Some(info) = lock.thread_manager.threads.get_mut(&current().id()) {
+    let lock = &mut *env.write();
+    let target = lock
+        .thread_manager
+        .thread_handles
+        .get(&obj_expect!(env, thread))
+        .unwrap();
+    if let Some(info) = lock.thread_manager.threads.get_mut(target) {
         if matches!(info.state, ThreadState::Stopped | ThreadState::Interrupted) {
             return;
         }
@@ -569,8 +584,13 @@ pub unsafe extern "system" fn JVM_IsThreadAlive_impl(env: RawJNIEnv, thread: job
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_SuspendThread_impl(env: RawJNIEnv, thread: jobject) {
-    let mut lock = env.write();
-    if let Some(info) = lock.thread_manager.threads.get_mut(&current().id()) {
+    let lock = &mut *env.write();
+    let target = lock
+        .thread_manager
+        .thread_handles
+        .get(&obj_expect!(env, thread))
+        .unwrap();
+    if let Some(info) = lock.thread_manager.threads.get_mut(target) {
         if info.state == ThreadState::Running && info.state_request.is_none() {
             info.state_request = Some(StateRequest::Park);
         }
@@ -579,8 +599,13 @@ pub unsafe extern "system" fn JVM_SuspendThread_impl(env: RawJNIEnv, thread: job
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ResumeThread_impl(env: RawJNIEnv, thread: jobject) {
-    let mut lock = env.write();
-    if let Some(info) = lock.thread_manager.threads.get_mut(&current().id()) {
+    let lock = &mut *env.write();
+    let target = lock
+        .thread_manager
+        .thread_handles
+        .get(&obj_expect!(env, thread))
+        .unwrap();
+    if let Some(info) = lock.thread_manager.threads.get_mut(target) {
         if info.state == ThreadState::Suspended {
             if info.state_request == Some(StateRequest::Park) {
                 info.state_request = None;
@@ -593,9 +618,9 @@ pub unsafe extern "system" fn JVM_ResumeThread_impl(env: RawJNIEnv, thread: jobj
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_SetThreadPriority_impl(
-    env: RawJNIEnv,
-    thread: jobject,
-    prio: jint,
+    _env: RawJNIEnv,
+    _thread: jobject,
+    _prio: jint,
 ) {
     // I'm not sure if I should trust the requested thread priority, so make it optional
     #[cfg(not(feature = "thread-priority"))]
@@ -603,12 +628,12 @@ pub unsafe extern "system" fn JVM_SetThreadPriority_impl(
 
     #[cfg(feature = "thread-priority")]
     {
-        let thread_handle = ObjectHandle::from_ptr(thread).unwrap();
-        let lock = env.read();
+        let thread_handle = ObjectHandle::from_ptr(_thread).unwrap();
+        let lock = _env.read();
 
         // Java object field is set for me
         if let Some(info) = lock.thread_manager.get_info(thread_handle) {
-            let priority = ThreadPriority::Specific(prio as _);
+            let priority = ThreadPriority::Specific(_prio as _);
 
             #[cfg(windows)]
             thread_priority::set_thread_priority(info.native_thread, priority).unwrap();
@@ -629,19 +654,23 @@ pub unsafe extern "system" fn JVM_SetThreadPriority_impl(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_Yield_impl(env: RawJNIEnv, thread_class: jclass) {
+pub unsafe extern "system" fn JVM_Yield_impl(_env: RawJNIEnv, _thread_class: jclass) {
     yield_now()
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_Sleep_impl(env: RawJNIEnv, thread_class: jclass, millis: jlong) {
+pub unsafe extern "system" fn JVM_Sleep_impl(
+    _env: RawJNIEnv,
+    _thread_class: jclass,
+    millis: jlong,
+) {
     sleep(Duration::from_millis(millis as _))
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_CurrentThread_impl(
     mut env: RawJNIEnv,
-    thread_class: jclass,
+    _thread_class: jclass,
 ) -> jobject {
     let handle = current().id();
 
@@ -668,11 +697,11 @@ pub unsafe extern "system" fn JVM_CountStackFrames_impl(env: RawJNIEnv, thread: 
         return info.call_stack.len() as jint;
     }
 
-    return 0;
+    0
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_Interrupt_impl(env: RawJNIEnv, thread: jobject) {
+pub unsafe extern "system" fn JVM_Interrupt_impl(env: RawJNIEnv, _thread: jobject) {
     let mut lock = env.write();
     if let Some(info) = lock.thread_manager.threads.get_mut(&current().id()) {
         if matches!(info.state, ThreadState::Stopped | ThreadState::Interrupted) {
@@ -692,7 +721,7 @@ pub unsafe extern "system" fn JVM_Interrupt_impl(env: RawJNIEnv, thread: jobject
 #[no_mangle]
 pub unsafe extern "system" fn JVM_IsInterrupted_impl(
     env: RawJNIEnv,
-    thread: jobject,
+    _thread: jobject,
     clear_interrupted: jboolean,
 ) -> jboolean {
     let mut lock = env.write();
@@ -719,7 +748,7 @@ pub unsafe extern "system" fn JVM_IsInterrupted_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_HoldsLock_impl(
     env: RawJNIEnv,
-    thread_class: jclass,
+    _thread_class: jclass,
     obj: jobject,
 ) -> jboolean {
     let obj_handle = obj_expect!(env, obj, JNI_FALSE);
@@ -727,14 +756,14 @@ pub unsafe extern "system" fn JVM_HoldsLock_impl(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_DumpAllStacks_impl(env: RawJNIEnv, unused: jclass) {
+pub unsafe extern "system" fn JVM_DumpAllStacks_impl(_env: RawJNIEnv, _unused: jclass) {
     unimplemented!()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetAllThreads_impl(
     env: RawJNIEnv,
-    dummy: jclass,
+    _dummy: jclass,
 ) -> jobjectArray {
     let mut threads = Vec::new();
 
@@ -751,9 +780,9 @@ pub unsafe extern "system" fn JVM_GetAllThreads_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_SetNativeThreadName_impl(
-    env: RawJNIEnv,
-    jthread: jobject,
-    name: jstring,
+    _env: RawJNIEnv,
+    _jthread: jobject,
+    _name: jstring,
 ) {
     // TODO: This is not possible in rust std
     warn!("Ignoring request to set native thread name")
@@ -762,9 +791,9 @@ pub unsafe extern "system" fn JVM_SetNativeThreadName_impl(
 /* getStackTrace_impl() and getAllStackTraces_impl() method */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_DumpThreads_impl(
-    env: RawJNIEnv,
-    thread_class: jclass,
-    threads: jobjectArray,
+    _env: RawJNIEnv,
+    _thread_class: jclass,
+    _threads: jobjectArray,
 ) -> jobjectArray {
     unimplemented!()
 }

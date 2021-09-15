@@ -85,7 +85,7 @@ impl NativeCall {
         }
     }
 
-    pub unsafe fn exec(
+    pub fn exec(
         &self,
         jvm: &mut Arc<RwLock<JavaEnv>>,
         target: ObjectHandle,
@@ -109,25 +109,35 @@ impl NativeCall {
 
         // TODO: Handle sticky exception
         if let FieldDescriptor::Method { returns, .. } = &self.desc {
-            Ok(Some(match &**returns {
-                FieldDescriptor::Void => {
-                    self.cif.call::<c_void>(self.fn_ptr, &ffi_args);
-                    return Ok(None);
-                }
-                FieldDescriptor::Byte => JavaValue::Byte(self.cif.call(self.fn_ptr, &ffi_args)),
-                FieldDescriptor::Char => JavaValue::Char(self.cif.call(self.fn_ptr, &ffi_args)),
-                FieldDescriptor::Double => JavaValue::Double(self.cif.call(self.fn_ptr, &ffi_args)),
-                FieldDescriptor::Float => JavaValue::Float(self.cif.call(self.fn_ptr, &ffi_args)),
-                FieldDescriptor::Int => JavaValue::Int(self.cif.call(self.fn_ptr, &ffi_args)),
-                FieldDescriptor::Long => JavaValue::Long(self.cif.call(self.fn_ptr, &ffi_args)),
-                FieldDescriptor::Short => JavaValue::Short(self.cif.call(self.fn_ptr, &ffi_args)),
-                FieldDescriptor::Boolean => JavaValue::Byte(self.cif.call(self.fn_ptr, &ffi_args)),
-                FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => {
-                    let ret = self.cif.call(self.fn_ptr, &ffi_args);
-                    JavaValue::Reference(ObjectHandle::from_ptr(ret))
-                }
-                _ => panic!(),
-            }))
+            unsafe {
+                Ok(Some(match &**returns {
+                    FieldDescriptor::Void => {
+                        self.cif.call::<c_void>(self.fn_ptr, &ffi_args);
+                        return Ok(None);
+                    }
+                    FieldDescriptor::Byte => JavaValue::Byte(self.cif.call(self.fn_ptr, &ffi_args)),
+                    FieldDescriptor::Char => JavaValue::Char(self.cif.call(self.fn_ptr, &ffi_args)),
+                    FieldDescriptor::Double => {
+                        JavaValue::Double(self.cif.call(self.fn_ptr, &ffi_args))
+                    }
+                    FieldDescriptor::Float => {
+                        JavaValue::Float(self.cif.call(self.fn_ptr, &ffi_args))
+                    }
+                    FieldDescriptor::Int => JavaValue::Int(self.cif.call(self.fn_ptr, &ffi_args)),
+                    FieldDescriptor::Long => JavaValue::Long(self.cif.call(self.fn_ptr, &ffi_args)),
+                    FieldDescriptor::Short => {
+                        JavaValue::Short(self.cif.call(self.fn_ptr, &ffi_args))
+                    }
+                    FieldDescriptor::Boolean => {
+                        JavaValue::Byte(self.cif.call(self.fn_ptr, &ffi_args))
+                    }
+                    FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => {
+                        let ret = self.cif.call(self.fn_ptr, &ffi_args);
+                        JavaValue::Reference(ObjectHandle::from_ptr(ret))
+                    }
+                    _ => panic!(),
+                }))
+            }
         } else {
             unreachable!("Should have passed argument check")
         }

@@ -484,7 +484,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_allocateMemory(
     _this: JObject,
     size: jlong,
 ) -> jlong {
-    let ret = transmute(malloc(size as _));
+    let ret = malloc(size as _) as i64;
     debug!("Malloced: 0x{:X} ({} bytes)", ret, size);
     ret
 }
@@ -499,7 +499,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_reallocateMemory(
     ptr: jlong,
     new_size: jlong,
 ) -> jlong {
-    let ret = transmute(realloc(transmute(ptr), new_size as _));
+    let ret = realloc(transmute(ptr), new_size as _) as i64;
     debug!("Reallocating: 0x{:X} -> 0x{:X}", ptr, ret);
     ret
 }
@@ -795,7 +795,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapObject(
     assert_eq!(offset as usize % size_of::<jvalue>(), 0);
     let index = offset as usize / size_of::<jvalue>();
 
-    let mut fields = instance.raw_fields();
+    let fields = instance.raw_fields();
     assert!(index < fields.len());
 
     let ptr = &mut fields[index] as *mut jvalue as *const AtomicPtr<_>;
@@ -821,7 +821,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapInt(
     assert_eq!(offset as usize % size_of::<jvalue>(), 0);
     let index = offset as usize / size_of::<jvalue>();
 
-    let mut fields = instance.raw_fields();
+    let fields = instance.raw_fields();
     assert!(index < fields.len());
 
     let ptr = &mut fields[index] as *mut jvalue as *const AtomicI32;

@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use std::ops::Deref;
 
 use crate::jvm::mem::{
@@ -12,7 +11,6 @@ use jni::sys::{
 };
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::iter::FromIterator;
 use std::mem::{transmute, ManuallyDrop};
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -90,23 +88,25 @@ impl<T: Trace> ObjectWrapper<T> {
         // unsafe { Rc::into_raw(Pin::into_inner_unchecked(self.ptr)) as jobject }
     }
 
+    /// # Safety
+    /// Not sure why I added this one, but the given pointer must be non-null and point to a
+    /// Gc<RawObject<?>>.
     #[inline]
     pub unsafe fn from_raw_unchecked(ptr: jobject) -> Self {
         let ptr = Gc::from_raw(ptr as _);
         // <Gc<T> as Trace>::root(&ptr);
         ObjectWrapper {
             ptr: ManuallyDrop::new(ptr),
-            // ptr: Pin::new_unchecked(Rc::from_raw(ptr as _)),
         }
     }
 
     #[inline]
-    pub unsafe fn from_raw(ptr: jobject) -> Option<Self> {
+    pub fn from_raw(ptr: jobject) -> Option<Self> {
         if ptr.is_null() {
             return None;
         }
 
-        Some(Self::from_raw_unchecked(ptr))
+        unsafe { Some(Self::from_raw_unchecked(ptr)) }
     }
 }
 
@@ -147,6 +147,7 @@ impl Eq for ObjectHandle {}
 
 // ObjectHandle needs to pretend to be thread safe to mimic the functionality of Java
 unsafe impl Sync for ObjectHandle {}
+
 unsafe impl Send for ObjectHandle {}
 
 impl Finalize for ObjectHandle {}
@@ -171,10 +172,7 @@ unsafe impl Trace for ObjectHandle {
 
 impl ObjectHandle {
     pub fn from_ptr(x: jobject) -> Option<Self> {
-        match NonNull::new(x) {
-            Some(v) => Some(ObjectHandle(v)),
-            None => None,
-        }
+        NonNull::new(x).map(ObjectHandle)
     }
 
     pub fn ptr(&self) -> jobject {
@@ -184,7 +182,7 @@ impl ObjectHandle {
     #[inline]
     pub fn unwrap_unknown(self) -> ObjectWrapper<RawObject<()>> {
         let ObjectHandle(ptr) = self;
-        unsafe { ObjectWrapper::from_raw(ptr.as_ptr()).unwrap() }
+        ObjectWrapper::from_raw(ptr.as_ptr()).unwrap()
     }
 
     pub fn expect_instance(&self) -> ObjectWrapper<RawObject<Vec<jvalue>>> {
@@ -192,7 +190,7 @@ impl ObjectHandle {
             panic!("Expected invalid primitive array");
         }
 
-        unsafe { transmute(self.clone().unwrap_unknown()) }
+        unsafe { transmute(self.unwrap_unknown()) }
     }
 
     pub fn expect_array<T: JavaPrimitive>(&self) -> ObjectWrapper<RawObject<Vec<T>>>
@@ -203,7 +201,7 @@ impl ObjectHandle {
             panic!("Expected invalid primitive array");
         }
 
-        unsafe { transmute(self.clone().unwrap_unknown()) }
+        unsafe { transmute(self.unwrap_unknown()) }
     }
 
     /// Get array length for an array of unknown type
@@ -251,34 +249,31 @@ impl NonCircularDebug for ObjectHandle {
             touched.insert(*self);
         }
 
-        let owned = self.clone();
         match self.memory_layout() {
-            ObjectType::Instance => owned.expect_instance().non_cyclical_fmt(f, touched),
-            ObjectType::Array(jboolean::ID) => owned
-                .expect_array::<jboolean>()
-                .non_cyclical_fmt(f, touched),
+            ObjectType::Instance => self.expect_instance().non_cyclical_fmt(f, touched),
+            ObjectType::Array(jboolean::ID) => {
+                self.expect_array::<jboolean>().non_cyclical_fmt(f, touched)
+            }
             ObjectType::Array(jbyte::ID) => {
-                owned.expect_array::<jbyte>().non_cyclical_fmt(f, touched)
+                self.expect_array::<jbyte>().non_cyclical_fmt(f, touched)
             }
             ObjectType::Array(jchar::ID) => {
-                owned.expect_array::<jchar>().non_cyclical_fmt(f, touched)
+                self.expect_array::<jchar>().non_cyclical_fmt(f, touched)
             }
             ObjectType::Array(jshort::ID) => {
-                owned.expect_array::<jshort>().non_cyclical_fmt(f, touched)
+                self.expect_array::<jshort>().non_cyclical_fmt(f, touched)
             }
-            ObjectType::Array(jint::ID) => {
-                owned.expect_array::<jint>().non_cyclical_fmt(f, touched)
-            }
+            ObjectType::Array(jint::ID) => self.expect_array::<jint>().non_cyclical_fmt(f, touched),
             ObjectType::Array(jlong::ID) => {
-                owned.expect_array::<jlong>().non_cyclical_fmt(f, touched)
+                self.expect_array::<jlong>().non_cyclical_fmt(f, touched)
             }
             ObjectType::Array(jfloat::ID) => {
-                owned.expect_array::<jfloat>().non_cyclical_fmt(f, touched)
+                self.expect_array::<jfloat>().non_cyclical_fmt(f, touched)
             }
             ObjectType::Array(jdouble::ID) => {
-                owned.expect_array::<jdouble>().non_cyclical_fmt(f, touched)
+                self.expect_array::<jdouble>().non_cyclical_fmt(f, touched)
             }
-            ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => owned
+            ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => self
                 .expect_array::<Option<ObjectHandle>>()
                 .non_cyclical_fmt(f, touched),
             x => panic!("Unable to hash object of type {:?}", x),
@@ -374,7 +369,9 @@ impl ObjectHandle {
             // FIXME: I'm probably messing up the encoding
             let arr = chars.raw_fields();
             // let array: Vec<char> = arr.iter().map(|x| std::char::from_u32(*x as u32)).collect();
-            String::from_iter(arr.iter().map(|x| std::char::from_u32(*x as u32).unwrap()))
+            arr.iter()
+                .map(|x| std::char::from_u32(*x as u32).unwrap())
+                .collect()
         }
     }
 

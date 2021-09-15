@@ -32,7 +32,7 @@ impl getstatic {
         let ret = descriptor.initial_local();
 
         let field_reference = format!("{}_{}", clean_str(class), clean_str(field));
-        jvm.static_fields.insert(field_reference, ret.clone());
+        jvm.static_fields.insert(field_reference, ret);
         Some(ret)
     }
 }
@@ -81,7 +81,7 @@ impl InstructionAction for getstatic {
             let value = {
                 let mut lock = jvm.write();
                 match lock.static_fields.get(&field_reference) {
-                    Some(v) => v.clone(),
+                    Some(v) => *v,
                     None => match Self::check_static_init(
                         &mut *lock,
                         &class_name,

@@ -36,16 +36,10 @@ use parking_lot::RwLock;
 pub use stack::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
-use std::ptr::null_mut;
 use std::sync::Arc;
 
 pub trait Method: 'static {
     fn exec(&self, jvm: &mut JavaEnv, args: &[JavaValue]) -> Result<Option<JavaValue>, JavaValue>;
-}
-
-#[repr(transparent)]
-pub struct CallSite {
-    reference: ClassElement,
 }
 
 #[derive(Debug)]
@@ -68,9 +62,9 @@ impl FlowControl {
     }
 }
 
-pub struct JavaVTable {
-    fns: Vec<Box<dyn Method>>,
-}
+// pub struct JavaVTable {
+//     fns: Vec<Box<dyn Method>>,
+// }
 
 /// TODO: If the method is synchronized, the monitor associated with the resolved Class object is
 /// entered or reentered as if by execution of a monitorenter instruction (§monitorenter) in the
@@ -189,10 +183,9 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
                 let jvm = self.write();
                 let instance = jvm.class_loader.class(class).unwrap();
 
-                match instance.get_method("<clinit>", "()V") {
-                    Some(_) => Some(ClassElement::new(class, "<clinit>", "()V")),
-                    None => None,
-                }
+                instance
+                    .get_method("<clinit>", "()V")
+                    .map(|_| ClassElement::new(class, "<clinit>", "()V"))
             };
 
             if let Some(method_ref) = method {
@@ -262,7 +255,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
                 }
             };
 
-            unsafe { native_call.exec(self, target, locals) }
+            native_call.exec(self, target, locals)
         } else {
             let instructions = method.code(&constants);
             let mut frame = StackFrame::new(
@@ -295,45 +288,9 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             .instanceof(&target.get_class(), &method.class)
             .unwrap());
 
-        // if !self.instanceof(&method.class, &target.get_class()).unwrap() {
-        //     panic!("Expected: {:?}, Got: {:?}", &method.class, &target.get_class());
-        // }
-
-        // let descriptor = match FieldDescriptor::read_str(&method.desc).unwrap() {
-        //     FieldDescriptor::Method {args, ..} => args,
-        //     _ => panic!("Called method with non method element!"),
-        // };
-
-        // let mut locals_idx = 0;
-        // for idx in 0..descriptor.len() {
-        //     match descriptor[idx].assign_from(args[locals_idx]) {
-        //         Some(JavaValue::Long(x)) => {
-        //             args[locals_idx] = JavaValue::Long(x);
-        //             args[locals_idx + 1] = JavaValue::Long(x);
-        //             locals_idx += 1;
-        //         },
-        //         Some(JavaValue::Double(x)) => {
-        //             args[locals_idx] = JavaValue::Double(x);
-        //             args[locals_idx + 1] = JavaValue::Double(x);
-        //             locals_idx += 1;
-        //         }
-        //         Some(x) => args[idx] = x,
-        //         None => panic!("Expected: {:?}, Got: {:?}", &descriptor, &args),
-        //     };
-        //     locals_idx += 1;
-        // }
-
         StackFrame::verify_computational_types(&args);
-
-        // {
-        //     let mut jvm = self.write();
-        //     let class = jvm.class_instance(&target.get_class());
-        //     jvm.call_stack.push((class, format!("{:?}", &method)));
-        // }
         args.insert(0, JavaValue::Reference(Some(target)));
-        let ret = self.invoke(method, args);
-        // self.write().call_stack.pop().unwrap();
-        ret
+        self.invoke(method, args)
     }
 
     fn invoke_virtual(
@@ -344,50 +301,9 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
     ) -> Result<Option<JavaValue>, FlowControl> {
         profile_scope_cfg!("virtual {:?}", &method);
 
-        // assert!(self
-        //     .read()
-        //     .instanceof(&target.get_class(), &method.class)
-        //     .unwrap());
-
-        // if !self.instanceof(&target.get_class(), &method.class).unwrap() {
-        //     panic!("Expected: {:?}, Got: {:?}", &method.class, &target.get_class());
-        // }
-
-        // let descriptor = match FieldDescriptor::read_str(&method.desc).unwrap() {
-        //     FieldDescriptor::Method { args, .. } => args,
-        //     _ => panic!("Called method with non method element!"),
-        // };
-
-        // let mut locals_idx = 0;
-        // for idx in 0..descriptor.len() {
-        //     match descriptor[idx].assign_from(args[locals_idx]) {
-        //         Some(JavaValue::Long(x)) => {
-        //             args[locals_idx] = JavaValue::Long(x);
-        //             args[locals_idx+1] = JavaValue::Long(x);
-        //             locals_idx += 1;
-        //         },
-        //         Some(JavaValue::Double(x)) => {
-        //             args[locals_idx] = JavaValue::Double(x);
-        //             args[locals_idx + 1] = JavaValue::Double(x);
-        //             locals_idx += 1;
-        //         }
-        //         Some(x) => args[idx] = x,
-        //         None => panic!("Expected: {:?}, Got: {:?}", &descriptor, &args),
-        //     };
-        //     locals_idx += 1;
-        // }
-
         method.class = target.get_class();
-
-        // {
-        //     let mut jvm = self.write();
-        //     let class = jvm.class_instance(&target.get_class());
-        //     jvm.call_stack.push((class, format!("{:?}", &method)));
-        // }
         args.insert(0, JavaValue::Reference(Some(target)));
-        let ret = self.invoke(method, args);
-        // self.write().call_stack.pop().unwrap();
-        ret
+        self.invoke(method, args)
     }
 
     fn invoke_static(
@@ -396,154 +312,8 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
         profile_scope_cfg!("static {:?}", &method);
-
-        // let descriptor = match FieldDescriptor::read_str(&method.desc).unwrap() {
-        //     FieldDescriptor::Method {args, ..} => args,
-        //     _ => panic!("Called method with non method element!"),
-        // };
-
-        // let mut locals_idx = 0;
-        // for idx in 0..descriptor.len() {
-        //     match descriptor[idx].assign_from(args[locals_idx]) {
-        //         Some(JavaValue::Long(x)) => {
-        //             args[locals_idx] = JavaValue::Long(x);
-        //             args[locals_idx + 1] = JavaValue::Long(x);
-        //             locals_idx += 1;
-        //         },
-        //         Some(JavaValue::Double(x)) => {
-        //             args[locals_idx + 1] = JavaValue::Double(x);
-        //             locals_idx += 1;
-        //         }
-        //         Some(x) => args[idx] = x,
-        //         None => panic!("Expected: {:?}, Got: {:?}", &descriptor, &args),
-        //     };
-        //     locals_idx += 1;
-        // }
-
-        // {
-        //     let mut jvm = self.write();
-        //     let class = jvm.class_instance(&method.class);
-        //     jvm.call_stack.push((class, format!("{:?}", &method)));
-        // }
-        let ret = self.invoke(method, args);
-        // self.write().call_stack.pop().unwrap();
-        ret
+        self.invoke(method, args)
     }
-
-    // pub fn exec(
-    //     &mut self,
-    //     target: ObjectHandle,
-    //     class_name: &str,
-    //     method: MethodInfo,
-    //     constants: Vec<Constant>,
-    //     mut args: Vec<JavaValue>,
-    // ) -> Result<Option<JavaValue>, FlowControl> {
-    //     let call_string = format!(
-    //         "{}::{} {}",
-    //         class_name,
-    //         method.name(&constants).unwrap(),
-    //         method.descriptor(&constants).unwrap()
-    //     );
-    //     debug!("Executing method {} for target {:?}", &call_string, &target);
-    //
-    //     let target_class = self.class_instance(class_name);
-    //     self.call_stack.push((target_class, call_string));
-    //     self.debug_print_call_stack();
-    //
-    //     let ret = if method.access.contains(AccessFlags::NATIVE) {
-    //         let fn_ptr = match self.linked_libraries.get_fn_ptr(
-    //             class_name,
-    //             &method.name(&constants).unwrap(),
-    //             &method.descriptor(&constants).unwrap(),
-    //         ) {
-    //             Some(v) => v,
-    //             None => panic!(
-    //                 "Unable to find function ptr {}::{} {}",
-    //                 class_name,
-    //                 &method.name(&constants).unwrap(),
-    //                 &method.descriptor(&constants).unwrap()
-    //             ),
-    //         };
-    //
-    //         if let Ok(FieldDescriptor::Method { returns, .. }) =
-    //         FieldDescriptor::read_str(&method.descriptor(&constants).unwrap())
-    //         {
-    //             unimplemented!(
-    //                 "Native methods will be implemented once libffi integration is completed"
-    //             )
-    //             // let ret = unsafe {
-    //             //     debug!("Native method arguments:");
-    //             //     let raw_args = args
-    //             //         .iter_mut()
-    //             //         .map(|x| {
-    //             //             debug!("\t{:?}", x);
-    //             //             match x {
-    //             //                 JavaValue::Reference(Some(v)) => jvalue {
-    //             //                     l: v as *mut _ as jobject,
-    //             //                 },
-    //             //                 x => {
-    //             //                     let value: jvalue = x.clone().into();
-    //             //                     value
-    //             //                 }
-    //             //             }
-    //             //         })
-    //             //         .collect();
-    //             //
-    //             //     self.native_stack.native_method_call(
-    //             //         fn_ptr,
-    //             //         &target as *const _ as jobject,
-    //             //         raw_args,
-    //             //     )
-    //             // };
-    //             //
-    //             // Ok(returns.cast(ret))
-    //         } else {
-    //             panic!("Method descriptor can not be correctly parsed")
-    //         }
-    //     } else {
-    //         args.insert(0, JavaValue::Reference(Some(target.clone())));
-    //         let code = method.code(&constants);
-    //         let mut frame = StackFrame::new(
-    //             code.max_locals as usize,
-    //             code.max_stack as usize,
-    //             constants,
-    //             args,
-    //         );
-    //         frame.exec(self, &code)
-    //     };
-    //
-    //     self.call_stack.pop();
-    //     ret
-    // }
-    //
-    // pub fn exec_method(
-    //     &mut self,
-    //     target: ObjectHandle,
-    //     method: &str,
-    //     desc: &str,
-    //     args: Vec<JavaValue>,
-    // ) -> Result<Option<JavaValue>, FlowControl> {
-    //     let class = target.get_class();
-    //
-    //     let (class_name, main_method, constants) =
-    //         match self.find_instance_method(&class, method, desc) {
-    //             Some(v) => v,
-    //             _ => fatal_error!("Unable to find {}::{} {}", class, method, desc),
-    //         };
-    //
-    //     self.exec(target, &class_name, main_method, constants, args)
-    // }
-    //
-    // pub fn exec_static(
-    //     &mut self,
-    //     class: &str,
-    //     method: &str,
-    //     desc: &str,
-    //     args: Vec<JavaValue>,
-    // ) -> Result<Option<JavaValue>, FlowControl> {
-    //     let target = self.class_instance(class);
-    //     self.exec_method(target, method, desc, args)
-    // }
 }
 
 #[repr(transparent)]
@@ -563,17 +333,10 @@ impl<'a> RawJNIEnv<'a> {
 
     pub fn write_thrown(&self, throwable: Option<ObjectHandle>) {
         self.write().thread_manager.set_sticky_exception(throwable)
-        // lock.
-        // (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 = match throwable {
-        //     None => null_mut(),
-        //     Some(v) => v.ptr() as _,
-        // }
     }
 
     pub fn read_thrown(&self) -> Option<ObjectHandle> {
         self.read().thread_manager.get_sticky_exception()
-        // let ptr = (&mut **(self.ptr as *mut *mut JNINativeInterface_)).reserved1 as jthrowable;
-        // ObjectHandle::from_ptr(ptr)
     }
 }
 
@@ -582,7 +345,7 @@ impl<'a> Deref for RawJNIEnv<'a> {
 
     fn deref(&self) -> &Self::Target {
         unsafe {
-            let jvm = (&**self.ptr).reserved0 as *mut Arc<RwLock<JavaEnv>>;
+            let jvm = (**self.ptr).reserved0 as *mut Arc<RwLock<JavaEnv>>;
             &*jvm
         }
     }
@@ -591,7 +354,7 @@ impl<'a> Deref for RawJNIEnv<'a> {
 impl<'a> DerefMut for RawJNIEnv<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe {
-            let jvm = (&**self.ptr).reserved0 as *mut Arc<RwLock<JavaEnv>>;
+            let jvm = (**self.ptr).reserved0 as *mut Arc<RwLock<JavaEnv>>;
             &mut *jvm
         }
     }

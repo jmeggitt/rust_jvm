@@ -7,14 +7,12 @@ use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::{FieldDescriptor, JavaValue};
 use crate::jvm::JavaEnv;
 
-use jni::sys::{jdouble, jfloat, jint, jlong};
-
 macro_rules! math_instruction {
     ($name:ident, $inst:literal, $type:ident ($a:ident $(,$x:ident)*) => $res:expr) => {
         instruction! {@partial $name, $inst}
 
         impl InstructionAction for $name {
-            fn exec(&self, frame: &mut StackFrame, jvm: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
+            fn exec(&self, frame: &mut StackFrame, _jvm: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
                 // jvm.read().debug_print_call_stack();
                 math_instruction!(@impl $type frame ($($x,)* $a) => $res);
                 Ok(())

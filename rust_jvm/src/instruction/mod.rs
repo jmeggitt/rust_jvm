@@ -65,6 +65,7 @@ pub trait InstructionAction: Any {
     ) -> Result<(), FlowControl>;
 }
 
+#[derive(Default)]
 pub struct InstructionReader {
     #[allow(clippy::type_complexity)]
     table: HashMap<u8, fn(u8, &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>>>,
@@ -72,9 +73,7 @@ pub struct InstructionReader {
 
 impl InstructionReader {
     pub fn new() -> Self {
-        let mut reader = InstructionReader {
-            table: HashMap::new(),
-        };
+        let mut reader = InstructionReader::default();
         reader.do_register();
         reader
     }

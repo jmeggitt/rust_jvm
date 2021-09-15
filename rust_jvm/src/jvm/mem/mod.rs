@@ -151,9 +151,9 @@ impl PartialOrd for JavaValue {
     }
 }
 
-impl Into<jvalue> for JavaValue {
-    fn into(self) -> jvalue {
-        match self {
+impl From<JavaValue> for jvalue {
+    fn from(x: JavaValue) -> Self {
+        match x {
             JavaValue::Byte(x) => jvalue { b: x },
             JavaValue::Char(x) => jvalue { c: x },
             JavaValue::Short(x) => jvalue { s: x },

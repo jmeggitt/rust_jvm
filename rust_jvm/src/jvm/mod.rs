@@ -111,7 +111,7 @@ impl JavaEnv {
 
     pub fn class_instance(&mut self, name: &str) -> ObjectHandle {
         if let Some(class) = self.registered_classes.get(name) {
-            return class.clone();
+            return *class;
         }
 
         let schema = self.class_schema("java/lang/Class");
@@ -120,8 +120,7 @@ impl JavaEnv {
 
         instance.write_named_field("name", self.build_string(&name.replace('/', ".")));
 
-        self.registered_classes
-            .insert(name.to_string(), class.clone());
+        self.registered_classes.insert(name.to_string(), class);
         class
     }
 
@@ -168,7 +167,7 @@ impl JavaEnv {
             return Some((
                 class.to_string(),
                 main_method.clone(),
-                entry_class.old_constants().to_vec(),
+                entry_class.constants.to_owned(),
             ));
         }
 
@@ -242,7 +241,7 @@ impl JavaEnv {
             return JavaValue::Reference(Some(*self.interned_strings.get(string).unwrap()));
         }
 
-        let mut handle = ObjectHandle::new(self.class_schema("java/lang/String").clone());
+        let handle = ObjectHandle::new(self.class_schema("java/lang/String"));
         let object = handle.expect_instance();
 
         let char_array = string

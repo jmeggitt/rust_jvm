@@ -5,7 +5,7 @@ use crate::jvm::JavaEnv;
 use hashbrown::HashMap;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
 use lazy_static::lazy_static;
-use std::any::{type_name, TypeId};
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::mem::size_of;
 use std::sync::Arc;
@@ -174,37 +174,22 @@ lazy_static! {
         field_offsets: HashMap::new(),
         field_lookup: Vec::new(),
     });
-    // pub static ref STRING_SCHEMA: Arc<ClassSchema> = unsafe {
-    //     GLOBAL_JVM
-    //         .as_mut()
-    //         .unwrap()
-    //         .class_schema("java/lang/String")
-    // };
+    pub static ref ARRAY_BOOL_SCHEMA: Arc<ClassSchema> =
+        Arc::new(ClassSchema::init_array_schema::<jboolean>());
+    pub static ref ARRAY_BYTE_SCHEMA: Arc<ClassSchema> =
+        Arc::new(ClassSchema::init_array_schema::<jbyte>());
+    pub static ref ARRAY_CHAR_SCHEMA: Arc<ClassSchema> =
+        Arc::new(ClassSchema::init_array_schema::<jchar>());
+    pub static ref ARRAY_SHORT_SCHEMA: Arc<ClassSchema> =
+        Arc::new(ClassSchema::init_array_schema::<jshort>());
+    pub static ref ARRAY_INT_SCHEMA: Arc<ClassSchema> =
+        Arc::new(ClassSchema::init_array_schema::<jint>());
+    pub static ref ARRAY_LONG_SCHEMA: Arc<ClassSchema> =
+        Arc::new(ClassSchema::init_array_schema::<jlong>());
+    pub static ref ARRAY_FLOAT_SCHEMA: Arc<ClassSchema> =
+        Arc::new(ClassSchema::init_array_schema::<jfloat>());
+    pub static ref ARRAY_DOUBLE_SCHEMA: Arc<ClassSchema> =
+        Arc::new(ClassSchema::init_array_schema::<jdouble>());
+    pub static ref ARRAY_OBJECT_SCHEMA: Arc<ClassSchema> =
+        Arc::new(ClassSchema::init_array_schema::<Option<ObjectHandle>>());
 }
-
-macro_rules! array_schema {
-    ($name:ident: $type:ty, $fd:literal) => {
-        lazy_static! {
-            pub static ref $name: Arc<ClassSchema> = Arc::new(ClassSchema {
-                name: $fd.to_string(),
-                data_form: ObjectType::Array(<$type>::ID),
-                super_class: Some(OBJECT_SCHEMA.clone()),
-                field_offsets: HashMap::new(),
-                field_lookup: Vec::new(),
-            });
-        }
-    };
-}
-
-array_schema!(ARRAY_BOOL_SCHEMA: jboolean, "[Z");
-array_schema!(ARRAY_BYTE_SCHEMA: jbyte, "[B");
-array_schema!(ARRAY_CHAR_SCHEMA: jchar, "[C");
-array_schema!(ARRAY_SHORT_SCHEMA: jshort, "[S");
-array_schema!(ARRAY_INT_SCHEMA: jint, "[I");
-array_schema!(ARRAY_LONG_SCHEMA: jlong, "[J");
-array_schema!(ARRAY_FLOAT_SCHEMA: jfloat, "[F");
-array_schema!(ARRAY_DOUBLE_SCHEMA: jdouble, "[D");
-array_schema!(
-    ARRAY_OBJECT_SCHEMA: Option<ObjectHandle>,
-    "[Ljava/lang/Object;"
-);

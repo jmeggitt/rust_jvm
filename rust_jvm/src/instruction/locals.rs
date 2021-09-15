@@ -27,7 +27,7 @@ impl InstructionAction for aload {
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let aload(index) = *self;
-        let value = frame.locals[index as usize].clone();
+        let value = frame.locals[index as usize];
         assert!(matches!(&value, JavaValue::Reference(_)));
         frame.stack.push(value);
         Ok(())
@@ -55,8 +55,8 @@ impl InstructionAction for dload {
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let dload(index) = *self;
-        frame.stack.push(frame.locals[index as usize].clone());
-        frame.stack.push(frame.locals[index as usize + 1].clone());
+        frame.stack.push(frame.locals[index as usize]);
+        frame.stack.push(frame.locals[index as usize + 1]);
         Ok(())
     }
 }
@@ -81,7 +81,7 @@ impl InstructionAction for fload {
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let fload(index) = *self;
-        frame.stack.push(frame.locals[index as usize].clone());
+        frame.stack.push(frame.locals[index as usize]);
         Ok(())
     }
 }
@@ -105,7 +105,7 @@ impl InstructionAction for iload {
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let iload(index) = *self;
-        frame.stack.push(frame.locals[index as usize].clone());
+        frame.stack.push(frame.locals[index as usize]);
         Ok(())
     }
 }
@@ -129,8 +129,8 @@ impl InstructionAction for lload {
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let lload(index) = *self;
-        frame.stack.push(frame.locals[index as usize].clone());
-        frame.stack.push(frame.locals[index as usize + 1].clone());
+        frame.stack.push(frame.locals[index as usize]);
+        frame.stack.push(frame.locals[index as usize + 1]);
         Ok(())
     }
 }

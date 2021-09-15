@@ -21,7 +21,7 @@ impl InstructionAction for dup {
         frame: &mut StackFrame,
         _: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
-        let peeked = frame.stack[frame.stack.len() - 1].clone();
+        let peeked = frame.stack[frame.stack.len() - 1];
 
         if matches!(&peeked, JavaValue::Long(_) | JavaValue::Double(_)) {
             panic!("dup can only be used on category 1 computational types")
@@ -47,7 +47,7 @@ impl InstructionAction for dup_x1 {
             panic!("dup_x1 can only be used on category 1 computational types")
         }
 
-        frame.stack.push(value1.clone());
+        frame.stack.push(value1);
         frame.stack.push(value2);
         frame.stack.push(value1);
         Ok(())
@@ -74,7 +74,7 @@ impl InstructionAction for dup_x2 {
             matches!(&value3, JavaValue::Long(_) | JavaValue::Double(_))
         );
 
-        frame.stack.push(value1.clone());
+        frame.stack.push(value1);
         frame.stack.push(value3);
         frame.stack.push(value2);
         frame.stack.push(value1);
@@ -88,8 +88,8 @@ impl InstructionAction for dup2 {
         frame: &mut StackFrame,
         _: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
-        let value1 = frame.stack[frame.stack.len() - 1].clone();
-        let value2 = frame.stack[frame.stack.len() - 2].clone();
+        let value1 = frame.stack[frame.stack.len() - 1];
+        let value2 = frame.stack[frame.stack.len() - 2];
 
         // value2 and 3 must either be a single category 2 type or 2 category 1s
         assert_eq!(
@@ -123,8 +123,8 @@ impl InstructionAction for dup2_x1 {
             matches!(&value2, JavaValue::Long(_) | JavaValue::Double(_))
         );
 
-        frame.stack.push(value2.clone());
-        frame.stack.push(value1.clone());
+        frame.stack.push(value2);
+        frame.stack.push(value1);
         frame.stack.push(value3);
         frame.stack.push(value2);
         frame.stack.push(value1);
@@ -155,8 +155,8 @@ impl InstructionAction for dup2_x2 {
             matches!(&value4, JavaValue::Long(_) | JavaValue::Double(_))
         );
 
-        frame.stack.push(value2.clone());
-        frame.stack.push(value1.clone());
+        frame.stack.push(value2);
+        frame.stack.push(value1);
         frame.stack.push(value4);
         frame.stack.push(value3);
         frame.stack.push(value2);

@@ -277,7 +277,7 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn check_entries(&mut self, path: &PathBuf) -> io::Result<()> {
+    pub fn check_entries(&mut self, path: &Path) -> io::Result<()> {
         let mut entries = HashMap::with_capacity(self.entries.len());
 
         for entry in self.entries.iter() {
@@ -310,7 +310,7 @@ impl Manifest {
         Ok(())
     }
 
-    pub fn verify_entries(&self, path: &PathBuf) -> io::Result<()> {
+    pub fn verify_entries(&self, path: &Path) -> io::Result<()> {
         for entry in &self.entries {
             if let Some(digest) = &entry.digest {
                 digest.verify(path.join(&entry.name))?;
@@ -321,7 +321,7 @@ impl Manifest {
         Ok(())
     }
 
-    pub fn classes(&self, path: &PathBuf) -> Vec<PathBuf> {
+    pub fn classes(&self, path: &Path) -> Vec<PathBuf> {
         let mut paths = Vec::new();
 
         for entry in &self.entries {

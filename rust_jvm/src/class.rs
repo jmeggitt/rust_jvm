@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io;
 use std::io::{Cursor, Error, ErrorKind, Read, Seek, SeekFrom, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use hashbrown::{HashMap, HashSet};
@@ -542,7 +542,7 @@ pub fn print_bytes(buffer: &[u8]) {
 }
 
 use crate::log_dump;
-log_dump!(class_loader);
+log_dump!(CLASS_LOADER);
 
 #[derive(Debug, Default)]
 pub struct UnpackedJar {
@@ -568,7 +568,7 @@ impl ClassLoader {
         }
     }
 
-    fn read_file(path: &PathBuf) -> io::Result<Vec<u8>> {
+    fn read_file(path: &Path) -> io::Result<Vec<u8>> {
         let mut file = File::open(path)?;
 
         // Use seek to get length of file
@@ -595,13 +595,13 @@ impl ClassLoader {
         };
 
         debug!("Loaded Class {}", &class_name);
-        // log_dump!(class_loader, "[Explicit Load] {}: {}", &class_name, path.display());
-        // log_dump!(class_loader, "[Explicit Load]");
+        // log_dump!(CLASS_LOADER, "[Explicit Load] {}: {}", &class_name, path.display());
+        // log_dump!(CLASS_LOADER, "[Explicit Load]");
         self.loaded.insert(class_name, class);
         Ok(())
     }
 
-    pub fn load_new(&mut self, path: &PathBuf) -> io::Result<()> {
+    pub fn load_new(&mut self, path: &Path) -> io::Result<()> {
         let data = ClassLoader::read_file(path)?;
         let class = Class::parse(data)?;
         let class_name_index = match &class.constants[class.this_class as usize - 1] {
@@ -615,13 +615,13 @@ impl ClassLoader {
         };
 
         debug!("Loaded Class {} from {:?}", &class_name, path);
-        // log_dump!(class_loader, "[Explicit Load] {}: {}", &class_name, path.display());
-        // log_dump!(class_loader, "[Explicit Load]");
+        // log_dump!(CLASS_LOADER, "[Explicit Load] {}: {}", &class_name, path.display());
+        // log_dump!(CLASS_LOADER, "[Explicit Load]");
         self.loaded.insert(class_name, class);
         Ok(())
     }
 
-    pub fn unpack_jar(&mut self, file: &PathBuf) -> io::Result<()> {
+    pub fn unpack_jar(&mut self, file: &Path) -> io::Result<()> {
         info!("Unpacking jar {} for reading", file.display());
         let unpack_folder = unpack_jar(file)?;
         let mut jar = Jar::new(unpack_folder.clone())?;
@@ -633,7 +633,7 @@ impl ClassLoader {
             manifest.verify_entries(&unpack_folder).unwrap();
 
             self.loaded_jars.insert(
-                file.clone(),
+                file.to_path_buf(),
                 UnpackedJar {
                     dir: unpack_folder.clone(),
                     manifest,
@@ -666,7 +666,7 @@ impl ClassLoader {
         // debug!("Attempting to load class {}", class);
         let ret = match self.class_path.found_classes.get(class) {
             Some(v) => {
-                log_dump!(class_loader, "{}: {}", class, v.display());
+                log_dump!(CLASS_LOADER, "{}: {}", class, v.display());
                 // Annoyingly we need to clone this so we can make a second mutable reference to self
                 let load_path = v.clone();
 
@@ -704,8 +704,7 @@ impl ClassLoader {
 
     pub fn load_dependents(&mut self, class: &str) -> io::Result<()> {
         let mut touched = HashSet::new();
-        let mut queue = Vec::new();
-        queue.push(class.to_string());
+        let mut queue = vec![class.to_string()];
 
         while let Some(target) = queue.pop() {
             if touched.contains(&target) {
@@ -773,10 +772,10 @@ impl ClassPath {
         let java_home = lib.parent().unwrap().to_path_buf();
         search_path.insert(0, lib);
         info!("Loaded class path:");
-        log_dump!(class_loader, "Loaded class path:");
+        log_dump!(CLASS_LOADER, "Loaded class path:");
         for entry in &search_path {
             info!("\t{}", entry.display());
-            log_dump!(class_loader, "\t{}", entry.display());
+            log_dump!(CLASS_LOADER, "\t{}", entry.display());
         }
 
         Ok(Self {
@@ -796,7 +795,7 @@ impl ClassPath {
         // Check java home first
         if let Ok(java_home) = env::var("JAVA_HOME") {
             info!("Found JAVA_HOME: {:?}", &java_home);
-            log_dump!(class_loader, "Found JAVA_HOME: {:?}", &java_home);
+            log_dump!(CLASS_LOADER, "Found JAVA_HOME: {:?}", &java_home);
             let path = PathBuf::from(&java_home);
             if let Some(path_buf) = ClassPath::check_lib_for_rt(&path) {
                 return Ok(path_buf);
@@ -848,7 +847,7 @@ impl ClassPath {
         Err(Error::new(ErrorKind::Other, "Unable to find rt.jar"))
     }
 
-    fn check_lib_for_rt(path: &PathBuf) -> Option<PathBuf> {
+    fn check_lib_for_rt(path: &Path) -> Option<PathBuf> {
         let jdk_lib = path.join("jre/lib/rt.jar");
         if jdk_lib.exists() && jdk_lib.is_file() {
             return Some(jdk_lib.parent()?.to_path_buf());
@@ -890,7 +889,7 @@ impl ClassPath {
         Ok(changes)
     }
 
-    pub fn preload_class(&mut self, file: &PathBuf) -> io::Result<bool> {
+    pub fn preload_class(&mut self, file: &Path) -> io::Result<bool> {
         debug!("Preloading class: {}", file.display());
 
         if !file.is_file() || file.extension().and_then(OsStr::to_str) != Some("class") {
@@ -904,7 +903,7 @@ impl ClassPath {
         let name = Class::peek_name(data)?;
 
         if !self.found_classes.contains_key(&name) {
-            self.found_classes.insert(name, file.clone());
+            self.found_classes.insert(name, file.to_path_buf());
             return Ok(true);
         }
 
@@ -915,7 +914,7 @@ impl ClassPath {
         Ok(false)
     }
 
-    pub fn preload_jar(&mut self, file: &PathBuf) -> io::Result<bool> {
+    pub fn preload_jar(&mut self, file: &Path) -> io::Result<bool> {
         debug!("Preloading jar: {}", file.display());
 
         let mut jar = ZipArchive::new(File::open(file)?)?;
@@ -931,7 +930,7 @@ impl ClassPath {
 
                     if !self.found_classes.contains_key(filtered_name) {
                         self.found_classes
-                            .insert(filtered_name.to_string(), file.clone());
+                            .insert(filtered_name.to_string(), file.to_path_buf());
                         changes = true;
                     }
                 }
@@ -941,7 +940,7 @@ impl ClassPath {
         Ok(changes)
     }
 
-    pub fn preload_dir(&mut self, file: &PathBuf) -> io::Result<bool> {
+    pub fn preload_dir(&mut self, file: &Path) -> io::Result<bool> {
         debug!("Preloading directory: {}", file.display());
         let mut changes = false;
 
