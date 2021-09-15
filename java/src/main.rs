@@ -7,16 +7,14 @@ mod args;
 
 use args::*;
 
-// use jvm::class::{ClassLoader, ClassPath};
-// use jvm::jvm::JavaEnv;
-use jni::sys::{JNI_CreateJavaVM, JNI_GetDefaultJavaVMInitArgs, JavaVMInitArgs, JNI_ERR, JNI_TRUE, JNI_VERSION_1_8, JNIEnv, JNINativeInterface_, jvalue};
+use jni::sys::{
+    jvalue, JNIEnv, JNINativeInterface_, JNI_CreateJavaVM, JNI_GetDefaultJavaVMInitArgs,
+    JavaVMInitArgs, JNI_ERR, JNI_TRUE, JNI_VERSION_1_8,
+};
 use std::ffi::{c_void, CString};
 use std::path::PathBuf;
 use std::process::exit;
-use std::ptr::{null_mut, null};
-
-#[link(name = "jvm")]
-extern "C" {}
+use std::ptr::null_mut;
 
 fn main() {
     let opts = ManualOpts::default()
@@ -45,11 +43,6 @@ fn main() {
         true => LevelFilter::Debug,
         false => LevelFilter::Error,
     };
-
-    // formatted_builder()
-    //     .target(Target::Stdout)
-    //     .filter_level(log_level)
-    //     .init();
 
     if opts.has_flag("verbose") {
         info!("Arguments: {:?}", get_java_args());
@@ -115,26 +108,8 @@ fn main() {
         class_path.push(PathBuf::from(&opts.program_args[0]));
     }
 
-    // set_var("LD_LIBRARY_PATH", "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release/libjvm.so");
-    // set_var("LD_LIBRARY_PATH", "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release/deps:/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release:/home/jaspermeggitt/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/home/jaspermeggitt/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib");
-    // set_var("_", "/home/jaspermeggitt/.cargo/bin/cargo");
-
     unsafe {
-        // let lib = Library::new(
-        //     "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/release/libjvm.so",
-        // )
-        // .unwrap();
-        //
-        // let get_jvm_init_args: Symbol<unsafe extern "system" fn(args: *mut c_void) -> jint> =
-        //     lib.get(b"JNI_GetDefaultJavaVMInitArgs").unwrap();
-        // let create_jvm: Symbol<
-        //     unsafe extern "system" fn(
-        //         pvm: *mut *mut JavaVM,
-        //         penv: *mut *mut JNIEnv,
-        //         args: *mut c_void,
-        //     ) -> jint,
-        // > = lib.get(b"JNI_CreateJavaVM").unwrap();
-
+        // TODO: Pass arguments to jvm
         let mut args = JavaVMInitArgs {
             version: JNI_VERSION_1_8,
             nOptions: 0,
@@ -163,51 +138,14 @@ fn main() {
 
         let class = CString::new("Simple").unwrap();
         let target = interface.FindClass.unwrap()(env, class.as_ptr());
-        let method = interface.GetStaticMethodID.unwrap()(env, target, "main\0".as_ptr() as _, "([Ljava/lang/String;)V\0".as_ptr() as _);
+        let method = interface.GetStaticMethodID.unwrap()(
+            env,
+            target,
+            "main\0".as_ptr() as _,
+            "([Ljava/lang/String;)V\0".as_ptr() as _,
+        );
 
-        let args = [jvalue {l: null_mut()}; 2];
+        let args = [jvalue { l: null_mut() }; 2];
         interface.CallStaticVoidMethodA.unwrap()(env, target, method, &args[0] as *const _)
-        // env.CallStaticVoidMethodA
     }
-
-    // let java_dir = var("JAVA_HOME").ok().map(PathBuf::from);
-    //
-    // let class_path = match ClassPath::new(java_dir, Some(class_path)) {
-    //     Ok(v) => v,
-    //     Err(e) => {
-    //         eprintln!("Error indexing class path: {:?}", e);
-    //         exit(1);
-    //     }
-    // };
-    //
-    // let mut class_loader = ClassLoader::from_class_path(class_path);
-    // if let Err(e) = class_loader.preload_class_path() {
-    //     eprintln!("Error loading class path: {:?}", e);
-    //     exit(1);
-    // }
-    //
-    // // Find the main class from the jar
-    // let main_class = if opts.has_flag("jar") {
-    //     let target_jar = PathBuf::from(&opts.program_args[0]);
-    //     match class_loader
-    //         .loaded_jars
-    //         .get(&target_jar)
-    //         .unwrap()
-    //         .manifest
-    //         .main_class()
-    //     {
-    //         Some(v) => v,
-    //         None => {
-    //             eprintln!("{} does not have a main class!", target_jar.display());
-    //             exit(1);
-    //         }
-    //     }
-    // } else {
-    //     opts.program_args[0].replace('.', "/")
-    // };
-    //
-    // let mut jvm = JavaEnv::new(class_loader);
-    // if let Err(e) = jvm.entry_point(&main_class, opts.program_args) {
-    //     eprintln!("An error occurred while attempting to run main:\n{}", e);
-    // }
 }
