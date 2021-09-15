@@ -7,8 +7,9 @@ use jni::sys::{
     jobject, jobjectArray, jshort, jstring, jthrowable, jvalue, JNI_FALSE,
 };
 use jni::JNIEnv;
-use std::mem::size_of;
+use std::mem::{size_of, transmute};
 use std::sync::atomic::{AtomicI32, AtomicPtr, Ordering};
+use libc::{malloc, realloc, free};
 
 // TODO: Fill in unsafe
 
@@ -262,9 +263,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDouble__Ljava_lang_Object_
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getByte__J(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    offset: jlong,
+) -> jbyte {
+    let ptr: *mut _ = transmute(offset);
+    debug!("Got byte: 0x{:X} -> 0x{:X}", offset, *ptr);
+    *ptr
 }
 
 /// Class:     sun_misc_Unsafe
@@ -274,10 +277,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getByte__J(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putByte__JB(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-    _: jbyte,
+    offset: jlong,
+    val: jbyte,
 ) {
-    unimplemented!()
+    let ptr: *mut _ = transmute(offset);
+    *ptr = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -287,9 +291,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putByte__JB(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getShort__J(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    offset: jlong,
+) -> jshort {
+    let ptr: *mut _ = transmute(offset);
+    *ptr
 }
 
 /// Class:     sun_misc_Unsafe
@@ -299,10 +304,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getShort__J(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putShort__JS(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-    _: jshort,
+    offset: jlong,
+    val: jshort,
 ) {
-    unimplemented!()
+    let ptr: *mut _ = transmute(offset);
+    *ptr = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -312,9 +318,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putShort__JS(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getChar__J(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    offset: jlong,
+) -> jchar {
+    let ptr: *mut _ = transmute(offset);
+    *ptr
 }
 
 /// Class:     sun_misc_Unsafe
@@ -324,10 +331,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getChar__J(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putChar__JC(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-    _j: jchar,
+    offset: jlong,
+    val: jchar,
 ) {
-    unimplemented!()
+    let ptr: *mut _ = transmute(offset);
+    *ptr = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -337,9 +345,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putChar__JC(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getInt__J(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    offset: jlong,
+) ->jint {
+    let ptr: *mut _ = transmute(offset);
+    *ptr
 }
 
 /// Class:     sun_misc_Unsafe
@@ -349,10 +358,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getInt__J(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putInt__JI(
     _env: JNIEnv,
     _this: JObject,
-    _offset: jlong,
-    _val: jint,
+    offset: jlong,
+    val: jint,
 ) {
-    unimplemented!()
+    let ptr: *mut _ = transmute(offset);
+    *ptr = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -362,9 +372,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putInt__JI(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLong__J(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    offset: jlong,
+) -> jlong {
+    let ptr: *mut jlong = transmute(offset);
+    *ptr
 }
 
 /// Class:     sun_misc_Unsafe
@@ -374,10 +385,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLong__J(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putLong__JJ(
     _env: JNIEnv,
     _this: JObject,
-    _offset: jlong,
-    _val: jlong,
+    offset: jlong,
+    val: jlong,
 ) {
-    unimplemented!()
+    debug!("Put long: 0x{:X} -> 0x{:X}", val, offset);
+    let ptr: *mut jlong = transmute(offset);
+    *ptr = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -387,9 +400,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putLong__JJ(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getFloat__J(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    offset: jlong,
+) -> jfloat {
+    let ptr: *mut _ = transmute(offset);
+    *ptr
 }
 
 /// Class:     sun_misc_Unsafe
@@ -399,10 +413,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getFloat__J(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putFloat__JF(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-    _: jfloat,
+    offset: jlong,
+    val: jfloat,
 ) {
-    unimplemented!()
+    let ptr: *mut _ = transmute(offset);
+    *ptr = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -412,9 +427,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putFloat__JF(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getDouble__J(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    offset: jlong,
+) -> jdouble {
+    let ptr: *mut _ = transmute(offset);
+    *ptr
 }
 
 /// Class:     sun_misc_Unsafe
@@ -424,10 +440,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getDouble__J(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDouble__JD(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-    _: jdouble,
+    offset: jlong,
+    val: jdouble,
 ) {
-    unimplemented!()
+    let ptr: *mut _ = transmute(offset);
+    *ptr = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -437,9 +454,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDouble__JD(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getAddress(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    offset: jlong,
+) -> jlong {
+    // TODO: This will fail to compile on non-x64 machines
+    let ptr: *mut _ = transmute(offset);
+    *ptr
 }
 
 /// Class:     sun_misc_Unsafe
@@ -449,10 +468,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getAddress(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putAddress(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-    _valb: jlong,
+    offset: jlong,
+    val: jlong,
 ) {
-    unimplemented!()
+    let ptr: *mut _ = transmute(offset);
+    *ptr = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -462,9 +482,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putAddress(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_allocateMemory(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    size: jlong,
+) -> jlong {
+    let ret = transmute(malloc(size as _));
+    debug!("Malloced: 0x{:X} ({} bytes)", ret, size);
+    ret
 }
 
 /// Class:     sun_misc_Unsafe
@@ -474,10 +496,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_allocateMemory(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_reallocateMemory(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
-    _valb: jlong,
-) {
-    unimplemented!()
+    ptr: jlong,
+    new_size: jlong,
+) -> jlong {
+    let ret = transmute(realloc(transmute(ptr), new_size as _));
+    debug!("Reallocating: 0x{:X} -> 0x{:X}", ptr, ret);
+    ret
 }
 
 /// Class:     sun_misc_Unsafe
@@ -518,9 +542,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_copyMemory(
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_freeMemory(
     _env: JNIEnv,
     _this: JObject,
-    _val: jlong,
+    ptr: jlong,
 ) {
-    unimplemented!()
+    debug!("Freeing pointer: 0x{:X}", ptr);
+    free(transmute(ptr))
 }
 
 /// Class:     sun_misc_Unsafe

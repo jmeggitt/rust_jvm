@@ -96,7 +96,7 @@ pub fn build_system_properties(jvm: &mut Arc<RwLock<JavaEnv>>) {
         "user.dir",
         &format!("{}", current_dir().unwrap_or_default().display()),
     );
-    set_property(jvm, obj, "file.encoding", "UTF-8");
+    set_property(jvm, obj, "file.encoding", "utf-8");
 
     let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("props"));
     jvm.write()
@@ -228,6 +228,11 @@ pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
     // jvm.invoke_static(init_props, vec![JavaValue::Reference(None)]).unwrap();
 
     build_system_properties(jvm);
+
+    // Don't init stdout/stderr if doing tests to save time
+    if cfg!(test) {
+        return
+    }
 
     // jvm.init_class("jvm/hooks/PrintStreamHook");
     jvm.write()

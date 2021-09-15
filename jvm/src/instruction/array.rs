@@ -29,6 +29,8 @@ macro_rules! array_instruction {
             $frame
                 .stack
                 .push(JavaValue::$local(array.read_array(index) as _));
+        } else {
+            panic!("xaload expected reference")
         }
         Ok(())
     };

@@ -3,11 +3,8 @@
 
 use crate::class::{AccessFlags, BufferedRead, ClassLoader, ClassPath};
 use crate::constant_pool::ClassElement;
-use crate::jvm::call::{build_interface, JavaEnvInvoke, RawJNIEnv};
-use crate::jvm::mem::{
-    ConstTypeId, FieldDescriptor, JavaValue, ManualInstanceReference, ObjectHandle,
-    ObjectReference, ObjectType,
-};
+use crate::jvm::call::{build_interface, JavaEnvInvoke, RawJNIEnv, FlowControl};
+use crate::jvm::mem::{ConstTypeId, FieldDescriptor, JavaValue, ManualInstanceReference, ObjectHandle, ObjectReference, ObjectType, ObjectWrapper, RawObject};
 use crate::jvm::JavaEnv;
 use jni::sys::*;
 use log::LevelFilter;
@@ -30,6 +27,7 @@ use std::process::exit;
 use std::ptr::{null_mut, write_bytes};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicI64, Ordering};
 
 macro_rules! obj_expect {
     ($env:ident, $obj:ident) => {
@@ -123,8 +121,8 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
         AttachCurrentThreadAsDaemon: None,
     };
 
-    **pvm = Box::leak(Box::new(vm)) as JavaVM;
-    **penv = Box::leak(Box::new(interface)) as JNIEnv;
+    *pvm = Box::leak(Box::new(Box::new(vm))) as *mut _ as *mut JavaVM;
+    *penv = Box::leak(Box::new(Box::new(interface))) as *mut _ as *mut JNIEnv;
 
     return 0;
 }
@@ -160,8 +158,23 @@ pub unsafe extern "system" fn JVM_IHashCode_impl(mut env: RawJNIEnv, obj: jobjec
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_Clone_impl(env: RawJNIEnv, obj: jobject) -> jobject {
-    // TODO: Copy a raw object
-    unimplemented!()
+    let obj = obj_expect!(env, obj, null_mut());
+
+    match obj.memory_layout() {
+        ObjectType::Instance => ObjectWrapper::new(RawObject::clone(&*obj.expect_instance())).into_raw(),
+        ObjectType::Array(jboolean::ID) => ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<jboolean>())).into_raw(),
+        ObjectType::Array(jbyte::ID) => ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<jbyte>())).into_raw(),
+        ObjectType::Array(jchar::ID) => ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<jchar>())).into_raw(),
+        ObjectType::Array(jshort::ID) => ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<jshort>())).into_raw(),
+        ObjectType::Array(jint::ID) => ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<jint>())).into_raw(),
+        ObjectType::Array(jlong::ID) => ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<jlong>())).into_raw(),
+        ObjectType::Array(jfloat::ID) => ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<jfloat>())).into_raw(),
+        ObjectType::Array(jdouble::ID) => ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<jdouble>())).into_raw(),
+        ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => {
+            ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<Option<ObjectHandle>>())).into_raw()
+        }
+        x => panic!("Unable to hash object of type {:?}", x),
+    }
 }
 
 /*
@@ -399,6 +412,7 @@ pub unsafe extern "system" fn JVM_IsNaN_impl(d: jdouble) -> jboolean {
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FillInStackTrace_impl(env: RawJNIEnv, throwable: jobject) {
+    env.read().dump_debug_info();
     unimplemented!("JVM_FillInStackTrace")
 }
 
@@ -841,7 +855,8 @@ pub unsafe extern "system" fn JVM_GetComponentType_impl(env: RawJNIEnv, cls: jcl
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassModifiers_impl(env: RawJNIEnv, cls: jclass) -> jint {
-    unimplemented!()
+    // Idk what the differance is and they didn't document it
+    JVM_GetClassAccessFlags_impl(env, cls)
 }
 
 #[no_mangle]
@@ -1016,6 +1031,7 @@ pub unsafe extern "system" fn JVM_GetClassDeclaredConstructors_impl(
         let instance = field_obj.expect_instance();
         instance.write_named_field("clazz", Some(class));
         instance.write_named_field("slot", constructors.len() as jint);
+        instance.write_named_field("override", JavaValue::Byte(1));
 
         let desc = FieldDescriptor::read_str(&raw_field.descriptor(&raw_class.constants).unwrap())
             .unwrap();
@@ -1070,7 +1086,19 @@ pub unsafe extern "system" fn JVM_GetClassDeclaredConstructors_impl(
  valid. */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetClassAccessFlags_impl(env: RawJNIEnv, cls: jclass) -> jint {
-    unimplemented!()
+    let jstring_name: Option<ObjectHandle> = obj_expect!(env, cls, 0)
+        .expect_instance()
+        .read_named_field("name");
+    let class_name = jstring_name.unwrap().expect_string().replace('.', "/");
+
+    warn!("Getting access flags: {}", &class_name);
+    let mut flags = env.read().class_loader.class(&class_name).unwrap().access_flags.bits();
+
+    // Force everything to show up as public to resolve some errors due to reflection
+    flags &= !(AccessFlags::PUBLIC | AccessFlags::PRIVATE | AccessFlags::PROTECTED).bits();
+    flags |= AccessFlags::PUBLIC.bits();
+
+    flags as jint
 }
 
 /* The following two reflection routines are still needed due to startup time issues */
@@ -1092,11 +1120,76 @@ pub unsafe extern "system" fn JVM_InvokeMethod_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_NewInstanceFromConstructor_impl(
-    env: RawJNIEnv,
+    mut env: RawJNIEnv,
     c: jobject,
     args0: jobjectArray,
 ) -> jobject {
-    unimplemented!()
+    let constructor = obj_expect!(env, c, null_mut()).expect_instance();
+    let target_class: Option<ObjectHandle> = constructor.read_named_field("clazz");
+    let parameters: Option<ObjectHandle> = constructor.read_named_field("parameterTypes");
+
+    let mut arg_descriptors = Vec::new();
+
+    // TODO: Separate out functionality for use with other JVM calls
+    for arg_class in parameters.unwrap().expect_array::<Option<ObjectHandle>>().iter() {
+        let class_name = arg_class.unwrap().unwrap_as_class();
+        arg_descriptors.push(match class_name.as_ref() {
+            "boolean" => FieldDescriptor::Boolean,
+            "byte" => FieldDescriptor::Byte,
+            "short" => FieldDescriptor::Short,
+            "char" => FieldDescriptor::Char,
+            "int" => FieldDescriptor::Int,
+            "float" => FieldDescriptor::Float,
+            "long" => FieldDescriptor::Long,
+            "double" => FieldDescriptor::Double,
+            x if x.starts_with('[') => FieldDescriptor::read_str(x).unwrap(),
+            x => FieldDescriptor::Object(x.to_owned()),
+        });
+    }
+
+    let element_ref = ClassElement {
+        class: target_class.unwrap().unwrap_as_class(),
+        element: "<init>".to_string(),
+        desc: format!("{:?}", FieldDescriptor::Method { args: arg_descriptors.clone(), returns: Box::new(FieldDescriptor::Void) })
+    };
+
+    let mut args = Vec::with_capacity(arg_descriptors.len());
+
+    if !args0.is_null() {
+        for (obj_arg, desc) in obj_expect!(env, args0, null_mut()).expect_array::<Option<ObjectHandle>>().iter().zip(arg_descriptors) {
+            let next = match desc {
+                FieldDescriptor::Byte => JavaValue::Byte(obj_arg.unwrap().expect_instance().read_named_field("value")),
+                FieldDescriptor::Char => JavaValue::Char(obj_arg.unwrap().expect_instance().read_named_field("value")),
+                FieldDescriptor::Double => {
+                    let value = JavaValue::Double(obj_arg.unwrap().expect_instance().read_named_field("value"));
+                    args.push(value); // Push extra to comply with standard
+                    value
+                },
+                FieldDescriptor::Float => JavaValue::Float(obj_arg.unwrap().expect_instance().read_named_field("value")),
+                FieldDescriptor::Int => JavaValue::Int(obj_arg.unwrap().expect_instance().read_named_field("value")),
+                FieldDescriptor::Long => {
+                    let value = JavaValue::Long(obj_arg.unwrap().expect_instance().read_named_field("value"));
+                    args.push(value); // Push extra to comply with standard
+                    value
+                },
+                FieldDescriptor::Short => JavaValue::Short(obj_arg.unwrap().expect_instance().read_named_field("value")),
+                FieldDescriptor::Boolean => JavaValue::Byte(obj_arg.unwrap().expect_instance().read_named_field("value")),
+                FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => JavaValue::Reference(*obj_arg),
+                _ => unreachable!(),
+            };
+
+            args.push(next);
+        }
+    }
+
+    let ret = ObjectHandle::new(env.write().class_schema(&target_class.unwrap().unwrap_as_class()));
+    match env.invoke_virtual(element_ref, ret, args)  {
+        Ok(None) => {},
+        Err(FlowControl::Throws(x)) => env.write_thrown(x),
+        x => panic!("{:?}", x),
+    };
+
+    ret.ptr()
 }
 
 /*
@@ -1362,18 +1455,30 @@ pub unsafe extern "system" fn JVM_AssertionStatusDirectives_impl(
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_SupportsCX8_impl() -> jboolean {
-    unimplemented!()
+    JNI_TRUE
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_CX8Field_impl(
-    env: JNIEnv,
+    env: RawJNIEnv,
     obj: jobject,
-    fldID: jfieldID,
-    oldVal: jlong,
-    newVal: jlong,
+    field: jfieldID,
+    expected: jlong,
+    x: jlong,
 ) -> jboolean {
-    unimplemented!()
+    let obj = obj_expect!(env, obj, JNI_FALSE);
+    let instance = obj.expect_instance();
+    // assert_eq!(offset as usize % size_of::<jvalue>(), 0);
+    // let index = offset as usize / size_of::<jvalue>();
+    let index = field as usize;
+
+    let mut fields = instance.raw_fields();
+    assert!(index < fields.len());
+
+    let ptr = &mut fields[index] as *mut jvalue as *const AtomicI64;
+
+    let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+    res.is_ok() as jboolean
 }
 
 /* Define a class with a source with conditional verification (added HSX 14)

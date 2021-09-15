@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 default = ["tempfile"]
 profile = ["tempfile", "thread_profiler"]
 priority = ["thread-priority", "crossbeam-channel"]
+callstack = ["serde_json"]
 debug = []
 
 [dependencies]
@@ -36,6 +37,11 @@ parking_lot = "0.11.2"
 gc = "0.4.1"
 users = "0.11.0"
 home = "0.5.3"
+libc = "0.2.101"
+
+[dependencies.serde_json]
+version = "1.0.67"
+optional = true
 
 [dependencies.thread-priority]
 version = "0.2.4"
@@ -56,3 +62,5 @@ optional = true
 [dependencies.log]
 version = "0.4"
 features = ["max_level_debug", "release_max_level_debug", "std", "serde"]
+
+

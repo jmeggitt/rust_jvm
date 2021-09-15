@@ -541,6 +541,11 @@ pub fn print_bytes(buffer: &[u8]) {
     }
 }
 
+
+use crate::log_dump;
+log_dump!(class_loader);
+
+
 #[derive(Debug, Default)]
 pub struct UnpackedJar {
     dir: PathBuf,
@@ -593,6 +598,8 @@ impl ClassLoader {
         };
 
         debug!("Loaded Class {} from {:?}", &class_name, path);
+        // log_dump!(class_loader, "[Explicit Load] {}: {}", &class_name, path.display());
+        // log_dump!(class_loader, "[Explicit Load]");
         self.loaded.insert(class_name, class);
         Ok(())
     }
@@ -642,6 +649,7 @@ impl ClassLoader {
         // debug!("Attempting to load class {}", class);
         let ret = match self.class_path.found_classes.get(class) {
             Some(v) => {
+                log_dump!(class_loader, "{}: {}", class, v.display());
                 // Annoyingly we need to clone this so we can make a second mutable reference to self
                 let load_path = v.clone();
 
@@ -703,6 +711,7 @@ impl ClassLoader {
     }
 }
 
+
 #[derive(Debug, Clone)]
 pub struct ClassPath {
     java_home: PathBuf,
@@ -748,8 +757,10 @@ impl ClassPath {
         let java_home = lib.parent().unwrap().to_path_buf();
         search_path.insert(0, lib);
         info!("Loaded class path:");
+        log_dump!(class_loader, "Loaded class path:");
         for entry in &search_path {
             info!("\t{}", entry.display());
+            log_dump!(class_loader, "\t{}", entry.display());
         }
 
         Ok(Self {
@@ -769,6 +780,7 @@ impl ClassPath {
         // Check java home first
         if let Ok(java_home) = env::var("JAVA_HOME") {
             info!("Found JAVA_HOME: {:?}", &java_home);
+            log_dump!(class_loader, "Found JAVA_HOME: {:?}", &java_home);
             let path = PathBuf::from(&java_home);
             if let Some(path_buf) = ClassPath::check_lib_for_rt(&path) {
                 return Ok(path_buf);

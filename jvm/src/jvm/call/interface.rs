@@ -44,7 +44,7 @@ pub unsafe extern "system" fn register_natives(
     let mut registered = 0;
 
     for method in
-        std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, num_methods as usize)
+    std::slice::from_raw_parts_mut(methods as *mut JNINativeMethod, num_methods as usize)
     {
         let name = CStr::from_ptr(method.name);
         let desc = CStr::from_ptr(method.signature);
@@ -425,6 +425,7 @@ pub unsafe extern "system" fn FindClass(env: *mut JNIEnv, name: *const c_char) -
     let env = RawJNIEnv::new(env);
     let name_cstr = CStr::from_ptr(name);
     let mut lock = env.write();
+    lock.class_loader.attempt_load(&name_cstr.to_string_lossy()).unwrap();
     lock.class_instance(&name_cstr.to_string_lossy()).ptr()
 }
 
@@ -450,7 +451,18 @@ pub unsafe extern "system" fn ToReflectedMethod(
 
 #[no_mangle]
 pub unsafe extern "system" fn GetSuperclass(env: *mut JNIEnv, sub: jclass) -> jclass {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let class = obj_expect!(env, sub, null_mut()).unwrap_as_class();
+
+    if class == "java/lang/Object" {
+        // Idk how this case is supposed to be handled
+        return null_mut()
+    }
+
+    let mut lock = env.write();
+    let raw_class = lock.class_loader.class(&class).unwrap();
+    let super_class = raw_class.super_class();
+    lock.class_instance(&super_class).ptr()
 }
 
 #[no_mangle]
@@ -1197,7 +1209,20 @@ pub unsafe extern "system" fn GetStaticMethodID(
     name: *const c_char,
     sig: *const c_char,
 ) -> jmethodID {
-    unimplemented!()
+    let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
+    let name_obj: Option<ObjectHandle> = a.read_named_field("name");
+
+    let name_string = CStr::from_ptr(name);
+    let desc_string = CStr::from_ptr(sig);
+
+    let element = ClassElement {
+        class: name_obj.unwrap().expect_string().replace('.', "/"),
+        element: name_string.to_str().unwrap().to_string(),
+        desc: desc_string.to_str().unwrap().to_string(),
+    };
+
+
+    Box::leak(Box::new(element)) as *mut ClassElement as *mut _
 }
 
 #[no_mangle]
@@ -1397,7 +1422,19 @@ pub unsafe extern "system" fn CallStaticVoidMethodA(
     method_id: jmethodID,
     args: *const jvalue,
 ) {
-    unimplemented!()
+    let mut env = RawJNIEnv::new(env);
+    let element = read_method_id(method_id);
+    let parsed_args = read_args(&element.desc, args);
+
+    // let mut jvm = &mut *((&**env).reserved0 as *mut JavaEnv);
+    match env.invoke_static(element.clone(), parsed_args) {
+        Ok(None) => {},
+        Err(FlowControl::Throws(x)) => {
+            env.write_thrown(x);
+            // (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 = x.pack().l as _;
+        }
+        x => panic!("{:?}", x),
+    }
 }
 
 #[no_mangle]

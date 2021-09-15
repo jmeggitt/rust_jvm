@@ -34,6 +34,23 @@ macro_rules! profile_scope_cfg {
     };
 }
 
+#[macro_export]
+macro_rules! log_dump {
+    ($name:ident) => {
+        lazy_static::lazy_static!{
+            pub static ref $name: parking_lot::Mutex<std::io::BufWriter<std::fs::File>> = {
+                parking_lot::Mutex::new(std::io::BufWriter::new(std::fs::File::create(format!("{}.dump", stringify!($name))).unwrap()))
+            };
+        }
+    };
+    ($name:ident, $($tokens:tt)+) => {
+        writeln!(&mut *$name.lock(), $($tokens)+).unwrap();
+        $name.lock().flush().unwrap();
+    };
+}
+
+
+
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
 pub fn read_file(path: &str) -> io::Result<Vec<u8>> {

@@ -19,6 +19,9 @@ mod interpreter;
 mod native;
 mod stack;
 
+#[cfg(feature = "callstack")]
+pub mod callstack_trace;
+
 use crate::class::AccessFlags;
 use crate::constant_pool::ClassElement;
 use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
@@ -230,7 +233,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         {
             let mut jvm = self.write();
             let class = jvm.class_instance(&class_name);
-            jvm.thread_manager.push_call_stack(class, element.clone());
+            jvm.thread_manager.push_call_stack(class, element.clone(), &locals);
             // jvm.call_stack.push((class, format!("{:?}", &method)));
         }
 
@@ -270,7 +273,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             frame.exec(self, &instructions)
         };
 
-        self.write().thread_manager.pop_call_stack();
+        self.write().thread_manager.pop_call_stack(&ret);
 
         match ret {
             Err(FlowControl::Return(v)) => Ok(v),
@@ -340,10 +343,10 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
     ) -> Result<Option<JavaValue>, FlowControl> {
         profile_scope_cfg!("virtual {:?}", &method);
 
-        assert!(self
-            .read()
-            .instanceof(&target.get_class(), &method.class)
-            .unwrap());
+        // assert!(self
+        //     .read()
+        //     .instanceof(&target.get_class(), &method.class)
+        //     .unwrap());
 
         // if !self.instanceof(&target.get_class(), &method.class).unwrap() {
         //     panic!("Expected: {:?}, Got: {:?}", &method.class, &target.get_class());

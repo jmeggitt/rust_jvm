@@ -7,6 +7,8 @@ use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::{FieldDescriptor, JavaValue};
 use crate::jvm::JavaEnv;
 
+use jni::sys::{jint, jlong, jfloat, jdouble};
+
 macro_rules! math_instruction {
     ($name:ident, $inst:literal, $type:ident ($a:ident $(,$x:ident)*) => $res:expr) => {
         instruction! {@partial $name, $inst}
@@ -16,6 +18,15 @@ macro_rules! math_instruction {
                 // jvm.read().debug_print_call_stack();
                 math_instruction!(@impl $type frame ($($x,)* $a) => $res);
                 Ok(())
+            }
+        }
+
+        #[cfg(test)]
+        impl $name {
+            // math_instruction!{@type $type OpType}
+            /// Function stub to allow for testing
+            pub fn oper($a: math_instruction!{@type $type} $(,$x: math_instruction!{@type $type})*) -> math_instruction!{@type $type} {
+                $res
             }
         }
     };
@@ -44,6 +55,10 @@ macro_rules! math_instruction {
         $(math_instruction!(@pop_float $frame $x -> f32);)+
         $frame.stack.push(JavaValue::Float($res));
     };
+    (@type Long) => { jlong };
+    (@type Int) => { jint };
+    (@type Double) => { jdouble };
+    (@type Float) => { jfloat };
     (@pop_int $frame:ident $x:ident -> $type:ty) => {
         let a = $frame.stack.pop().unwrap();
         let $x = match a.as_int() {
@@ -183,3 +198,73 @@ impl InstructionAction for lushr {
         Ok(())
     }
 }
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use crate::class::{ClassPath, ClassLoader};
+    use crate::constant_pool::ClassElement;
+    use crate::jvm::call::JavaEnvInvoke;
+
+    #[test]
+    pub fn int_mul() {
+        assert_eq!(imul::oper(47483647i32, 8752i32), -1034949168i32);
+        assert_eq!(imul::oper(8752i32, 47483647i32), -1034949168i32);
+    }
+
+    #[test]
+    pub fn int_remainder() {
+        assert_eq!(irem::oper(47483647i32, 8752i32), 4047i32);
+        assert_eq!(irem::oper(-47483647i32, 8752i32), -4047i32);
+        assert_eq!(irem::oper(47483647i32, -8752i32), 4047i32);
+        assert_eq!(irem::oper(-47483647i32, -8752i32), -4047i32);
+
+        assert_eq!(irem::oper(8752i32, 47483647i32), 8752i32);
+        assert_eq!(irem::oper(8752i32, -47483647i32), 8752i32);
+        assert_eq!(irem::oper(-8752i32, 47483647i32), -8752i32);
+        assert_eq!(irem::oper(-8752i32, -47483647i32), -8752i32);
+    }
+
+    #[test]
+    pub fn shift_right() {
+        assert_eq!(ishr::oper(-12345, 0), -12345);
+        assert_eq!(ishr::oper(-12345, 3), -1544);
+        assert_eq!(ishr::oper(-12345, -3), -1);
+        assert_eq!(ishr::oper(12345, 3), 1543);
+        assert_eq!(ishr::oper(12345, -3), 0);
+        assert_eq!(ishr::oper(-1, 4), -1);
+    }
+
+    #[test]
+    pub fn shift_spot_test() {
+        assert_eq!(iand::oper(ishr::oper(111607186, 0), 1023), 402);
+        assert_eq!(iand::oper(ishr::oper(111607186, 1), 31), 9);
+    }
+
+    #[test]
+    pub fn string_hash() {
+        let class_path = ClassPath::new(None, Some(Vec::new())).unwrap();
+        let mut class_loader = ClassLoader::from_class_path(class_path);
+        class_loader.preload_class_path().unwrap();
+        let mut jvm = JavaEnv::new(class_loader);
+
+        let element = ClassElement::new("java/lang/Object", "hashCode", "()I");
+
+        let empty = jvm.write().build_string("").expect_object();
+        let simple = jvm.write().build_string("abc").expect_object();
+        let simple2 = jvm.write().build_string("utf-8").expect_object();
+        let longer = jvm.write().build_string("qwertyuiopasdfghjklzxcvbnm").expect_object();
+
+        assert_eq!(jvm.invoke_virtual(element.clone(), empty, vec![]).unwrap(), Some(JavaValue::Int(0)));
+        assert_eq!(jvm.invoke_virtual(element.clone(), simple, vec![]).unwrap(), Some(JavaValue::Int(96354)));
+        assert_eq!(jvm.invoke_virtual(element.clone(), simple2, vec![]).unwrap(), Some(JavaValue::Int(111607186)));
+        assert_eq!(jvm.invoke_virtual(element.clone(), longer, vec![]).unwrap(), Some(JavaValue::Int(144599175)));
+
+    }
+
+
+
+
+}
+
+

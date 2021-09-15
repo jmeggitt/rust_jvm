@@ -48,6 +48,13 @@ impl Hash for JavaValue {
 }
 
 impl JavaValue {
+    pub fn expect_object(&self) -> ObjectHandle {
+        match self {
+            JavaValue::Reference(Some(x)) => *x,
+            _ => panic!(),
+        }
+    }
+
     /// Helper function for conversion during match operations
     pub fn as_int(&self) -> Option<i64> {
         Some(match self {
@@ -112,6 +119,8 @@ impl PartialEq for JavaValue {
         }
     }
 }
+
+impl Eq for JavaValue {}
 
 impl PartialOrd for JavaValue {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {

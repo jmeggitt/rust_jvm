@@ -109,7 +109,7 @@ impl InstructionReader {
                 None => {
                     return Err(Error::new(
                         ErrorKind::Other,
-                        format!("Unknown instruction form: {:x}", form),
+                        format!("Unknown instruction form: 0x{:X}", form),
                     ))
                 }
             }
@@ -275,5 +275,6 @@ impl InstructionReader {
 
         self.register::<invokeinterface>();
         self.register::<iinc>();
+        self.register::<lookupswitch>();
     }
 }

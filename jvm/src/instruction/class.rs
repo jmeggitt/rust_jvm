@@ -49,7 +49,7 @@ impl InstructionAction for getstatic {
             let class = frame.constants[reference.class_index as usize - 1]
                 .expect_class()
                 .unwrap();
-            let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+            let mut class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
             jvm.init_class(&class_name);
 
             let field = frame.constants[reference.name_and_type_index as usize - 1]
@@ -61,6 +61,21 @@ impl InstructionAction for getstatic {
             let descriptor = frame.constants[field.descriptor_index as usize - 1]
                 .expect_utf8()
                 .unwrap();
+
+            loop {
+                let lock = jvm.read();
+                let raw_class = lock.class_loader.class(&class_name).unwrap();
+                if raw_class.get_field(&field_name, &descriptor).is_some() {
+                    break
+                }
+
+                // Reached base case, it will error anyway
+                if class_name == "java/lang/Object" {
+                    break
+                }
+
+                class_name = raw_class.super_class();
+            }
 
             let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
             let value = {
@@ -75,7 +90,9 @@ impl InstructionAction for getstatic {
                     ) {
                         Some(v) => v,
                         // Check if the element exists, but has not been initialized yet
-                        None => panic!("Static value not found: {}::{}", &class_name, &field_name),
+                        None => {
+                            panic!("Static value not found: {}::{}", &class_name, &field_name)
+                        },
                     },
                 }
             };
@@ -179,7 +196,7 @@ impl InstructionAction for putstatic {
         let class = frame.constants[class_index as usize - 1]
             .expect_class()
             .unwrap();
-        let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+        let mut class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
         jvm.init_class(&class_name);
 
         let field = frame.constants[desc_index as usize - 1]
@@ -191,6 +208,22 @@ impl InstructionAction for putstatic {
         let descriptor = frame.constants[field.descriptor_index as usize - 1]
             .expect_utf8()
             .unwrap();
+
+
+        loop {
+            let lock = jvm.read();
+            let raw_class = lock.class_loader.class(&class_name).unwrap();
+            if raw_class.get_field(&field_name, &descriptor).is_some() {
+                break
+            }
+
+            // Reached base case, it will error anyway
+            if class_name == "java/lang/Object" {
+                break
+            }
+
+            class_name = raw_class.super_class();
+        }
 
         let mut value = frame.stack.pop().expect("Unable to pop stack");
 
@@ -299,6 +332,12 @@ impl InstructionAction for new {
             .expect_class()
             .expect("Expected class from constant pool");
         let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+
+        if class_name.ends_with("Exception") || class_name.ends_with("Error") {
+            #[cfg(feature = "callstack")]
+            jvm.read().thread_manager.debug_print();
+            panic!("Starting to prepare {}", class_name);
+        }
 
         jvm.init_class(&class_name);
         jvm.write().class_loader.attempt_load(&class_name).unwrap();

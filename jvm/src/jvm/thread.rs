@@ -15,11 +15,12 @@ use std::thread::{current, park, sleep, spawn, yield_now, Thread, ThreadId};
 use crate::instruction::getstatic;
 use crate::jvm::JavaEnv;
 use parking_lot::{Condvar, Mutex, RwLock};
-use std::hash::Hash;
 use std::sync::{Arc, Barrier};
 use std::time::Duration;
 #[cfg(feature = "thread-priority")]
 use thread_priority::{ThreadId as NativeThreadId, ThreadPriority};
+#[cfg(feature = "callstack")]
+use crate::jvm::call::callstack_trace::CallTracer;
 
 pub trait SynchronousMonitor<T> {
     fn lock(&self, target: T);
@@ -31,7 +32,7 @@ pub trait SynchronousMonitor<T> {
 pub struct JavaThreadManager {
     thread_handles: HashMap<ObjectHandle, ThreadId>,
     threads: HashMap<ThreadId, ThreadInfo>,
-    monitor: HashMap<ObjectHandle, Arc<(Mutex<bool>, Condvar)>>,
+    monitor: HashMap<ObjectHandle, Arc<(Mutex<Option<(ThreadId, u64)>>, Condvar)>>,
     system_thread_group: Option<ObjectHandle>,
 }
 
@@ -45,6 +46,8 @@ impl JavaThreadManager {
             #[cfg(feature = "thread-priority")]
             native_thread: thread_priority::thread_native_id(),
             call_stack: vec![],
+            #[cfg(feature = "callstack")]
+            call_trace: CallTracer::new(),
             sticky_exception: None,
         };
 
@@ -66,7 +69,7 @@ impl JavaThreadManager {
         self.threads.get(&current().id()).map(|x| &x.call_stack[..])
     }
 
-    pub fn push_call_stack(&mut self, target: ObjectHandle, element: ClassElement) {
+    pub fn push_call_stack(&mut self, target: ObjectHandle, element: ClassElement, args: &[JavaValue]) {
         let current_thread = current();
         let mut info = self
             .threads
@@ -77,16 +80,34 @@ impl JavaThreadManager {
             info.state = ThreadState::Running;
         }
 
+
+        #[cfg(feature = "callstack")]
+        info.call_trace.push_call(&element, args);
         info.call_stack.push((target, element));
     }
 
-    pub fn pop_call_stack(&mut self) {
+    #[cfg(feature = "callstack")]
+    pub fn debug_print(&self) {
+        let current_thread = current();
+        let mut info = self
+            .threads
+            .get(&current_thread.id())
+            .expect("Unable to find current thread");
+
+        info.call_trace.dump();
+    }
+
+    pub fn pop_call_stack(&mut self, ret: &Result<Option<JavaValue>, FlowControl>) {
         let current_thread = current();
         let mut info = self
             .threads
             .get_mut(&current_thread.id())
             .expect("Unable to find current thread");
         info.call_stack.pop().unwrap();
+
+
+        #[cfg(feature = "callstack")]
+        info.call_trace.pop_call(ret);
 
         if info.call_stack.is_empty() {
             info.state = ThreadState::Stopped;
@@ -126,16 +147,23 @@ impl SynchronousMonitor<ObjectHandle> for Arc<RwLock<JavaEnv>> {
             .thread_manager
             .monitor
             .entry(target)
-            .or_insert_with(|| Arc::new((Mutex::new(false), Condvar::new())))
+            .or_insert_with(|| Arc::new((Mutex::new(None), Condvar::new())))
             .clone();
 
+        let current_thread = current().id();
         let mut guard = pair.0.lock();
 
-        while *guard {
+        while guard.is_some() {
+            // Lock is already held by this thread increment counter and continue
+            if guard.unwrap().0 == current_thread {
+                guard.unwrap().1 += 1;
+                return
+            }
+
             pair.1.wait(&mut guard);
         }
 
-        *guard = true;
+        *guard = Some((current().id(), 1));
     }
 
     fn unlock(&self, target: ObjectHandle) {
@@ -147,16 +175,28 @@ impl SynchronousMonitor<ObjectHandle> for Arc<RwLock<JavaEnv>> {
             .unwrap()
             .clone();
         let mut guard = pair.0.lock();
+        let mut break_lock = false;
 
-        assert!(*guard);
-        *guard = false;
+        if let Some((lock_holder, count)) = &mut *guard {
+            if *lock_holder == current().id() {
+                *count -= 1;
+            }
+
+            if *count == 0 {
+                break_lock = true;
+            }
+        }
+
+        if break_lock {
+            *guard = None;
+        }
 
         pair.1.notify_one();
     }
 
     fn check_lock(&self, target: ObjectHandle) -> bool {
         match self.read().thread_manager.monitor.get(&target) {
-            Some(v) => *v.0.lock(),
+            Some(v) => v.0.lock().is_some(),
             None => false,
         }
     }
@@ -171,7 +211,7 @@ pub unsafe extern "system" fn JVM_MonitorWait_impl(env: RawJNIEnv, obj: jobject,
         .thread_manager
         .monitor
         .entry(target)
-        .or_insert_with(|| Arc::new((Mutex::new(false), Condvar::new())))
+        .or_insert_with(|| Arc::new((Mutex::new(None), Condvar::new())))
         .clone();
 
     let mut guard = pair.0.lock();
@@ -187,7 +227,7 @@ pub unsafe extern "system" fn JVM_MonitorNotify_impl(env: RawJNIEnv, obj: jobjec
         .thread_manager
         .monitor
         .entry(target)
-        .or_insert_with(|| Arc::new((Mutex::new(false), Condvar::new())))
+        .or_insert_with(|| Arc::new((Mutex::new(None), Condvar::new())))
         .clone();
     pair.1.notify_one();
 }
@@ -200,7 +240,7 @@ pub unsafe extern "system" fn JVM_MonitorNotifyAll_impl(env: RawJNIEnv, obj: job
         .thread_manager
         .monitor
         .entry(target)
-        .or_insert_with(|| Arc::new((Mutex::new(false), Condvar::new())))
+        .or_insert_with(|| Arc::new((Mutex::new(None), Condvar::new())))
         .clone();
     pair.1.notify_all();
 }
@@ -213,6 +253,8 @@ pub struct ThreadInfo {
     #[cfg(feature = "thread-priority")]
     native_thread: NativeThreadId,
     call_stack: Vec<(ObjectHandle, ClassElement)>,
+    #[cfg(feature = "callstack")]
+    call_trace: CallTracer,
     // Unlike state_request, this holds regular exceptions thrown in native functions
     sticky_exception: Option<ObjectHandle>,
 }
@@ -245,7 +287,7 @@ pub fn prepare_sys_thread_group(env: &mut Arc<RwLock<JavaEnv>>) {
             sys_group,
             vec![],
         )
-        .unwrap();
+            .unwrap();
 
         env.write().thread_manager.system_thread_group = Some(sys_group);
     }
@@ -419,13 +461,13 @@ pub unsafe extern "system" fn JVM_StartThread_impl(env: RawJNIEnv, thread: jobje
     let mut barrier_clone = barrier.clone();
 
     #[cfg(feature = "crossbeam-channel")]
-    let (send, recv) = crossbeam_channel::bounded(1);
+        let (send, recv) = crossbeam_channel::bounded(1);
 
     let new_thread = spawn(move || {
         #[cfg(all(feature = "thread-priority", feature = "crossbeam-channel"))]
-        {
-            send.send(thread_priority::thread_native_id()).unwrap();
-        }
+            {
+                send.send(thread_priority::thread_native_id()).unwrap();
+            }
         {
             barrier_clone.wait();
         }
@@ -459,8 +501,8 @@ pub unsafe extern "system" fn JVM_StartThread_impl(env: RawJNIEnv, thread: jobje
             }
         }
     })
-    .thread()
-    .to_owned();
+        .thread()
+        .to_owned();
 
     let info = ThreadInfo {
         java_thread: Some(target_thread),
@@ -471,6 +513,8 @@ pub unsafe extern "system" fn JVM_StartThread_impl(env: RawJNIEnv, thread: jobje
         native_thread: recv.recv().unwrap(),
         sticky_exception: None,
         call_stack: vec![],
+        #[cfg(feature = "callstack")]
+        call_trace: CallTracer::new(),
     };
 
     let mut lock = env.write();
@@ -555,30 +599,30 @@ pub unsafe extern "system" fn JVM_SetThreadPriority_impl(
     warn!("Opting to ignore request to set thread priority");
 
     #[cfg(feature = "thread-priority")]
-    {
-        let thread_handle = ObjectHandle::from_ptr(thread).unwrap();
-        let lock = env.read();
+        {
+            let thread_handle = ObjectHandle::from_ptr(thread).unwrap();
+            let lock = env.read();
 
-        // Java object field is set for me
-        if let Some(info) = lock.thread_manager.get_info(thread_handle) {
-            let priority = ThreadPriority::Specific(prio as _);
+            // Java object field is set for me
+            if let Some(info) = lock.thread_manager.get_info(thread_handle) {
+                let priority = ThreadPriority::Specific(prio as _);
 
-            #[cfg(windows)]
-            thread_priority::set_thread_priority(info.native_thread, priority).unwrap();
+                #[cfg(windows)]
+                    thread_priority::set_thread_priority(info.native_thread, priority).unwrap();
 
-            #[cfg(unix)]
-            {
-                use thread_priority::unix::{NormalThreadSchedulePolicy, ThreadSchedulePolicy};
-                let policy = ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Normal);
-                thread_priority::set_thread_priority_and_policy(
-                    info.native_thread,
-                    priority,
-                    policy,
-                )
-                .unwrap();
+                #[cfg(unix)]
+                    {
+                        use thread_priority::unix::{NormalThreadSchedulePolicy, ThreadSchedulePolicy};
+                        let policy = ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Normal);
+                        thread_priority::set_thread_priority_and_policy(
+                            info.native_thread,
+                            priority,
+                            policy,
+                        )
+                            .unwrap();
+                    }
             }
         }
-    }
 }
 
 #[no_mangle]

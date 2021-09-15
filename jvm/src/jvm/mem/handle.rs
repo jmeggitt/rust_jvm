@@ -73,7 +73,7 @@ pub struct ObjectWrapper<T: 'static + Trace> {
 }
 
 impl<T: Trace> ObjectWrapper<T> {
-    fn new(val: T) -> Self {
+    pub fn new(val: T) -> Self {
         let ptr = Gc::new(val);
 
         // Make secondary
@@ -377,6 +377,11 @@ impl ObjectHandle {
             String::from_iter(arr.iter().map(|x| std::char::from_u32(*x as u32).unwrap()))
         }
     }
+
+    pub fn unwrap_as_class(&self) -> String {
+        let name: Option<ObjectHandle> = self.expect_instance().read_named_field("name");
+        name.unwrap().expect_string().replace('.', "/")
+    }
 }
 
 #[cfg(test)]
@@ -384,8 +389,6 @@ mod test {
     use crate::jvm::mem::{
         ClassSchema, FieldDescriptor, FieldSchema, ObjectHandle, ObjectReference, ObjectType,
     };
-    use crate::jvm::{ClassSchema, FieldSchema, ObjectHandle, ObjectReference, ObjectType};
-    use crate::types::FieldDescriptor;
     use gc::{Gc, Trace};
     use hashbrown::HashMap;
     use jni::sys::jint;
@@ -441,12 +444,9 @@ mod test {
         ObjectHandle::new_array::<jint>(234);
     }
 
-    #[test]
     pub fn empty_string() {
         let empty_string = ObjectHandle::new(string_schema());
         assert_eq!(empty_string.memory_layout(), ObjectType::Instance);
         assert_eq!(empty_string.expect_string(), "");
     }
-
-    pub fn check_array() {}
 }

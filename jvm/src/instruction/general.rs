@@ -3,7 +3,7 @@
 use std::io;
 use std::io::Cursor;
 
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
 
 use crate::constant_pool::{
     Constant, ConstantClass, ConstantDouble, ConstantFloat, ConstantInteger, ConstantLong,
@@ -11,7 +11,7 @@ use crate::constant_pool::{
 };
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
 use crate::jvm::call::{FlowControl, StackFrame};
-use crate::jvm::mem::JavaValue;
+use crate::jvm::mem::{JavaValue, FieldDescriptor};
 use crate::jvm::thread::SynchronousMonitor;
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
@@ -27,6 +27,77 @@ instruction! {ret, 0xa9, u8}
 // TODO: multianewarray
 // TODO: tableswitch
 // TODO: wide
+
+#[derive(Debug, Clone)]
+pub struct lookupswitch {
+    default: i32,
+    match_offset: Vec<(i32, i32)>,
+}
+
+impl StaticInstruct for lookupswitch {
+    const FORM: u8 = 0xab;
+
+    fn read(_: u8, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>> {
+        use byteorder::ReadBytesExt;
+
+        // 0-3 bytes padding to get proper alignment
+        while buffer.position() % 4 != 0 {
+            buffer.read_u8()?;
+        }
+
+        let default = buffer.read_i32::<BigEndian>()?;
+        let num_pairs = buffer.read_i32::<BigEndian>()? as usize;
+        let mut match_offset = Vec::with_capacity(num_pairs);
+
+        for _ in 0..num_pairs {
+            match_offset.push((buffer.read_i32::<BigEndian>()?, buffer.read_i32::<BigEndian>()?));
+        }
+
+        Ok(Box::new(lookupswitch { default, match_offset }))
+    }
+}
+
+impl Instruction for lookupswitch {
+    fn write(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<()> {
+        buffer.write_u8(<Self as StaticInstruct>::FORM)?;
+
+        while buffer.position() % 4 != 0 {
+            buffer.write_u8(0)?;
+        }
+
+        buffer.write_i32::<BigEndian>(self.default)?;
+        buffer.write_i32::<BigEndian>(self.match_offset.len() as i32)?;
+
+        for (match_val, offset) in &self.match_offset {
+            buffer.write_i32::<BigEndian>(*match_val)?;
+            buffer.write_i32::<BigEndian>(*offset)?;
+        }
+
+        Ok(())
+    }
+    fn exec(&self, stack: &mut crate::jvm::call::StackFrame, jvm: &mut std::sync::Arc<parking_lot::RwLock<crate::jvm::JavaEnv>>) -> Result<(), crate::jvm::call::FlowControl> {
+        <Self as crate::instruction::InstructionAction>::exec(self, stack, jvm)
+    }
+}
+
+impl InstructionAction for lookupswitch {
+    fn exec(&self, frame: &mut StackFrame, _: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
+        if let Some(JavaValue::Int(key)) = FieldDescriptor::Int.assign_from(frame.stack.pop().unwrap()) {
+            // debug!("{} -> {:?}", key, self);
+            for (match_val, offset) in &self.match_offset {
+                if key == *match_val {
+                    return Err(FlowControl::Branch(*offset as _))
+                } else if key < *match_val {
+                    break
+                }
+            }
+
+            return Err(FlowControl::Branch(self.default as _))
+        }
+        panic!("Expected int to use in lookup table")
+    }
+}
+
 
 instruction! {@partial athrow, 0xbf}
 

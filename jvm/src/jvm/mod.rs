@@ -13,13 +13,8 @@ use crate::jvm::hooks::register_hooks;
 use crate::jvm::mem::{ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle};
 use crate::jvm::thread::{first_time_sys_thread_init, JavaThreadManager};
 use parking_lot::RwLock;
-
-// macro_rules! fatal_error {
-//     ($($arg:tt),*) => {{
-//         error!($($arg),*);
-//         panic!($($arg),*);
-//     }};
-// }
+use std::fs::File;
+use std::io::{BufWriter, Write};
 
 pub mod call;
 pub mod mem;
@@ -89,6 +84,20 @@ impl JavaEnv {
         jvm
     }
 
+    pub fn dump_debug_info(&self) {
+        let mut static_init = BufWriter::new(File::create("static_init.dump").unwrap());
+
+        for field in &self.static_load {
+            writeln!(&mut static_init, "{}", field).unwrap();
+        }
+
+        let mut static_fields = BufWriter::new(File::create("static_fields.dump").unwrap());
+
+        for (k, v) in &self.static_fields {
+            writeln!(&mut static_fields, "{}: {:?}", k, v).unwrap();
+        }
+    }
+
     pub fn class_schema(&mut self, class: &str) -> Arc<ClassSchema> {
         if !self.schemas.contains_key(class) {
             let class_spec = self.expect_class(class).clone();
@@ -117,7 +126,6 @@ impl JavaEnv {
     }
 
     pub fn instanceof(&self, instance: &str, target: &str) -> Option<bool> {
-        warn!("Performing instanceof {} {}", instance, target);
         if instance == target || target == "java/lang/Object" {
             return Some(true);
         }

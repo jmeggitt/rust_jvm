@@ -1,9 +1,7 @@
 use glob::glob;
 use log::LevelFilter;
 use log::{error, info};
-use pretty_env_logger::env_logger::Target;
-use pretty_env_logger::formatted_builder;
-use std::env::{set_var, var};
+use std::env::var;
 
 mod args;
 
@@ -11,15 +9,11 @@ use args::*;
 
 // use jvm::class::{ClassLoader, ClassPath};
 // use jvm::jvm::JavaEnv;
-use jni::sys::{
-    jint, JNIEnv, JNI_CreateJavaVM, JNI_GetDefaultJavaVMInitArgs, JavaVM, JavaVMInitArgs, JNI_ERR,
-    JNI_TRUE, JNI_VERSION_1_8,
-};
-use libloading::{Library, Symbol};
-use std::ffi::c_void;
+use jni::sys::{JNI_CreateJavaVM, JNI_GetDefaultJavaVMInitArgs, JavaVMInitArgs, JNI_ERR, JNI_TRUE, JNI_VERSION_1_8, JNIEnv, JNINativeInterface_, jvalue};
+use std::ffi::{c_void, CString};
 use std::path::PathBuf;
 use std::process::exit;
-use std::ptr::null_mut;
+use std::ptr::{null_mut, null};
 
 #[link(name = "jvm")]
 extern "C" {}
@@ -47,7 +41,7 @@ fn main() {
     println!("{:?}", &opts);
 
     // First setup logging so we can see future errors in verbose mode
-    let log_level = match opts.has_flag("verbose") {
+    let _log_level = match opts.has_flag("verbose") {
         true => LevelFilter::Debug,
         false => LevelFilter::Error,
     };
@@ -163,6 +157,17 @@ fn main() {
         {
             panic!("Unable to create Java VM");
         }
+
+        let env: *mut JNIEnv = env;
+        let interface: &JNINativeInterface_ = &**env;
+
+        let class = CString::new("Simple").unwrap();
+        let target = interface.FindClass.unwrap()(env, class.as_ptr());
+        let method = interface.GetStaticMethodID.unwrap()(env, target, "main\0".as_ptr() as _, "([Ljava/lang/String;)V\0".as_ptr() as _);
+
+        let args = [jvalue {l: null_mut()}; 2];
+        interface.CallStaticVoidMethodA.unwrap()(env, target, method, &args[0] as *const _)
+        // env.CallStaticVoidMethodA
     }
 
     // let java_dir = var("JAVA_HOME").ok().map(PathBuf::from);

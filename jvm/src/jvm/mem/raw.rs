@@ -12,10 +12,20 @@ use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem::size_of;
 use std::sync::Arc;
+use crate::jvm::call::RawJNIEnv;
 
 pub struct RawObject<T: ?Sized> {
     pub schema: Arc<ClassSchema>,
     fields: UnsafeCell<T>,
+}
+
+impl<T: Clone> Clone for RawObject<T> {
+    fn clone(&self) -> Self {
+        RawObject {
+            schema: self.schema.clone(),
+            fields: unsafe { UnsafeCell::new((&*self.fields.get()).clone()) }
+        }
+    }
 }
 
 impl<T> RawObject<T> {
