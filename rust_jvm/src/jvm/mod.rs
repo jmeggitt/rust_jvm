@@ -27,22 +27,16 @@ pub mod thread;
 pub struct JavaEnv {
     pub class_loader: ClassLoader,
     pub static_fields: HashMap<String, JavaValue>,
-
-    // Classes we have loaded and called <clinit> if possible
     pub static_load: HashSet<String>,
-    // pub native_stack: OperandStack,
     pub linked_libraries: NativeManager,
 
     pub vm: VirtualMachine,
 
     pub registered_classes: HashMap<String, ObjectHandle>,
 
-    // pub call_stack: Vec<(ObjectHandle, String)>,
     pub thread_manager: JavaThreadManager,
 
     pub interned_strings: HashMap<String, ObjectHandle>,
-    // pub threads: HashMap<ThreadId, ObjectHandle>,
-    // pub sys_thread_group: Option<ObjectHandle>,
     schemas: HashMap<String, Arc<ClassSchema>>,
 }
 
@@ -52,14 +46,9 @@ impl JavaEnv {
             class_loader,
             static_fields: HashMap::new(),
             static_load: HashSet::new(),
-            // native_stack: OperandStack::new(16384),
             linked_libraries: NativeManager::new(),
             vm: VirtualMachine::default(),
-            // locals: vec![JavaValue::Int(0); 255],
             registered_classes: HashMap::new(),
-            // call_stack: Vec::new(),
-            // threads: HashMap::new(),
-            // sys_thread_group: None,
             thread_manager: JavaThreadManager::default(),
             interned_strings: HashMap::new(),
             schemas: HashMap::new(),
@@ -67,12 +56,6 @@ impl JavaEnv {
 
         #[cfg(feature = "thread_profiler")]
         thread_profiler::register_thread_with_profiler();
-        // unsafe {
-        //     jvm.make_primary_jvm();
-        // }
-
-        // Tell jvm to skip initializing the security manager because it requires a ton of native methods.
-        // jvm.static_load.insert("java/lang/SecurityManager".to_string());
 
         // warn!("Loading core")
         jvm.load_core_libs().unwrap();
@@ -200,14 +183,6 @@ impl JavaEnv {
             )
             .unwrap();
 
-        // We need to load this first since the following libraries depend on it
-        // #[cfg(unix)]
-        // self.linked_libraries
-        //     .load_library(lib_dir.join("amd64/server/libjvm.so"))?;
-        // #[cfg(windows)]
-        // self.linked_libraries
-        //     .load_library(lib_dir.join("server/jvm.dll"))?;
-
         // Load includes in deterministic order to ensure regularity between runs
         for entry in WalkDir::new(&lib_dir).sort_by_file_name() {
             let entry = entry?;
@@ -262,27 +237,5 @@ impl JavaEnv {
     pub fn debug_print_call_stack(&self) {
         debug!("Call stack:");
         self.thread_manager.debug_print_call_stack();
-        // let mut padding = String::new();
-        // for debug_str in &self.call_stack {
-        //     debug!("{}{}", &padding, debug_str.1);
-        //     padding.push_str("   ");
-        // }
     }
-
-    // pub fn entry_point(&mut self, class: &str, args: Vec<String>) -> io::Result<()> {
-    //     info!(
-    //         "Starting entry point class {} with arguments {:?}",
-    //         class, &args
-    //     );
-    //
-    //     self.class_loader.attempt_load(class)?;
-    //
-    //     let arg = JavaValue::Reference(Some(ObjectHandle::new_array::<Option<ObjectHandle>>(0)));
-    //     // self.exec_static(class, "main", "([Ljava/lang/String;)V", vec![arg])
-    //     //     .unwrap();
-    //     let method = ClassElement::new(class, "main", "([Ljava/lang/String;)V");
-    //     self.invoke_static(method, vec![arg]).unwrap();
-    //
-    //     Ok(())
-    // }
 }

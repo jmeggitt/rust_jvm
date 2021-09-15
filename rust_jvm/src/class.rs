@@ -673,13 +673,25 @@ impl ClassLoader {
                 // Gonna have to take the long approach
                 if load_path.extension().and_then(OsStr::to_str) == Some("jar") {
                     // check if jar has already been unpacked
-                    if !self.loaded_jars.contains_key(&load_path) {
-                        self.unpack_jar(&load_path)?;
-                    }
+                    // if !self.loaded_jars.contains_key(&load_path) {
+                    //     self.unpack_jar(&load_path)?;
+                    // }
+                    //
+                    // let unpacked = self.loaded_jars.get(&load_path).unwrap();
+                    // let unpacked = unpacked.dir.join(format!("{}.class", class));
+                    // self.load_new(&unpacked)?
 
-                    let unpacked = self.loaded_jars.get(&load_path).unwrap();
-                    let unpacked = unpacked.dir.join(format!("{}.class", class));
-                    self.load_new(&unpacked)?
+                    // TODO: Hold file descriptor
+                    let mut jar = ZipArchive::new(File::open(&load_path)?)?;
+
+                    let mut entry = match jar.by_name(&format!("{}.class", class)) {
+                        Ok(v) => v,
+                        Err(e) => return Err(Error::new(ErrorKind::NotFound, format!("{:?}", e))),
+                    };
+
+                    let mut bytes = Vec::with_capacity(entry.size() as usize);
+                    entry.read_to_end(&mut bytes)?;
+                    self.read_buffer(&bytes)?;
                 } else {
                     // Just a regular class so we can just load it normally
                     self.load_new(&load_path)?;

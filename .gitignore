@@ -10,3 +10,5 @@ std/out
 std/includes
 
 test-env/
+*.log
+*.dump

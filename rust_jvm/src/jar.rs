@@ -17,8 +17,6 @@ use crate::read_file;
 pub fn unpack_jar<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     let mut jar = ZipArchive::new(File::open(path.as_ref())?)?;
 
-    // TODO: let unpack_dir = tempdir()?;
-
     let file_name = match path.as_ref().file_name().and_then(|x| x.to_str()) {
         Some(v) => v,
         None => {
