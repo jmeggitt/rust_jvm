@@ -2,7 +2,7 @@ use std::env;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io;
-use std::io::{Cursor, Error, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{BufReader, Cursor, Error, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -555,7 +555,7 @@ pub struct ClassLoader {
     loaded: HashMap<String, Class>,
     class_path: ClassPath,
     load_requests: HashSet<String>,
-    pub loaded_jars: HashMap<PathBuf, UnpackedJar>,
+    pub loaded_jars: HashMap<PathBuf, ZipArchive<BufReader<File>>>,
 }
 
 impl ClassLoader {
@@ -594,7 +594,6 @@ impl ClassLoader {
             None => return Err(Error::new(ErrorKind::Other, "Class name not found!")),
         };
 
-        debug!("Loaded Class {}", &class_name);
         // log_dump!(CLASS_LOADER, "[Explicit Load] {}: {}", &class_name, path.display());
         // log_dump!(CLASS_LOADER, "[Explicit Load]");
         self.loaded.insert(class_name, class);
@@ -632,13 +631,13 @@ impl ClassLoader {
             manifest.check_entries(&unpack_folder).unwrap();
             manifest.verify_entries(&unpack_folder).unwrap();
 
-            self.loaded_jars.insert(
-                file.to_path_buf(),
-                UnpackedJar {
-                    dir: unpack_folder.clone(),
-                    manifest,
-                },
-            );
+            // self.loaded_jars.insert(
+            //     file.to_path_buf(),
+            //     UnpackedJar {
+            //         dir: unpack_folder.clone(),
+            //         manifest,
+            //     },
+            // );
         }
 
         Ok(())
@@ -673,25 +672,34 @@ impl ClassLoader {
                 // Gonna have to take the long approach
                 if load_path.extension().and_then(OsStr::to_str) == Some("jar") {
                     // check if jar has already been unpacked
-                    // if !self.loaded_jars.contains_key(&load_path) {
-                    //     self.unpack_jar(&load_path)?;
-                    // }
+                    if !self.loaded_jars.contains_key(&load_path) {
+                        // self.unpack_jar(&load_path)?;
+                        self.loaded_jars.insert(
+                            load_path.clone(),
+                            ZipArchive::new(BufReader::new(File::open(&load_path)?))?,
+                        );
+                    }
                     //
-                    // let unpacked = self.loaded_jars.get(&load_path).unwrap();
-                    // let unpacked = unpacked.dir.join(format!("{}.class", class));
-                    // self.load_new(&unpacked)?
+                    let buffer = {
+                        let jar = self.loaded_jars.get_mut(&load_path).unwrap();
+                        // let unpacked = unpacked.dir.join(format!("{}.class", class));
+                        // self.load_new(&unpacked)?
 
-                    // TODO: Hold file descriptor
-                    let mut jar = ZipArchive::new(File::open(&load_path)?)?;
+                        // TODO: Hold file descriptor
+                        // let mut jar = ZipArchive::new(File::open(&load_path)?)?;
 
-                    let mut entry = match jar.by_name(&format!("{}.class", class)) {
-                        Ok(v) => v,
-                        Err(e) => return Err(Error::new(ErrorKind::NotFound, format!("{:?}", e))),
+                        let mut entry = match jar.by_name(&format!("{}.class", class)) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                return Err(Error::new(ErrorKind::NotFound, format!("{:?}", e)))
+                            }
+                        };
+
+                        let mut bytes = Vec::with_capacity(entry.size() as usize);
+                        entry.read_to_end(&mut bytes)?;
+                        bytes
                     };
-
-                    let mut bytes = Vec::with_capacity(entry.size() as usize);
-                    entry.read_to_end(&mut bytes)?;
-                    self.read_buffer(&bytes)?;
+                    self.read_buffer(&buffer)?;
                 } else {
                     // Just a regular class so we can just load it normally
                     self.load_new(&load_path)?;
@@ -929,7 +937,7 @@ impl ClassPath {
     pub fn preload_jar(&mut self, file: &Path) -> io::Result<bool> {
         debug!("Preloading jar: {}", file.display());
 
-        let mut jar = ZipArchive::new(File::open(file)?)?;
+        let mut jar = ZipArchive::new(BufReader::new(File::open(file)?))?;
         let mut changes = false;
 
         for i in 0..jar.len() {

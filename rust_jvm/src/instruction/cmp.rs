@@ -244,3 +244,30 @@ impl InstructionAction for dcmpl {
         Ok(())
     }
 }
+
+instruction! {@partial lcmp, 0x94}
+
+impl InstructionAction for lcmp {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        frame.stack.pop().unwrap();
+        let value2 = frame.stack.pop().unwrap();
+        frame.stack.pop().unwrap();
+        let value1 = frame.stack.pop().unwrap();
+
+        if let (JavaValue::Long(val1), JavaValue::Long(val2)) = (value1, value2) {
+            frame.stack.push(match val1.cmp(&val2) {
+                Ordering::Less => JavaValue::Int(-1),
+                Ordering::Equal => JavaValue::Int(0),
+                Ordering::Greater => JavaValue::Int(1),
+            });
+        } else {
+            panic!("dcmp requires 2 doubles to operate!")
+        }
+
+        Ok(())
+    }
+}

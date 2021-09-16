@@ -13,6 +13,8 @@ use crate::jvm::hooks::register_hooks;
 use crate::jvm::mem::{ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle};
 use crate::jvm::thread::{first_time_sys_thread_init, JavaThreadManager};
 use parking_lot::RwLock;
+use std::error::Error;
+use std::ffi::CString;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -169,19 +171,14 @@ impl JavaEnv {
         let lib_dir = self.class_loader.class_path().java_home().join("bin");
         info!("Loading shared libraries from {}", lib_dir.display());
 
-        #[cfg(unix)]
-        self.linked_libraries
-            .load_library(
-                "/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/target/debug/librustyjvm.so"
-                    .into(),
-            )
-            .unwrap();
         #[cfg(windows)]
-        self.linked_libraries
-            .load_library(
-                "C:/Users/Jasper/CLionProjects/JavaClassTests/target/debug/rustyjvm.dll".into(),
-            )
-            .unwrap();
+        unsafe {
+            let path = CString::new(format!("{}", lib_dir.display())).unwrap();
+            if winapi::um::winbase::SetDllDirectoryA(path.as_ptr()) == 0 {
+                let err = winapi::um::errhandlingapi::GetLastError();
+                panic!("Failed to set dll directory (error: {})", err);
+            }
+        }
 
         // Load includes in deterministic order to ensure regularity between runs
         for entry in WalkDir::new(&lib_dir).sort_by_file_name() {
@@ -203,8 +200,12 @@ impl JavaEnv {
 
             #[cfg(windows)]
             if entry.path().extension() == Some("dll".as_ref()) {
-                self.linked_libraries
-                    .load_library(entry.path().to_path_buf())?;
+                if let Err(e) = self
+                    .linked_libraries
+                    .load_library(entry.path().to_path_buf())
+                {
+                    error!("{}", e);
+                };
             }
         }
 

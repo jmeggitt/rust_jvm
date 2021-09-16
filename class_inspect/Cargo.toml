@@ -1,0 +1,12 @@
+[package]
+name = "class_inspect"
+version = "0.1.0"
+edition = "2018"
+authors = ["Jasper Meggitt <jasper.meggitt@gmail.com>"]
+
+[features]
+default = ["rust_jvm/quiet"]
+
+[dependencies]
+rust_jvm = {path = "../rust_jvm"}
+clap = "2.33.3"

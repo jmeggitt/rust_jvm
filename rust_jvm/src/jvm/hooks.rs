@@ -2,10 +2,10 @@
 
 use std::ffi::c_void;
 
-use jni::sys::{jclass, JNIEnv};
+use jni::sys::{jclass, jint, jobject, jstring, JNIEnv};
 
 use crate::constant_pool::ClassElement;
-use crate::jvm::call::{clean_str, JavaEnvInvoke};
+use crate::jvm::call::{clean_str, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{JavaValue, ObjectHandle};
 use crate::jvm::JavaEnv;
 use home::home_dir;
@@ -117,6 +117,12 @@ pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
         "()V",
         empty as *const c_void,
     );
+    jvm.write().linked_libraries.register_fn(
+        "java/hooks/PrintStreamHook",
+        "sendIO",
+        "(ILjava/lang/String;)V",
+        Java_java_hooks_PrintStreamHook_sendIO as *const c_void,
+    );
     build_system_properties(jvm);
 
     // Don't init stdout/stderr if doing tests to save time
@@ -153,3 +159,19 @@ pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
 }
 
 pub unsafe extern "system" fn empty(_env: *mut JNIEnv, _cls: jclass) {}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_java_hooks_PrintStreamHook_sendIO(
+    env: RawJNIEnv,
+    _obj: jobject,
+    fd: jint,
+    string: jstring,
+) {
+    let output = obj_expect!(env, string).expect_string();
+
+    if fd == 0 {
+        print!("{}", output);
+    } else if fd == 1 {
+        eprint!("{}", output);
+    }
+}

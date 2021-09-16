@@ -2867,3 +2867,8 @@ extern "C" {
     #[allow(dead_code)]
     static JDK1_1InitArgs: JDK1_1InitArgs;
 }
+
+#[no_mangle]
+pub unsafe extern "system" fn JVM_Unsupported() {
+    unimplemented!("Not supported in Java 8")
+}

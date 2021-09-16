@@ -3,6 +3,7 @@
 members = [
     "rust_jvm",
     "java",
+    "class_inspect"
 ]
 
 

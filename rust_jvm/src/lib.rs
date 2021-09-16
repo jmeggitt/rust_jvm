@@ -41,8 +41,10 @@ macro_rules! log_dump {
         }
     };
     ($name:ident, $($tokens:tt)+) => {
-        writeln!(&mut *$name.lock(), $($tokens)+).unwrap();
-        $name.lock().flush().unwrap();
+        if !cfg!(feature = "quiet") {
+            writeln!(&mut *$name.lock(), $($tokens)+).unwrap();
+            $name.lock().flush().unwrap();
+        }
     };
 }
 

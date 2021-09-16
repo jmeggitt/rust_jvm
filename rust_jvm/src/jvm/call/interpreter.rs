@@ -98,7 +98,7 @@ impl StackFrame {
         jvm: &mut Arc<RwLock<JavaEnv>>,
         code: &CodeAttribute,
     ) -> Result<Option<JavaValue>, FlowControl> {
-        self.debug_print();
+        // self.debug_print();
         StackFrame::verify_computational_types(&self.locals);
         StackFrame::verify_computational_types(&self.stack);
 

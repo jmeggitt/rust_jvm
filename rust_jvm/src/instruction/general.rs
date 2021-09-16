@@ -22,8 +22,6 @@ use std::sync::Arc;
 // TODO: invokedynamic
 instruction! {jsr, 0xa8, u16}
 // TODO: jsr_w
-instruction! {lcmp, 0x94}
-// TODO: lookupswitch
 instruction! {ret, 0xa9, u8}
 // TODO: multianewarray
 // TODO: tableswitch

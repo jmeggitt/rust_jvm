@@ -1,18 +1,19 @@
 [package]
 name = "rust_jvm"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Jasper Meggitt <jasper.meggitt@gmail.com>"]
 edition = "2018"
 
 [lib]
 name = "jvm"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [features]
 default = []
 profile = ["thread_profiler"]
 priority = ["thread-priority", "crossbeam-channel"]
 callstack = ["serde_json"]
+quiet = []
 debug = []
 
 [dependencies]
@@ -37,6 +38,9 @@ home = "0.5.3"
 libc = "0.2.101"
 whoami = "1.1.3"
 
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3"
+
 [dependencies.serde_json]
 version = "1.0.67"
 optional = true
@@ -55,7 +59,8 @@ optional = true
 
 [dependencies.log]
 version = "0.4"
-features = ["max_level_debug", "release_max_level_debug", "std", "serde"]
+features = ["max_level_debug", "release_max_level_error", "std", "serde"]
 
 [build-dependencies]
 walkdir = "2.3.2"
+cc = "1.0"

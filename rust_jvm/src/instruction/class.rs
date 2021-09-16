@@ -357,7 +357,7 @@ impl InstructionAction for invokespecial {
         jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let invokespecial(field) = *self;
-        frame.debug_print();
+        // frame.debug_print();
 
         let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
             Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),

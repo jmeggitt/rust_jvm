@@ -20,7 +20,9 @@ public class PrintStreamHook extends OutputStream {
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-        Objects.checkFromIndexSize(off, len, b.length);
+        if (off + len > b.length || off < 0) {
+            throw new IllegalArgumentException();
+        }
         sendIO(fd, new String(b, off, len));
     }
 

@@ -109,6 +109,9 @@ fn main() {
     }
 
     unsafe {
+        // #[cfg(windows)]
+        // libloading::Library::new("target/release/jvm.dll").unwrap();
+
         // TODO: Pass arguments to jvm
         let mut args = JavaVMInitArgs {
             version: JNI_VERSION_1_8,

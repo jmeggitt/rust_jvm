@@ -194,7 +194,12 @@ impl NativeManager {
                     Err(e) => {
                         return Err(Error::new(
                             ErrorKind::Other,
-                            format!("{}: {}", e, path.display()),
+                            format!(
+                                "{}: {} ({})",
+                                &e,
+                                std::error::Error::source(&e).unwrap(),
+                                path.display()
+                            ),
                         ));
                     } // Err(e) => return Err(Error::new(ErrorKind::Other, e)),
                 };
