@@ -11,7 +11,7 @@ use crate::constant_pool::{
 };
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
 use crate::jvm::call::{FlowControl, StackFrame};
-use crate::jvm::mem::{FieldDescriptor, JavaValue};
+use crate::jvm::mem::{FieldDescriptor, JavaValue, ObjectReference};
 use crate::jvm::thread::SynchronousMonitor;
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
@@ -22,10 +22,23 @@ use std::sync::Arc;
 // TODO: invokedynamic
 instruction! {jsr, 0xa8, u16}
 // TODO: jsr_w
-instruction! {ret, 0xa9, u8}
 // TODO: multianewarray
 // TODO: tableswitch
 // TODO: wide
+
+instruction! {@partial ret, 0xa9, u8}
+
+impl InstructionAction for ret {
+    fn exec(
+        &self,
+        _frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        unimplemented!(
+            "Returning by return address is unsupported in this implementation of the jvm"
+        )
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct lookupswitch {
@@ -133,13 +146,25 @@ impl InstructionAction for checkcast {
     fn exec(
         &self,
         frame: &mut StackFrame,
-        _jvm: &mut Arc<RwLock<JavaEnv>>,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
-        // TODO: Implement cast checking
-        warn!(
-            "Skipped cast check as exceptions are not implemented yet: {:?}",
-            frame.stack[frame.stack.len() - 1]
-        );
+        let checkcast(index) = *self;
+        let class_index = frame.constants[index as usize - 1].expect_class().unwrap();
+        let class_name = frame.constants[class_index as usize - 1]
+            .expect_utf8()
+            .unwrap();
+
+        if let JavaValue::Reference(Some(v)) = &frame.stack[frame.stack.len() - 1] {
+            if matches!(
+                jvm.read().instanceof(&v.get_class(), &class_name),
+                Some(false) | None
+            ) {
+                // TODO: Check if this is the correct exception
+                return Err(FlowControl::throw("java/lang/ClassCastException"));
+            }
+        } else if !matches!(&frame.stack[frame.stack.len() - 1], JavaValue::Reference(_)) {
+            panic!("Expected Reference for castcheck")
+        }
         Ok(())
     }
 }

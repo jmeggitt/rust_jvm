@@ -107,9 +107,8 @@ impl NativeCall {
             ffi_args.push(NativeCall::wrap_arg(arg));
         }
 
-        // TODO: Handle sticky exception
         if let FieldDescriptor::Method { returns, .. } = &self.desc {
-            unsafe {
+            let ret = unsafe {
                 Ok(Some(match &**returns {
                     FieldDescriptor::Void => {
                         self.cif.call::<c_void>(self.fn_ptr, &ffi_args);
@@ -137,7 +136,15 @@ impl NativeCall {
                     }
                     _ => panic!(),
                 }))
+            };
+
+            let mut lock = jvm.write();
+            if let Some(exception) = lock.thread_manager.get_sticky_exception() {
+                // Clear and propogate exception
+                lock.thread_manager.set_sticky_exception(None);
+                return Err(FlowControl::Throws(Some(exception)));
             }
+            ret
         } else {
             unreachable!("Should have passed argument check")
         }

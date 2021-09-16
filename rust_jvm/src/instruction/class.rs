@@ -335,7 +335,7 @@ impl InstructionAction for new {
         if class_name.ends_with("Exception") || class_name.ends_with("Error") {
             #[cfg(feature = "callstack")]
             jvm.read().thread_manager.debug_print();
-            panic!("Starting to prepare {}", class_name);
+            // panic!("Starting to prepare {}", class_name);
         }
 
         jvm.init_class(&class_name);

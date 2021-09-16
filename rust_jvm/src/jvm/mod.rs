@@ -103,6 +103,8 @@ impl JavaEnv {
         let class = ObjectHandle::new(schema);
         let instance = class.expect_instance();
 
+        self.class_loader.attempt_load(name).unwrap();
+
         instance.write_named_field("name", self.build_string(&name.replace('/', ".")));
 
         self.registered_classes.insert(name.to_string(), class);
@@ -117,6 +119,11 @@ impl JavaEnv {
         // If this is a regular object, we hit the base case
         if instance == "java/lang/Object" {
             return Some(false);
+        }
+
+        // TODO: Arrays currently do not hold their types correctly for objects
+        if instance.starts_with("[L") {
+            return Some(target.starts_with("[L"));
         }
 
         let entry_class = self.class_loader.class(instance)?;

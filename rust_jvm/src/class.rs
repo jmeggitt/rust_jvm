@@ -709,12 +709,12 @@ impl ClassLoader {
                 Ok(true)
             }
             None => {
-                error!("Unable to find class {} in class path!", class);
+                warn!("Unable to find class {} in class path!", class);
                 Ok(false)
             }
         };
 
-        if class != "java/lang/Object" {
+        if class != "java/lang/Object" && matches!(&ret, Ok(true)) {
             let super_class = self.loaded.get(class).unwrap().super_class();
             self.attempt_load(&super_class)?;
         }

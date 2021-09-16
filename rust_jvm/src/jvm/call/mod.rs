@@ -212,7 +212,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         // for (idx, local) in locals.iter().enumerate() {
         //     debug!("\t{}: {:?}", idx, local);
         // }
-        // self.read().debug_print_call_stack();
+        self.read().debug_print_call_stack();
         StackFrame::verify_computational_types(&locals);
         let (class_name, method, constants) =
             match self

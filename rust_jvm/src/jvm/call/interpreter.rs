@@ -121,7 +121,6 @@ impl StackFrame {
                 handle_thread_updates(jvm)?;
             }
 
-            // let instruction = &self.code.instructions[self.rip];
             debug!("Executing instruction {:?}", &code.instructions[rip]);
             {
                 #[cfg(feature = "profile")]
@@ -144,6 +143,8 @@ impl StackFrame {
                     }
                     Err(FlowControl::Throws(Some(e))) => {
                         let exception_class = e.get_class();
+                        warn!("Got exception of type {}", &exception_class);
+                        jvm.read().debug_print_call_stack();
 
                         let position = code.instructions[rip].0;
                         match code.attempt_catch(
@@ -153,19 +154,32 @@ impl StackFrame {
                             &mut *jvm.write(),
                         ) {
                             Some(jump_dst) => {
+                                // Push to stack so it can be handled by those methods
+                                self.stack.push(JavaValue::Reference(Some(e)));
+
                                 debug!("Exception successfully caught, branching to catch block!");
                                 let mut branch_offset = jump_dst as i64 - position as i64;
+                                let mut signum = branch_offset.signum();
 
                                 while branch_offset != 0 {
                                     let (current_pos, _) = code.instructions[rip];
                                     rip = (rip as i64 + branch_offset.signum()) as usize;
                                     branch_offset -=
                                         code.instructions[rip].0 as i64 - current_pos as i64;
+
+                                    // I'm not sure if exception tables use branch offsets so leave a check here so I find out later
+                                    if branch_offset != 0 && branch_offset.signum() != signum {
+                                        signum = branch_offset.signum();
+                                        warn!(
+                                            "Might be in infinite loop, branch offset: {}",
+                                            branch_offset
+                                        );
+                                    }
                                 }
                             }
                             None => {
                                 warn!("Exception not caught, Raising: {}", exception_class);
-                                jvm.read().debug_print_call_stack();
+                                // jvm.read().debug_print_call_stack();
                                 return Err(FlowControl::Throws(Some(e)));
                             }
                         }

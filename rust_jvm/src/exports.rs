@@ -69,7 +69,7 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
 
     CombinedLogger::init(vec![
         TermLogger::new(
-            LevelFilter::Debug,
+            LevelFilter::Warn,
             Config::default(),
             TerminalMode::Mixed,
             ColorChoice::Always,
@@ -315,7 +315,7 @@ pub unsafe extern "system" fn JVM_ArrayCopy_impl(
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_InitProperties_impl(env: RawJNIEnv, p: jobject) -> jobject {
-    // TODO: ?
+    // TODO: Move properties initialization here from hooks
     unimplemented!()
 }
 
@@ -433,8 +433,9 @@ pub unsafe extern "system" fn JVM_IsNaN_impl(d: jdouble) -> jboolean {
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FillInStackTrace_impl(env: RawJNIEnv, throwable: jobject) {
-    env.read().dump_debug_info();
-    unimplemented!("JVM_FillInStackTrace")
+    let exception = obj_expect!(env, throwable);
+    // env.read().dump_debug_info();
+    // unimplemented!("JVM_FillInStackTrace")
 }
 
 #[no_mangle]
@@ -1439,8 +1440,10 @@ pub unsafe extern "system" fn JVM_DoPrivileged_impl(
     match env.invoke_virtual(element, action, vec![]) {
         Ok(Some(JavaValue::Reference(None))) => null_mut(),
         Ok(Some(JavaValue::Reference(Some(v)))) => v.ptr(),
-        // FIXME: This should handle exceptions
-        // Err(FlowControl::Throws(x))
+        Err(FlowControl::Throws(x)) => {
+            env.write_thrown(x);
+            null_mut()
+        }
         x => panic!("{:?}", x),
     }
     // panic!("Action: {:?}", ObjectHandle::from_ptr(action))

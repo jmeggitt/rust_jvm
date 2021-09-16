@@ -64,7 +64,7 @@ fn main() {
     };
 
     // TODO: zip files can be interpreted as jars
-    let mut class_path = vec!["java_std/out".into()];
+    let mut class_path = vec![];
 
     match (opts.get_args("class_path"), var("CLASSPATH")) {
         // If class path is specified, it overrides CLASSPATH environment variable
@@ -101,17 +101,12 @@ fn main() {
         _ => class_path.push(".".into()),
     };
 
-    class_path.push("/mnt/c/Users/Jasper/CLionProjects/JavaClassTests/java_std/out".into());
-
     // If running a jar, add it to the class path
     if opts.has_flag("jar") {
         class_path.push(PathBuf::from(&opts.program_args[0]));
     }
 
     unsafe {
-        // #[cfg(windows)]
-        // libloading::Library::new("target/release/jvm.dll").unwrap();
-
         // TODO: Pass arguments to jvm
         let mut args = JavaVMInitArgs {
             version: JNI_VERSION_1_8,
@@ -139,7 +134,7 @@ fn main() {
         let env: *mut JNIEnv = env;
         let interface: &JNINativeInterface_ = &**env;
 
-        let class = CString::new("Simple").unwrap();
+        let class = CString::new(opts.program_args[0].as_bytes()).unwrap();
         let target = interface.FindClass.unwrap()(env, class.as_ptr());
         let method = interface.GetStaticMethodID.unwrap()(
             env,
