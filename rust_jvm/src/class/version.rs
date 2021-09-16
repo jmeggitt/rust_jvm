@@ -1,10 +1,11 @@
 use std::cmp::Ordering;
 use std::io::{self, Cursor};
 
+use crate::class::class_file::BufferedRead;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::class::BufferedRead;
+// use crate::r#mod::BufferedRead;
 
 pub fn check_magic_number(buffer: &mut Cursor<Vec<u8>>) -> io::Result<bool> {
     let magic = buffer.read_u32::<BigEndian>()?;

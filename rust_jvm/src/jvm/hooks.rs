@@ -4,7 +4,7 @@ use std::ffi::c_void;
 
 use jni::sys::{jclass, jint, jobject, jstring, JNIEnv};
 
-use crate::constant_pool::ClassElement;
+use crate::class::constant::ClassElement;
 use crate::jvm::call::{clean_str, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{JavaValue, ObjectHandle};
 use crate::jvm::JavaEnv;

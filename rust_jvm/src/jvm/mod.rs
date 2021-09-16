@@ -6,14 +6,15 @@ use hashbrown::{HashMap, HashSet};
 use jni::sys::jchar;
 use walkdir::WalkDir;
 
+// use crate::class::{Class, ClassLoader, MethodInfo};
+// use crate::constant_pool::Constant;
+use crate::class::constant::Constant;
 use crate::class::{Class, ClassLoader, MethodInfo};
-use crate::constant_pool::Constant;
 use crate::jvm::call::{NativeManager, VirtualMachine};
 use crate::jvm::hooks::register_hooks;
 use crate::jvm::mem::{ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle};
 use crate::jvm::thread::{first_time_sys_thread_init, JavaThreadManager};
 use parking_lot::RwLock;
-use std::error::Error;
 use std::ffi::CString;
 use std::fs::File;
 use std::io::{BufWriter, Write};

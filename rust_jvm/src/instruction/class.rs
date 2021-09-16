@@ -3,8 +3,10 @@ use std::io::Cursor;
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
+// use crate::r#mod::{AccessFlags, BufferedRead};
+// use crate::constant_pool::{ClassElement, Constant};
+use crate::class::constant::{ClassElement, Constant};
 use crate::class::{AccessFlags, BufferedRead};
-use crate::constant_pool::{ClassElement, Constant};
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
 use crate::jvm::call::{clean_str, FlowControl, JavaEnvInvoke, StackFrame};
 use crate::jvm::mem::FieldDescriptor;

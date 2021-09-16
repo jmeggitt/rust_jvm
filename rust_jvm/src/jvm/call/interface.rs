@@ -11,8 +11,8 @@ use jni::sys::{
     jweak, va_list, JNIEnv, JNINativeInterface_, JNINativeMethod, JavaVM, JNI_TRUE,
 };
 
+use crate::class::constant::ClassElement;
 use crate::class::BufferedRead;
-use crate::constant_pool::ClassElement;
 use crate::jvm::call::{FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{
     FieldDescriptor, JavaPrimitive, JavaValue, ManualInstanceReference, ObjectReference,

@@ -251,7 +251,7 @@ impl InstructionAction for lcmp {
     fn exec(
         &self,
         frame: &mut StackFrame,
-        jvm: &mut Arc<RwLock<JavaEnv>>,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         frame.stack.pop().unwrap();
         let value2 = frame.stack.pop().unwrap();

@@ -1,7 +1,7 @@
 //! This module handles all of the threading and synchronous activities of the jvm
 #![allow(clippy::missing_safety_doc)]
 
-use crate::constant_pool::ClassElement;
+use crate::class::constant::ClassElement;
 use crate::jvm::call::{clean_str, FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{ArrayReference, JavaValue, ManualInstanceReference, ObjectHandle};
 use hashbrown::HashMap;

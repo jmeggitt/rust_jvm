@@ -5,9 +5,10 @@ use std::io::{self, Cursor, Error, ErrorKind, Read, Write};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_traits::FromPrimitive;
 
-use crate::class::BufferedRead;
 use crate::jvm::mem::FieldDescriptor;
-use crate::version::ClassVersion;
+// use crate::version::ClassVersion;
+use crate::class::class_file::BufferedRead;
+use crate::class::version::ClassVersion;
 use std::ops::Index;
 
 #[repr(transparent)]

@@ -175,6 +175,8 @@ impl<'a, I: Iterator<Item = io::Result<String>>> Iterator for LineJoiner<'a, I> 
 }
 
 pub struct MetaInf {
+    // TODO: Check for version in multi-version jar files
+    #[allow(dead_code)]
     version: Option<u32>,
     pub path: PathBuf,
 }

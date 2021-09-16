@@ -15,13 +15,14 @@ extern crate num_derive;
 #[macro_use]
 pub mod exports;
 
-pub mod attribute;
+// pub mod attribute;
+// pub mod r#mod;
 pub mod class;
-pub mod constant_pool;
+// pub mod constant_pool;
 pub mod instruction;
-pub mod jar;
+// pub mod jar;
 pub mod jvm;
-pub mod version;
+// pub mod version;
 
 #[macro_export]
 macro_rules! profile_scope_cfg {
@@ -42,6 +43,7 @@ macro_rules! log_dump {
     };
     ($name:ident, $($tokens:tt)+) => {
         if !cfg!(feature = "quiet") {
+            use std::io::Write;
             writeln!(&mut *$name.lock(), $($tokens)+).unwrap();
             $name.lock().flush().unwrap();
         }

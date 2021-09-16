@@ -5,7 +5,7 @@ use std::io::Cursor;
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::constant_pool::{
+use crate::class::constant::{
     Constant, ConstantClass, ConstantDouble, ConstantFloat, ConstantInteger, ConstantLong,
     ConstantString,
 };

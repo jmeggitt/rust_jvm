@@ -1,5 +1,5 @@
-use crate::attribute::CodeAttribute;
-use crate::constant_pool::Constant;
+use crate::class::attribute::CodeAttribute;
+use crate::class::constant::Constant;
 use crate::jvm::call::FlowControl;
 use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;

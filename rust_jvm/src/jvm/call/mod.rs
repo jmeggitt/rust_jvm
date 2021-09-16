@@ -22,8 +22,8 @@ mod stack;
 #[cfg(feature = "callstack")]
 pub mod callstack_trace;
 
+use crate::class::constant::ClassElement;
 use crate::class::AccessFlags;
-use crate::constant_pool::ClassElement;
 use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::thread::handle_thread_updates;
 use crate::jvm::JavaEnv;

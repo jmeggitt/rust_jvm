@@ -200,9 +200,9 @@ impl InstructionAction for lushr {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::class::{ClassLoader, ClassPath};
     use crate::constant_pool::ClassElement;
     use crate::jvm::call::JavaEnvInvoke;
+    use crate::r#mod::{ClassLoader, ClassPath};
 
     #[test]
     pub fn int_mul() {

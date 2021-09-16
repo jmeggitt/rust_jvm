@@ -1,6 +1,6 @@
 use clap::{App, Arg};
-use jvm::class::{ClassLoader, ClassPath};
 use jvm::constant_pool::Constant;
+use jvm::r#mod::{ClassLoader, ClassPath};
 
 fn main() {
     let app = App::new(env!("CARGO_PKG_NAME"))

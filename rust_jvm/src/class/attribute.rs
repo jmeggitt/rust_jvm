@@ -3,8 +3,8 @@ use std::io::{Cursor, Read};
 
 use byteorder::{BigEndian, ReadBytesExt};
 
-use crate::class::{AttributeInfo, BufferedRead};
-use crate::constant_pool::Constant;
+use crate::class::class_file::{AttributeInfo, BufferedRead};
+use crate::class::constant::Constant;
 use crate::instruction::Instruction;
 use crate::instruction::InstructionReader;
 use crate::jvm::JavaEnv;
@@ -59,8 +59,8 @@ impl BufferedRead for CodeAttribute {
             max_stack,
             max_locals,
             instructions: reader.parse(&mut Cursor::new(code))?,
-            exception_table: ExceptionRange::read_vec(buffer)?,
-            attributes: AttributeInfo::read_vec(buffer)?,
+            exception_table: <Vec<ExceptionRange>>::read(buffer)?,
+            attributes: <Vec<AttributeInfo>>::read(buffer)?,
         })
     }
 }

@@ -1,8 +1,8 @@
 #![allow(unused_variables, clippy::missing_safety_doc)]
 #![deny(improper_ctypes_definitions)]
 
+use crate::class::constant::ClassElement;
 use crate::class::{AccessFlags, BufferedRead, ClassLoader, ClassPath};
-use crate::constant_pool::ClassElement;
 use crate::jvm::call::{build_interface, FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{
     ConstTypeId, FieldDescriptor, JavaValue, ManualInstanceReference, ObjectHandle,

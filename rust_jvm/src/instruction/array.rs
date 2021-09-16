@@ -1,4 +1,5 @@
-use crate::constant_pool::{Constant, ConstantClass};
+// use crate::constant_pool::{Constant, ConstantClass};
+use crate::class::constant::{Constant, ConstantClass};
 use crate::instruction::InstructionAction;
 use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::ArrayReference;
