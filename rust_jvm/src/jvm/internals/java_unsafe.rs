@@ -1,15 +1,20 @@
 use crate::class::BufferedRead;
-use crate::jvm::call::RawJNIEnv;
-use crate::jvm::mem::{FieldDescriptor, InstanceReference, ManualInstanceReference, ObjectHandle};
-use jni::objects::JObject;
+use crate::jvm::call::{JavaEnvInvoke, RawJNIEnv};
+use crate::jvm::mem::{
+    ArrayReference, FieldDescriptor, InstanceReference, JavaPrimitive, JavaTypeEnum, JavaValue,
+    ManualInstanceReference, ObjectHandle, ObjectReference, ObjectType,
+};
+use crate::jvm::thread::SynchronousMonitor;
 use jni::sys::{
     jboolean, jbyte, jbyteArray, jchar, jclass, jdouble, jdoubleArray, jfloat, jint, jlong,
     jobject, jobjectArray, jshort, jstring, jthrowable, jvalue, JNI_FALSE,
 };
 use jni::JNIEnv;
 use libc::{free, malloc, realloc};
+use std::ffi::c_void;
 use std::mem::{size_of, transmute};
-use std::sync::atomic::{AtomicI32, AtomicPtr, Ordering};
+use std::ptr::null_mut;
+use std::sync::atomic::{AtomicI32, AtomicI64, AtomicPtr, Ordering};
 
 // TODO: Fill in unsafe
 
@@ -18,12 +23,12 @@ use std::sync::atomic::{AtomicI32, AtomicPtr, Ordering};
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)I
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getInt__Ljava_lang_Object_2J(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jint {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -31,13 +36,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getInt__Ljava_lang_Object_2J(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JI)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putInt__Ljava_lang_Object_2JI(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _offset: jlong,
-    _val: jint,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jint,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -45,12 +50,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putInt__Ljava_lang_Object_2JI
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)Ljava/lang/Object{ unimplemented!() }
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getObject(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jobject {
+    assert_eq!(size_of::<jobject>(), size_of::<Option<ObjectHandle>>());
+    *obj_expect!(env, obj, null_mut()).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -58,13 +64,14 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getObject(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JLjava/lang/Object{ unimplemented!() })V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putObject(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _ob: JObject,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jobject,
 ) {
-    unimplemented!()
+    assert_eq!(size_of::<jobject>(), size_of::<Option<ObjectHandle>>());
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -72,12 +79,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putObject(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)Z
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getBoolean(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jboolean {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -85,13 +92,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getBoolean(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JZ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putBoolean(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _offset: jlong,
-    _val: jboolean,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jboolean,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -99,12 +106,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putBoolean(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)B
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getByte__Ljava_lang_Object_2J(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jbyte {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -112,13 +119,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getByte__Ljava_lang_Object_2J
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JB)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putByte__Ljava_lang_Object_2JB(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jbyte,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jbyte,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -126,12 +133,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putByte__Ljava_lang_Object_2J
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)S
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getShort__Ljava_lang_Object_2J(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jshort {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -139,13 +146,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getShort__Ljava_lang_Object_2
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JS)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putShort__Ljava_lang_Object_2JS(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jshort,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jshort,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -153,12 +160,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putShort__Ljava_lang_Object_2
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)C
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getChar__Ljava_lang_Object_2J(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jchar {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -166,13 +173,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getChar__Ljava_lang_Object_2J
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JC)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putChar__Ljava_lang_Object_2JC(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jchar,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jchar,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -180,12 +187,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putChar__Ljava_lang_Object_2J
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLong__Ljava_lang_Object_2J(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jlong {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -193,13 +200,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLong__Ljava_lang_Object_2J
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JJ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putLong__Ljava_lang_Object_2JJ(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    __val: jlong,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jlong,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -207,12 +214,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putLong__Ljava_lang_Object_2J
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)F
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getFloat__Ljava_lang_Object_2J(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jfloat {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -220,13 +227,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getFloat__Ljava_lang_Object_2
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JF)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putFloat__Ljava_lang_Object_2JF(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jfloat,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jfloat,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -234,12 +241,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putFloat__Ljava_lang_Object_2
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)D
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getDouble__Ljava_lang_Object_2J(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jdouble {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -247,13 +254,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getDouble__Ljava_lang_Object_
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JD)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDouble__Ljava_lang_Object_2JD(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jdouble,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jdouble,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -261,12 +268,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDouble__Ljava_lang_Object_
 /// Signature: (J)B
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getByte__J(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
 ) -> jbyte {
     let ptr: *mut _ = transmute(offset as isize);
-    debug!("Got byte: 0x{:X} -> 0x{:X}", offset, *ptr);
     *ptr
 }
 
@@ -275,8 +281,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getByte__J(
 /// Signature: (JB)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putByte__JB(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
     val: jbyte,
 ) {
@@ -289,8 +295,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putByte__JB(
 /// Signature: (J)S
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getShort__J(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
 ) -> jshort {
     let ptr: *mut _ = transmute(offset as isize);
@@ -302,8 +308,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getShort__J(
 /// Signature: (JS)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putShort__JS(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
     val: jshort,
 ) {
@@ -316,8 +322,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putShort__JS(
 /// Signature: (J)C
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getChar__J(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
 ) -> jchar {
     let ptr: *mut _ = transmute(offset as isize);
@@ -329,8 +335,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getChar__J(
 /// Signature: (JC)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putChar__JC(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
     val: jchar,
 ) {
@@ -343,8 +349,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putChar__JC(
 /// Signature: (J)I
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getInt__J(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
 ) -> jint {
     let ptr: *mut _ = transmute(offset as isize);
@@ -356,8 +362,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getInt__J(
 /// Signature: (JI)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putInt__JI(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
     val: jint,
 ) {
@@ -370,8 +376,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putInt__JI(
 /// Signature: (J)J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLong__J(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
 ) -> jlong {
     let ptr: *mut jlong = transmute(offset as isize);
@@ -383,12 +389,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLong__J(
 /// Signature: (JJ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putLong__JJ(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
     val: jlong,
 ) {
-    debug!("Put long: 0x{:X} -> 0x{:X}", val, offset);
     let ptr: *mut jlong = transmute(offset as isize);
     *ptr = val;
 }
@@ -398,8 +403,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putLong__JJ(
 /// Signature: (J)F
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getFloat__J(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
 ) -> jfloat {
     let ptr: *mut _ = transmute(offset as isize);
@@ -411,8 +416,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getFloat__J(
 /// Signature: (JF)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putFloat__JF(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
     val: jfloat,
 ) {
@@ -425,8 +430,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putFloat__JF(
 /// Signature: (J)D
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getDouble__J(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
 ) -> jdouble {
     let ptr: *mut _ = transmute(offset as isize);
@@ -438,8 +443,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getDouble__J(
 /// Signature: (JD)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDouble__JD(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
     val: jdouble,
 ) {
@@ -452,8 +457,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDouble__JD(
 /// Signature: (J)J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getAddress(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
 ) -> jlong {
     // TODO: This will fail to compile on non-x64 machines
@@ -466,8 +471,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getAddress(
 /// Signature: (JJ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putAddress(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     offset: jlong,
     val: jlong,
 ) {
@@ -480,8 +485,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putAddress(
 /// Signature: (J)J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_allocateMemory(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     size: jlong,
 ) -> jlong {
     let ret = malloc(size as _) as i64;
@@ -494,8 +499,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_allocateMemory(
 /// Signature: (JJ)J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_reallocateMemory(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     ptr: jlong,
     new_size: jlong,
 ) -> jlong {
@@ -506,13 +511,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_reallocateMemory(
 
 /// Class:     sun_misc_Unsafe
 /// Method:    setMemory
-/// Signature: (Ljava/lang/Object{ unimplemented!() }JJB)V
+/// Signature: (Ljava/lang/Object;JJB)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_setMemory(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
     _valb: jlong,
     _: jbyte,
 ) {
@@ -521,14 +526,14 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_setMemory(
 
 /// Class:     sun_misc_Unsafe
 /// Method:    copyMemory
-/// Signature: (Ljava/lang/Object{ unimplemented!() }JLjava/lang/Object{ unimplemented!() }JJ)V
+/// Signature: (Ljava/lang/Object;JLjava/lang/Object;JJ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_copyMemory(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _objb: JObject,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    _objb: jobject,
     _valb: jlong,
     _valc: jlong,
 ) {
@@ -540,8 +545,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_copyMemory(
 /// Signature: (J)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_freeMemory(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     ptr: jlong,
 ) {
     debug!("Freeing pointer: 0x{:X}", ptr);
@@ -553,20 +558,38 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_freeMemory(
 /// Signature: (Ljava/lang/reflect/Field{ unimplemented!() })J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_staticFieldOffset(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    field: jobject,
+) -> jlong {
+    let field = obj_expect!(env, field, 0);
+    let instance = field.expect_instance();
+
+    let class: Option<ObjectHandle> = instance.read_named_field("clazz");
+    let class_name: Option<ObjectHandle> =
+        class.unwrap().expect_instance().read_named_field("name");
+    let class_name = class_name.unwrap().expect_string().replace('.', "/");
+    let field_name: Option<ObjectHandle> = instance.read_named_field("name");
+    let field_name = field_name.unwrap().expect_string();
+
+    // TODO: Should we allocate a slot if none exists?
+    let mut lock = env.write();
+    match lock
+        .static_fields
+        .get_field_offset(&class_name, &field_name)
+    {
+        Some(v) => v as jlong,
+        None => -1,
+    }
 }
 
 /// Class:     sun_misc_Unsafe
 /// Method:    objectFieldOffset
-/// Signature: (Ljava/lang/reflect/Field{ unimplemented!() })J
+/// Signature: (Ljava/lang/reflect/Field;)J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_objectFieldOffset(
     env: RawJNIEnv,
-    _this: JObject,
+    _this: jobject,
     field: jobject,
 ) -> jlong {
     let field = obj_expect!(env, field, 0);
@@ -593,23 +616,25 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_objectFieldOffset(
 /// Signature: (Ljava/lang/reflect/Field{ unimplemented!() })Ljava/lang/Object{ unimplemented!() }
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_staticFieldBase(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    _obj: jobject,
+) -> jobject {
+    // TODO: Having separate static objects for each class would probably be more efficient.
+    env.read().static_fields.static_obj.ptr()
 }
 
 /// Class:     sun_misc_Unsafe
 /// Method:    shouldBeInitialized
-/// Signature: (Ljava/lang/Class{ unimplemented!() })Z
+/// Signature: (Ljava/lang/Class;)Z
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_shouldBeInitialized(
-    _env: JNIEnv,
-    _this: JObject,
-    _: jclass,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    class: jclass,
+) -> jboolean {
+    let name = obj_expect!(env, class, JNI_FALSE).unwrap_as_class();
+    env.read().static_load.contains(&name) as jboolean
 }
 
 /// Class:     sun_misc_Unsafe
@@ -617,11 +642,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_shouldBeInitialized(
 /// Signature: (Ljava/lang/Class{ unimplemented!() })V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_ensureClassInitialized(
-    _env: JNIEnv,
-    _this: JObject,
-    _: jclass,
+    mut env: RawJNIEnv,
+    _this: jobject,
+    class: jclass,
 ) {
-    unimplemented!()
+    let class_obj = obj_expect!(env, class);
+    let name = class_obj.unwrap_as_class();
+    env.init_class(&name);
 }
 
 /// Class:     sun_misc_Unsafe
@@ -629,8 +656,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_ensureClassInitialized(
 /// Signature: (Ljava/lang/Class{ unimplemented!() })I
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_arrayBaseOffset(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     _: jclass,
 ) -> jint {
     0
@@ -641,8 +668,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_arrayBaseOffset(
 /// Signature: (Ljava/lang/Class{ unimplemented!() })I
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_arrayIndexScale(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     target: jclass,
 ) -> jint {
     let a = ObjectHandle::from_ptr(target).unwrap().expect_instance();
@@ -673,35 +700,38 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_arrayIndexScale(
 /// Signature: ()I
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_addressSize(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
 ) -> jint {
-    size_of::<usize>() as jint
+    size_of::<*const c_void>() as jint
 }
 
 /// Class:     sun_misc_Unsafe
 /// Method:    pageSize
 /// Signature: ()I
 #[no_mangle]
-pub unsafe extern "system" fn Java_sun_misc_Unsafe_pageSize(_env: JNIEnv, _this: JObject) {
-    unimplemented!()
+pub unsafe extern "system" fn Java_sun_misc_Unsafe_pageSize(
+    _env: RawJNIEnv,
+    _this: jobject,
+) -> jint {
+    page_size::get() as jint
 }
 
 /// Class:     sun_misc_Unsafe
 /// Method:    defineClass
-/// Signature: (Ljava/lang/String{ unimplemented!() }[BIILjava/lang/ClassLoader{ unimplemented!() }Ljava/security/ProtectionDomain{ unimplemented!() })Ljava/lang/Class{ unimplemented!() }
+/// Signature: (Ljava/lang/String;[BIILjava/lang/ClassLoader;Ljava/security/ProtectionDomain;)Ljava/lang/Class;
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_defineClass(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     _: jstring,
     _: jbyteArray,
     _val: jint,
     _valb: jint,
-    _objc: JObject,
-    _obj: JObject,
+    _objc: jobject,
+    _obj: jobject,
 ) {
-    unimplemented!()
+    unimplemented!("Runtime defined classes are not supported")
 }
 
 /// Class:     sun_misc_Unsafe
@@ -709,13 +739,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_defineClass(
 /// Signature: (Ljava/lang/Class{ unimplemented!() }[B[Ljava/lang/Object{ unimplemented!() })Ljava/lang/Class{ unimplemented!() }
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_defineAnonymousClass(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     _: jclass,
     _: jbyteArray,
     _obj: jobjectArray,
 ) {
-    unimplemented!()
+    unimplemented!("Anonymous classes are not currently supported")
 }
 
 /// Class:     sun_misc_Unsafe
@@ -723,11 +753,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_defineAnonymousClass(
 /// Signature: (Ljava/lang/Class{ unimplemented!() })Ljava/lang/Object{ unimplemented!() }
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_allocateInstance(
-    _env: JNIEnv,
-    _this: JObject,
-    _: jclass,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    class: jclass,
+) -> jobject {
+    let name = obj_expect!(env, class, null_mut()).unwrap_as_class();
+    ObjectHandle::new(env.write().class_schema(&name)).ptr()
 }
 
 /// Class:     sun_misc_Unsafe
@@ -735,11 +766,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_allocateInstance(
 /// Signature: (Ljava/lang/Object{ unimplemented!() })V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_monitorEnter(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
 ) {
-    unimplemented!()
+    env.lock(obj_expect!(env, obj));
 }
 
 /// Class:     sun_misc_Unsafe
@@ -747,11 +778,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_monitorEnter(
 /// Signature: (Ljava/lang/Object{ unimplemented!() })V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_monitorExit(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
 ) {
-    unimplemented!()
+    env.unlock(obj_expect!(env, obj));
 }
 
 /// Class:     sun_misc_Unsafe
@@ -759,11 +790,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_monitorExit(
 /// Signature: (Ljava/lang/Object{ unimplemented!() })Z
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_tryMonitorEnter(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+) -> jboolean {
+    env.try_lock(obj_expect!(env, obj)) as jboolean
 }
 
 /// Class:     sun_misc_Unsafe
@@ -771,11 +802,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_tryMonitorEnter(
 /// Signature: (Ljava/lang/Throwable{ unimplemented!() })V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_throwException(
-    _env: JNIEnv,
-    _this: JObject,
-    _: jthrowable,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jthrowable,
 ) {
-    unimplemented!()
+    env.write_thrown(Some(obj_expect!(env, obj)))
 }
 
 /// Class:     sun_misc_Unsafe
@@ -784,24 +815,45 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_throwException(
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapObject(
     env: RawJNIEnv,
-    _this: JObject,
+    _this: jobject,
     obj: jobject,
     offset: jlong,
     expected: jobject,
     x: jobject,
 ) -> jboolean {
     let obj = obj_expect!(env, obj, JNI_FALSE);
-    let instance = obj.expect_instance();
-    assert_eq!(offset as usize % size_of::<jvalue>(), 0);
-    let index = offset as usize / size_of::<jvalue>();
 
-    let fields = instance.raw_fields();
-    assert!(index < fields.len());
+    match obj.memory_layout() {
+        ObjectType::Instance => {
+            let instance = obj.expect_instance();
+            assert_eq!(offset as usize % size_of::<jvalue>(), 0);
+            let index = offset as usize / size_of::<jvalue>();
 
-    let ptr = &mut fields[index] as *mut jvalue as *const AtomicPtr<_>;
+            let fields = instance.raw_fields();
+            assert!(index < fields.len());
 
-    let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
-    res.is_ok() as jboolean
+            let ptr = &mut fields[index] as *mut jvalue as *const AtomicPtr<_>;
+
+            let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+            res.is_ok() as jboolean
+        }
+        ObjectType::Array(JavaTypeEnum::Reference) => {
+            let instance = obj.expect_array::<Option<ObjectHandle>>();
+            assert_eq!(offset as usize % size_of::<Option<ObjectHandle>>(), 0);
+            let index = offset as usize / size_of::<Option<ObjectHandle>>();
+
+            let fields = instance.raw_fields();
+            assert!(index < fields.len());
+
+            // TODO: I feel like this could lead to a segfault, check pointer size just to be safe
+            assert_eq!(size_of::<Option<ObjectHandle>>(), size_of::<jobject>());
+            let ptr = &mut fields[index] as *mut Option<ObjectHandle> as *const AtomicPtr<_>;
+
+            let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+            res.is_ok() as jboolean
+        }
+        _ => panic!(),
+    }
 }
 
 /// Class:     sun_misc_Unsafe
@@ -810,7 +862,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapObject(
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapInt(
     env: RawJNIEnv,
-    _this: JObject,
+    _this: jobject,
     obj: jobject,
     offset: jlong,
     expected: jint,
@@ -835,14 +887,25 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapInt(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JJJ)Z
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapLong(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _valb: jlong,
-    _valc: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    expected: jlong,
+    x: jlong,
+) -> jboolean {
+    let obj = obj_expect!(env, obj, JNI_FALSE);
+    let instance = obj.expect_instance();
+    assert_eq!(offset as usize % size_of::<jvalue>(), 0);
+    let index = offset as usize / size_of::<jvalue>();
+
+    let fields = instance.raw_fields();
+    assert!(index < fields.len());
+
+    let ptr = &mut fields[index] as *mut jvalue as *const AtomicI64;
+
+    let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+    res.is_ok() as jboolean
 }
 
 /// Class:     sun_misc_Unsafe
@@ -850,12 +913,38 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapLong(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)Ljava/lang/Object{ unimplemented!() }
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getObjectVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jobject {
+    let object = obj_expect!(env, obj, null_mut());
+
+    {
+        let lock = env.read();
+        if lock.static_fields.static_obj == object {
+            if let JavaValue::Reference(v) = lock.static_fields[offset as usize] {
+                return v.pack().l;
+            } else {
+                todo!("Throw IllegalArgumentException")
+            }
+        }
+    }
+
+    match object.memory_layout() {
+        ObjectType::Instance => {
+            let ret: Option<ObjectHandle> = object.expect_instance().read_field(offset as usize);
+            ret.pack().l
+        }
+        ObjectType::Array(JavaTypeEnum::Reference) => {
+            // let scale = Java_sun_misc_Unsafe_arrayIndexScale(env, _this, obj);
+            let ret: Option<ObjectHandle> = object
+                .expect_array::<Option<ObjectHandle>>()
+                .read_array(offset as usize / size_of::<Option<ObjectHandle>>());
+            ret.pack().l
+        }
+        _ => panic!(),
+    }
 }
 
 /// Class:     sun_misc_Unsafe
@@ -863,13 +952,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getObjectVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JLjava/lang/Object{ unimplemented!() })V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putObjectVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _objb: JObject,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jobject,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -878,13 +967,24 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putObjectVolatile(
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getIntVolatile(
     env: RawJNIEnv,
-    _this: JObject,
+    _this: jobject,
     obj: jobject,
     offset: jlong,
 ) -> jint {
-    obj_expect!(env, obj, 0)
-        .expect_instance()
-        .read_field(offset as usize)
+    let object = obj_expect!(env, obj, 0);
+
+    {
+        let lock = env.read();
+        if lock.static_fields.static_obj == object {
+            if let JavaValue::Int(v) = lock.static_fields[offset as usize] {
+                return v;
+            } else {
+                todo!("Throw IllegalArgumentException")
+            }
+        }
+    }
+
+    object.expect_instance().read_field(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -892,13 +992,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getIntVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JI)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putIntVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _offset: jlong,
-    _val: jint,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jint,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -906,12 +1006,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putIntVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)Z
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getBooleanVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jboolean {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -919,13 +1019,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getBooleanVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JZ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putBooleanVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jboolean,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jboolean,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -933,12 +1033,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putBooleanVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)B
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getByteVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jbyte {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -946,13 +1046,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getByteVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JB)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putByteVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jbyte,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jbyte,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -960,12 +1060,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putByteVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)S
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getShortVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jshort {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -973,13 +1073,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getShortVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JS)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putShortVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jshort,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jshort,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -987,12 +1087,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putShortVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)C
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getCharVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jchar {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -1000,13 +1100,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getCharVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JC)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putCharVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jchar,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jchar,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -1014,12 +1114,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putCharVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLongVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jlong {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -1027,13 +1127,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLongVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JJ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putLongVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _offset: jlong,
-    _val: jlong,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jlong,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -1041,12 +1141,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putLongVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)F
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getFloatVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jfloat {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -1054,13 +1154,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getFloatVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JF)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putFloatVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jfloat,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jfloat,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -1068,12 +1168,12 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putFloatVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }J)D
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getDoubleVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-) {
-    unimplemented!()
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+) -> jdouble {
+    *obj_expect!(env, obj).raw_object_memory(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -1081,13 +1181,13 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getDoubleVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JD)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDoubleVolatile(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _: jdouble,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    val: jdouble,
 ) {
-    unimplemented!()
+    *obj_expect!(env, obj).raw_object_memory(offset as usize) = val;
 }
 
 /// Class:     sun_misc_Unsafe
@@ -1095,11 +1195,11 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDoubleVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JLjava/lang/Object{ unimplemented!() })V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putOrderedObject(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
-    _val: jlong,
-    _objb: JObject,
+    env: RawJNIEnv,
+    _this: jobject,
+    obj: jobject,
+    offset: jlong,
+    _objb: jobject,
 ) {
     unimplemented!()
 }
@@ -1109,9 +1209,9 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putOrderedObject(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JI)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putOrderedInt(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
+    _obj: jobject,
     _offset: jlong,
     _val: jint,
 ) {
@@ -1123,9 +1223,9 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putOrderedInt(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JJ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putOrderedLong(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
+    _obj: jobject,
     _offset: jlong,
     _val: jlong,
 ) {
@@ -1137,9 +1237,9 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putOrderedLong(
 /// Signature: (Ljava/lang/Object{ unimplemented!() })V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_unpark(
-    _env: JNIEnv,
-    _this: JObject,
-    _obj: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
+    _obj: jobject,
 ) {
     unimplemented!()
 }
@@ -1149,8 +1249,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_unpark(
 /// Signature: (ZJ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_park(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     _: jboolean,
     _val: jlong,
 ) {
@@ -1162,8 +1262,8 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_park(
 /// Signature: ([DI)I
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLoadAverage(
-    _env: JNIEnv,
-    _this: JObject,
+    _env: RawJNIEnv,
+    _this: jobject,
     _: jdoubleArray,
     _val: jint,
 ) {
@@ -1174,7 +1274,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLoadAverage(
 /// Method:    loadFence
 /// Signature: ()V
 #[no_mangle]
-pub unsafe extern "system" fn Java_sun_misc_Unsafe_loadFence(_env: JNIEnv, _this: JObject) {
+pub unsafe extern "system" fn Java_sun_misc_Unsafe_loadFence(_env: RawJNIEnv, _this: jobject) {
     unimplemented!()
 }
 
@@ -1182,7 +1282,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_loadFence(_env: JNIEnv, _this
 /// Method:    storeFence
 /// Signature: ()V
 #[no_mangle]
-pub unsafe extern "system" fn Java_sun_misc_Unsafe_storeFence(_env: JNIEnv, _this: JObject) {
+pub unsafe extern "system" fn Java_sun_misc_Unsafe_storeFence(_env: RawJNIEnv, _this: jobject) {
     unimplemented!()
 }
 
@@ -1190,6 +1290,6 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_storeFence(_env: JNIEnv, _thi
 /// Method:    fullFence
 /// Signature: ()V
 #[no_mangle]
-pub unsafe extern "system" fn Java_sun_misc_Unsafe_fullFence(_env: JNIEnv, _this: JObject) {
+pub unsafe extern "system" fn Java_sun_misc_Unsafe_fullFence(_env: RawJNIEnv, _this: jobject) {
     unimplemented!()
 }

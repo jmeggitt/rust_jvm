@@ -24,6 +24,7 @@ use thread_priority::{ThreadId as NativeThreadId, ThreadPriority};
 
 pub trait SynchronousMonitor<T> {
     fn lock(&self, target: T);
+    fn try_lock(&self, target: T) -> bool;
     fn unlock(&self, target: T);
     fn check_lock(&self, target: T) -> bool;
 }
@@ -58,6 +59,17 @@ impl ObjectMonitor {
         }
 
         *guard = Some((current().id(), 1));
+    }
+
+    fn try_lock(&self) -> bool {
+        let mut guard = self.mutex.lock();
+
+        if guard.is_none() {
+            *guard = Some((current().id(), 1));
+            return true;
+        }
+
+        false
     }
 
     fn unlock(&self) {
@@ -206,6 +218,18 @@ impl SynchronousMonitor<ObjectHandle> for Arc<RwLock<JavaEnv>> {
         monitor.lock();
     }
 
+    fn try_lock(&self, target: ObjectHandle) -> bool {
+        let monitor = self
+            .write()
+            .thread_manager
+            .monitor
+            .entry(target)
+            .or_default()
+            .clone();
+
+        monitor.try_lock()
+    }
+
     fn unlock(&self, target: ObjectHandle) {
         let monitor = self
             .read()
@@ -338,12 +362,13 @@ pub fn first_time_sys_thread_init(env: &mut Arc<RwLock<JavaEnv>>) {
             _ => panic!("Error while retrieving java/lang/Thread::threadSeqNumber"),
         };
 
-        let field_reference = format!(
-            "{}_{}",
-            clean_str("java/lang/Thread"),
-            clean_str("threadSeqNumber")
-        );
-        jvm.static_fields.insert(field_reference, tid);
+        // let field_reference = format!(
+        //     "{}_{}",
+        //     clean_str("java/lang/Thread"),
+        //     clean_str("threadSeqNumber")
+        // );
+        jvm.static_fields
+            .set_static("java/lang/Thread", "threadSeqNumber", tid);
 
         let instance = obj.expect_instance();
         instance.write_named_field("tid", tid);

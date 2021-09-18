@@ -21,11 +21,12 @@ mod stack;
 
 #[cfg(feature = "callstack")]
 pub mod callstack_trace;
+mod ffi;
 
 use crate::class::constant::ClassElement;
 use crate::class::AccessFlags;
 use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
-use crate::jvm::thread::handle_thread_updates;
+use crate::jvm::thread::{handle_thread_updates, SynchronousMonitor};
 use crate::jvm::JavaEnv;
 use crate::profile_scope_cfg;
 pub use interface::build_interface;
@@ -162,10 +163,16 @@ pub trait JavaEnvInvoke {
 
 impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
     fn init_class(&mut self, class: &str) {
+        let class_instance = {
+            let mut jvm = self.write();
+            jvm.class_instance(class)
+        };
+
+        self.lock(class_instance);
         if !self.read().static_load.contains(class) {
             {
                 let mut jvm = self.write();
-                jvm.class_loader.attempt_load(class).unwrap();
+                // jvm.class_loader.attempt_load(class).unwrap();
                 jvm.static_load.insert(class.to_string());
             }
 
@@ -189,7 +196,10 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             };
 
             if let Some(method_ref) = method {
+                // warn!("[<clinit>] {}: Invoking initializer", class);
                 self.invoke_static(method_ref, vec![]).unwrap();
+            } else {
+                // warn!("[<clinit>] {}: No class initializer", class);
             }
             // let instance = self.write().class_loader.class(class).unwrap();
             // if instance.get_method("<clinit>", "()V").is_some() {
@@ -198,6 +208,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             //     // self.exec_static(class, "<clinit>", "()V", vec![]).unwrap();
             // }
         }
+        self.unlock(class_instance);
     }
 
     fn invoke(

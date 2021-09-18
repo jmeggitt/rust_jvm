@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
-use std::io::{self, Cursor};
+use std::io::{self, Cursor, Read, Write};
 
-use crate::class::class_file::BufferedRead;
+use crate::class::BufferedRead;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
@@ -17,14 +17,14 @@ pub fn check_magic_number(buffer: &mut Cursor<Vec<u8>>) -> io::Result<bool> {
 pub struct ClassVersion(pub u16, pub u16);
 
 impl BufferedRead for ClassVersion {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
         Ok(ClassVersion(
             buffer.read_u16::<BigEndian>()?,
             buffer.read_u16::<BigEndian>()?,
         ))
     }
 
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
+    fn write<T: Write>(&self, buffer: &mut T) -> io::Result<()> {
         let ClassVersion(major, minor) = *self;
 
         buffer.write_u16::<BigEndian>(major)?;

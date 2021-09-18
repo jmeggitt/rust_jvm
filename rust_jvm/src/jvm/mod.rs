@@ -10,14 +10,17 @@ use walkdir::WalkDir;
 // use crate::constant_pool::Constant;
 use crate::class::constant::Constant;
 use crate::class::{Class, ClassLoader, MethodInfo};
-use crate::jvm::call::{NativeManager, VirtualMachine};
+use crate::jvm::call::{clean_str, NativeManager, VirtualMachine};
 use crate::jvm::hooks::register_hooks;
-use crate::jvm::mem::{ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle};
+use crate::jvm::mem::{
+    ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle, OBJECT_SCHEMA,
+};
 use crate::jvm::thread::{first_time_sys_thread_init, JavaThreadManager};
 use parking_lot::RwLock;
 use std::ffi::CString;
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::ops::{Index, IndexMut};
 
 pub mod call;
 pub mod mem;
@@ -29,7 +32,8 @@ pub mod thread;
 // TODO: Review section 5.5 of the docs
 pub struct JavaEnv {
     pub class_loader: ClassLoader,
-    pub static_fields: HashMap<String, JavaValue>,
+    // pub static_fields: HashMap<String, JavaValue>,
+    pub static_fields: StaticFields,
     pub static_load: HashSet<String>,
     pub linked_libraries: NativeManager,
 
@@ -47,7 +51,7 @@ impl JavaEnv {
     pub fn new(class_loader: ClassLoader) -> Arc<RwLock<Self>> {
         let mut jvm = JavaEnv {
             class_loader,
-            static_fields: HashMap::new(),
+            static_fields: StaticFields::new(),
             static_load: HashSet::new(),
             linked_libraries: NativeManager::new(),
             vm: VirtualMachine::default(),
@@ -77,11 +81,11 @@ impl JavaEnv {
             writeln!(&mut static_init, "{}", field).unwrap();
         }
 
-        let mut static_fields = BufWriter::new(File::create("static_fields.dump").unwrap());
+        // let mut static_fields = BufWriter::new(File::create("static_fields.dump").unwrap());
 
-        for (k, v) in &self.static_fields {
-            writeln!(&mut static_fields, "{}: {:?}", k, v).unwrap();
-        }
+        // for (k, v) in &self.static_fields {
+        //     writeln!(&mut static_fields, "{}: {:?}", k, v).unwrap();
+        // }
     }
 
     pub fn class_schema(&mut self, class: &str) -> Arc<ClassSchema> {
@@ -246,5 +250,57 @@ impl JavaEnv {
     pub fn debug_print_call_stack(&self) {
         debug!("Call stack:");
         self.thread_manager.debug_print_call_stack();
+    }
+}
+
+#[derive(Debug)]
+pub struct StaticFields {
+    static_obj: ObjectHandle,
+    slots: HashMap<String, usize>,
+    fields: Vec<JavaValue>,
+}
+
+impl StaticFields {
+    pub fn new() -> Self {
+        StaticFields {
+            static_obj: ObjectHandle::new(OBJECT_SCHEMA.clone()),
+            slots: Default::default(),
+            fields: vec![],
+        }
+    }
+
+    pub fn get_field_offset(&self, class: &str, field: &str) -> Option<usize> {
+        let key = format!("{}_{}", clean_str(&class), clean_str(&field));
+        self.slots.get(&key).copied()
+    }
+
+    pub fn set_static(&mut self, class: &str, field: &str, value: JavaValue) {
+        let key = format!("{}_{}", clean_str(&class), clean_str(&field));
+        if !self.slots.contains_key(&key) {
+            self.slots.insert(key, self.fields.len());
+            self.fields.push(value);
+            return;
+        }
+
+        let idx = *self.slots.get(&key).unwrap();
+        self.fields[idx] = value;
+    }
+
+    pub fn get_static(&self, class: &str, field: &str) -> Option<JavaValue> {
+        self.get_field_offset(class, field).map(|x| self.fields[x])
+    }
+}
+
+impl Index<usize> for StaticFields {
+    type Output = JavaValue;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.fields[index]
+    }
+}
+
+impl IndexMut<usize> for StaticFields {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.fields[index]
     }
 }

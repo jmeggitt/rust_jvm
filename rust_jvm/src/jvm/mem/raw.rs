@@ -43,6 +43,15 @@ impl<T> RawObject<T> {
     }
 }
 
+impl<T> RawObject<Vec<T>> {
+    pub fn base_ptr(&self) -> *mut () {
+        unsafe {
+            let fields = &*self.fields.get();
+            fields.as_ptr() as *mut ()
+        }
+    }
+}
+
 pub struct GcIter<T: ?Sized> {
     index: usize,
     inner: T,

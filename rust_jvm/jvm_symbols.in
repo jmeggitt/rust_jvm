@@ -232,3 +232,8 @@ JVM_Yield
 
 # This is for Forte Analyzer profiling support.
 #AsyncGetCallTrace
+
+# Unsupported operations that are optional on java 8
+JVM_KnownToNotExist
+JVM_GetResourceLookupCacheURLs
+JVM_GetResourceLookupCache

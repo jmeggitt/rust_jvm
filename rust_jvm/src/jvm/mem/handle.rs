@@ -12,7 +12,7 @@ use jni::sys::{
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem::{transmute, ManuallyDrop};
-use std::ptr::NonNull;
+use std::ptr::{null_mut, NonNull};
 use std::sync::Arc;
 
 macro_rules! typed_handle {
@@ -58,15 +58,17 @@ macro_rules! typed_handle {
                 let $out = $handle.expect_array::<Option<ObjectHandle>>();
                 $action
             }
-            _ => {}
+            _ => panic!(),
         }
     };
 }
 
+/// The ObjectWrapper struct is responsible for acting as a box to hold the raw object. This layer
+/// is also responsible for managing garbage collection primitives. (But at the moment gc is kinda
+/// broken)
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct ObjectWrapper<T: 'static + Trace> {
-    // ptr: Pin<Rc<T>>,
     ptr: ManuallyDrop<Gc<T>>,
 }
 
@@ -187,7 +189,7 @@ impl ObjectHandle {
 
     pub fn expect_instance(&self) -> ObjectWrapper<RawObject<Vec<jvalue>>> {
         if self.memory_layout() != ObjectType::Instance {
-            panic!("Expected invalid primitive array");
+            panic!("Expected instance, got {:?}", self);
         }
 
         unsafe { transmute(self.unwrap_unknown()) }
@@ -220,6 +222,18 @@ impl ObjectHandle {
             }
             _ => return None,
         })
+    }
+
+    /// # Safety
+    /// This is only intended for use supporting sun/misc/Unsafe. Even then, I am hesitant to add
+    /// this function as it is highly likely to result in a segfault if used to get a value outside
+    /// an object.
+    pub unsafe fn raw_object_memory<T>(&self, offset: usize) -> *mut T {
+        let ObjectHandle(ptr) = self;
+        let raw: ObjectWrapper<RawObject<Vec<jvalue>>> =
+            ObjectWrapper::from_raw(ptr.as_ptr()).unwrap();
+        let base_ptr: *mut u8 = raw.base_ptr() as *mut u8;
+        base_ptr.offset(offset as isize) as *mut T
     }
 }
 
@@ -298,22 +312,6 @@ impl Debug for ObjectHandle {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut touched = HashSet::new();
         self.non_cyclical_fmt(f, &mut touched)
-        // let owned = self.clone();
-        // match self.memory_layout() {
-        //     ObjectType::Instance => owned.expect_instance().fmt(f),
-        //     ObjectType::Array(jboolean::ID) => owned.expect_array::<jboolean>().fmt(f),
-        //     ObjectType::Array(jbyte::ID) => owned.expect_array::<jbyte>().fmt(f),
-        //     ObjectType::Array(jchar::ID) => owned.expect_array::<jchar>().fmt(f),
-        //     ObjectType::Array(jshort::ID) => owned.expect_array::<jshort>().fmt(f),
-        //     ObjectType::Array(jint::ID) => owned.expect_array::<jint>().fmt(f),
-        //     ObjectType::Array(jlong::ID) => owned.expect_array::<jlong>().fmt(f),
-        //     ObjectType::Array(jfloat::ID) => owned.expect_array::<jfloat>().fmt(f),
-        //     ObjectType::Array(jdouble::ID) => owned.expect_array::<jdouble>().fmt(f),
-        //     ObjectType::Array(<Option<ObjectHandle> as ConstTypeId>::ID) => {
-        //         owned.expect_array::<Option<ObjectHandle>>().fmt(f)
-        //     }
-        //     x => panic!("Unable to hash object of type {:?}", x),
-        // }
     }
 }
 

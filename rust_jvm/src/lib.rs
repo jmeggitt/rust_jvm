@@ -1,3 +1,4 @@
+#![feature(c_variadic)]
 // Ensure each result error is either unwrapped or returned
 #![deny(unused_must_use)]
 

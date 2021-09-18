@@ -1,12 +1,13 @@
 use std::io;
-use std::io::{Cursor, Error, ErrorKind, Read, Write};
+use std::io::{Cursor, Error, ErrorKind, Read, Seek, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::jvm::mem::FieldDescriptor;
 use crate::class::attribute::CodeAttribute;
 use crate::class::constant::{Constant, ConstantClass, ConstantPool};
 use crate::class::version::{check_magic_number, ClassVersion};
+use crate::class::BufferedRead;
+use crate::jvm::mem::FieldDescriptor;
 
 bitflags! {
     pub struct AccessFlags: u16 {
@@ -29,51 +30,8 @@ bitflags! {
     }
 }
 
-pub trait BufferedRead: Sized {
-    fn read_str(string: &str) -> io::Result<Self> {
-        let mut buffer = Cursor::new(string.as_bytes().to_vec());
-        Self::read(&mut buffer)
-    }
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Self::read_versioned(ClassVersion(0, 0), buffer)
-    }
-
-    fn write(&self, _: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        unimplemented!("Write has not yet been implemented for this struct!")
-    }
-
-    #[deprecated(since = "0.3.0", note = "Remove to prepare for deprecation of BufferedRead")]
-    fn read_versioned(_: ClassVersion, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Self::read(buffer)
-    }
-}
-
-impl<T: BufferedRead> BufferedRead for Vec<T> {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        let count = buffer.read_u16::<BigEndian>()?;
-        let mut vec = Vec::with_capacity(count as usize);
-
-        for _ in 0..count {
-            vec.push(T::read(buffer)?);
-        }
-
-        Ok(vec)
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.len() as u16)?;
-
-        for value in self {
-            value.write(buffer)?;
-        }
-
-        Ok(())
-    }
-}
-
 impl BufferedRead for AccessFlags {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
         match AccessFlags::from_bits(buffer.read_u16::<BigEndian>()?) {
             Some(v) => Ok(v),
             None => Err(Error::new(
@@ -83,7 +41,7 @@ impl BufferedRead for AccessFlags {
         }
     }
 
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
+    fn write<T: Write>(&self, buffer: &mut T) -> io::Result<()> {
         buffer.write_u16::<BigEndian>(self.bits)
     }
 }
@@ -378,7 +336,7 @@ impl FieldInfo {
 }
 
 impl BufferedRead for FieldInfo {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn read<T: Read + Seek>(buffer: &mut T) -> io::Result<Self> {
         Ok(FieldInfo {
             access: AccessFlags::read(buffer)?,
             name_index: buffer.read_u16::<BigEndian>()?,
@@ -387,7 +345,7 @@ impl BufferedRead for FieldInfo {
         })
     }
 
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
+    fn write<T: Write + Seek>(&self, buffer: &mut T) -> io::Result<()> {
         buffer.write_u16::<BigEndian>(self.access.bits)?;
         buffer.write_u16::<BigEndian>(self.name_index)?;
         buffer.write_u16::<BigEndian>(self.descriptor_index)?;
@@ -402,7 +360,7 @@ pub struct AttributeInfo {
 }
 
 impl BufferedRead for AttributeInfo {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
         let name_index = buffer.read_u16::<BigEndian>()?;
         let length = buffer.read_u32::<BigEndian>()?;
 
@@ -412,7 +370,7 @@ impl BufferedRead for AttributeInfo {
         Ok(Self { name_index, info })
     }
 
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
+    fn write<T: Write>(&self, buffer: &mut T) -> io::Result<()> {
         buffer.write_u16::<BigEndian>(self.name_index)?;
         buffer.write_u32::<BigEndian>(self.info.len() as u32)?;
         buffer.write_all(&self.info)
@@ -491,7 +449,7 @@ impl MethodInfo {
 }
 
 impl BufferedRead for MethodInfo {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn read<T: Read + Seek>(buffer: &mut T) -> io::Result<Self> {
         Ok(MethodInfo {
             access: AccessFlags::read(buffer)?,
             name_index: buffer.read_u16::<BigEndian>()?,
@@ -500,7 +458,7 @@ impl BufferedRead for MethodInfo {
         })
     }
 
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
+    fn write<T: Write + Seek>(&self, buffer: &mut T) -> io::Result<()> {
         self.access.write(buffer)?;
         buffer.write_u16::<BigEndian>(self.name_index)?;
         buffer.write_u16::<BigEndian>(self.descriptor_index)?;

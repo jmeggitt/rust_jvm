@@ -54,12 +54,31 @@ fn main() {
         &symbol_list_path
     );
 
-    let symbols = read_symbols();
-    write_symbol_list(&symbol_list_path, &symbols).unwrap();
+    let mut symbols = read_symbols();
 
-    // if cfg!(windows) {
-    //     println!("cargo:rustc-cdylib-link-arg=/export:_GetStringUTFLength@8=_GetStringUTFLength");
-    // }
+    // Define linkage for symbols expected on windows by other java 8 dlls that are not present in regular java 8
+    def_sym("JVM_BeforeHalt", "JVM_Unsupported");
+    def_sym("JVM_CopySwapMemory", "JVM_Unsupported");
+    def_sym("JVM_SetVmMemoryPressure", "JVM_Unsupported");
+    def_sym("JVM_GetVmMemoryPressure", "JVM_Unsupported");
+    def_sym("JVM_GetManagementExt", "JVM_Unsupported");
+    // def_sym("JVM_KnownToNotExist", "JVM_Unsupported");
+    // def_sym("JVM_GetResourceLookupCacheURLs", "JVM_Unsupported");
+    // def_sym("JVM_GetResourceLookupCache", "JVM_Unsupported");
+    def_sym("JVM_GetTemporaryDirectory", "JVM_Unsupported");
+
+    // Pass unsupported symbols to symbol list
+    // symbols.push("JVM_BeforeHalt".into());
+    // symbols.push("JVM_CopySwapMemory".into());
+    // symbols.push("JVM_SetVmMemoryPressure".into());
+    // symbols.push("JVM_GetVmMemoryPressure".into());
+    // symbols.push("JVM_GetManagementExt".into());
+    // symbols.push("JVM_KnownToNotExist".into());
+    // symbols.push("JVM_GetResourceLookupCacheURLs".into());
+    // symbols.push("JVM_GetResourceLookupCache".into());
+    // symbols.push("JVM_GetTemporaryDirectory".into());
+
+    write_symbol_list(&symbol_list_path, &symbols).unwrap();
 
     for symbol in &symbols {
         if cfg!(windows) {
@@ -80,17 +99,6 @@ fn main() {
     cc::Build::new()
         .file("src/va_link_support.c")
         .compile("va_link_support");
-
-    // Define linkage for symbols expected on windows by other java 8 dlls that are not present in regular java 8
-    def_sym("JVM_BeforeHalt", "JVM_Unsupported");
-    def_sym("JVM_CopySwapMemory", "JVM_Unsupported");
-    def_sym("JVM_SetVmMemoryPressure", "JVM_Unsupported");
-    def_sym("JVM_GetVmMemoryPressure", "JVM_Unsupported");
-    def_sym("JVM_GetManagementExt", "JVM_Unsupported");
-    def_sym("JVM_KnownToNotExist", "JVM_Unsupported");
-    def_sym("JVM_GetResourceLookupCacheURLs", "JVM_Unsupported");
-    def_sym("JVM_GetResourceLookupCache", "JVM_Unsupported");
-    def_sym("JVM_GetTemporaryDirectory", "JVM_Unsupported");
 }
 
 pub fn def_sym(name: &str, backing: &str) {

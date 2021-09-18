@@ -98,8 +98,21 @@ impl ClassSchema {
                 desc: FieldDescriptor::read_str(desc).expect("Unable to parse FieldDescriptor"),
             };
 
+            if field_offsets.contains_key(name) {
+                continue;
+            }
+
             field_offsets.insert(name.to_string(), field.clone());
             field_lookup.push(field);
+        }
+
+        if field_offsets.len() != field_lookup.len() {
+            error!("Superclass schema: {:?}", &super_class);
+            error!("Offsets: {:?}", &field_offsets);
+            error!("Lookup: {:?}", &field_lookup);
+
+            // Trigger panic
+            assert_eq!(field_offsets.len(), field_lookup.len());
         }
 
         ClassSchema {

@@ -1,4 +1,4 @@
-use std::io::{self, Cursor, Error, ErrorKind, Seek, SeekFrom};
+use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom};
 
 use byteorder::ReadBytesExt;
 use hashbrown::HashSet;
@@ -247,7 +247,7 @@ impl FieldDescriptor {
 }
 
 impl BufferedRead for FieldDescriptor {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn read<T: Read + Seek>(buffer: &mut T) -> io::Result<Self> {
         Ok(match buffer.read_u8()? {
             b'B' => FieldDescriptor::Byte,
             b'C' => FieldDescriptor::Char,

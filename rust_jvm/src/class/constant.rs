@@ -1,14 +1,13 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
-use std::io::{self, Cursor, Error, ErrorKind, Read, Write};
+use std::io::{self, Cursor, Error, ErrorKind, Read, Seek, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_traits::FromPrimitive;
 
-use crate::jvm::mem::FieldDescriptor;
-// use crate::version::ClassVersion;
-use crate::class::class_file::BufferedRead;
 use crate::class::version::ClassVersion;
+use crate::class::BufferedRead;
+use crate::jvm::mem::FieldDescriptor;
 use std::ops::Index;
 
 #[repr(transparent)]
@@ -211,9 +210,7 @@ impl Constant {
 
         Ok(())
     }
-}
 
-impl BufferedRead for Constant {
     fn read_versioned(version: ClassVersion, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
         Ok(match buffer.read_u8()? {
             ConstantUtf8Info::TAG => {
@@ -281,7 +278,7 @@ impl BufferedRead for Constant {
     }
 }
 
-pub trait ConstantPoolTag: Sized + Debug {
+pub trait ConstantPoolTag: Sized + Debug + BufferedRead {
     /// Used to facilitate parsing
     const TAG: u8;
 
@@ -291,9 +288,7 @@ pub trait ConstantPoolTag: Sized + Debug {
     /// If this constant can be loaded directly to stack. Maybe, if this is a final field?
     const STACK_LOADABLE: Option<ClassVersion> = None;
 
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self>;
-
-    fn attempt_read(version: ClassVersion, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn attempt_read<T: Read + Seek>(version: ClassVersion, buffer: &mut T) -> io::Result<Self> {
         if version.cmp(&Self::MIN_VERSION) == Ordering::Greater {
             return Err(Error::new(
                 ErrorKind::Other,
@@ -304,231 +299,130 @@ pub trait ConstantPoolTag: Sized + Debug {
         Self::read(buffer)
     }
 
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()>;
-
-    fn tagged_write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
+    fn tagged_write<T: Write + Seek>(&self, buffer: &mut T) -> io::Result<()> {
         buffer.write_u8(Self::TAG)?;
         self.write(buffer)
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantClass {
-    pub name_index: u16,
+readable_struct! {
+    pub struct ConstantClass {
+        name_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantClass {
     const TAG: u8 = 7;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
     const STACK_LOADABLE: Option<ClassVersion> = Some(ClassVersion(49, 0));
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(ConstantClass {
-            name_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.name_index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantFieldRef {
-    pub class_index: u16,
-    pub name_and_type_index: u16,
+readable_struct! {
+    pub struct ConstantFieldRef {
+        class_index: u16,
+        name_and_type_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantFieldRef {
     const TAG: u8 = 9;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(ConstantFieldRef {
-            class_index: buffer.read_u16::<BigEndian>()?,
-            name_and_type_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.class_index)?;
-        buffer.write_u16::<BigEndian>(self.name_and_type_index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantMethodRef {
-    pub class_index: u16,
-    pub name_and_type_index: u16,
+readable_struct! {
+    pub struct ConstantMethodRef {
+        class_index: u16,
+        name_and_type_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantMethodRef {
     const TAG: u8 = 10;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(ConstantMethodRef {
-            class_index: buffer.read_u16::<BigEndian>()?,
-            name_and_type_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.class_index)?;
-        buffer.write_u16::<BigEndian>(self.name_and_type_index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantInterfaceMethodRef {
-    pub class_index: u16,
-    pub name_and_type_index: u16,
+readable_struct! {
+    pub struct ConstantInterfaceMethodRef {
+        class_index: u16,
+        name_and_type_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantInterfaceMethodRef {
     const TAG: u8 = 11;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(ConstantInterfaceMethodRef {
-            class_index: buffer.read_u16::<BigEndian>()?,
-            name_and_type_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.class_index)?;
-        buffer.write_u16::<BigEndian>(self.name_and_type_index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantString {
-    pub string_index: u16,
+readable_struct! {
+    pub struct ConstantString {
+        string_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantString {
     const TAG: u8 = 8;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
     const STACK_LOADABLE: Option<ClassVersion> = Some(ClassVersion(45, 3));
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(ConstantString {
-            string_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.string_index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantInteger {
-    pub value: i32,
+readable_struct! {
+    pub struct ConstantInteger {
+        value: i32,
+    }
 }
 
 impl ConstantPoolTag for ConstantInteger {
     const TAG: u8 = 3;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
     const STACK_LOADABLE: Option<ClassVersion> = Some(ClassVersion(45, 3));
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            value: buffer.read_i32::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_i32::<BigEndian>(self.value)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantFloat {
-    pub value: f32,
+readable_struct! {
+    pub struct ConstantFloat {
+        value: f32,
+    }
 }
 
 impl ConstantPoolTag for ConstantFloat {
     const TAG: u8 = 4;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
     const STACK_LOADABLE: Option<ClassVersion> = Some(ClassVersion(45, 3));
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            value: buffer.read_f32::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_f32::<BigEndian>(self.value)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantLong {
-    pub value: i64,
+readable_struct! {
+    pub struct ConstantLong {
+        value: i64,
+    }
 }
 
 impl ConstantPoolTag for ConstantLong {
     const TAG: u8 = 5;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
     const STACK_LOADABLE: Option<ClassVersion> = Some(ClassVersion(45, 3));
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            value: buffer.read_i64::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_i64::<BigEndian>(self.value)
-    }
 }
-
-#[derive(Debug, Clone)]
-pub struct ConstantDouble {
-    pub value: f64,
+readable_struct! {
+    pub struct ConstantDouble {
+        value: f64,
+    }
 }
 
 impl ConstantPoolTag for ConstantDouble {
     const TAG: u8 = 6;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
     const STACK_LOADABLE: Option<ClassVersion> = Some(ClassVersion(45, 3));
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            value: buffer.read_f64::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_f64::<BigEndian>(self.value)
-    }
 }
 
-/// Both fields represent indexes in the same table to CONSTANT_Utf8_info
-#[derive(Debug, Copy, Clone)]
-pub struct ConstantNameAndType {
-    pub name_index: u16,
-    pub descriptor_index: u16,
+// Both fields represent indexes in the same table to CONSTANT_Utf8_info
+readable_struct! {
+    pub struct ConstantNameAndType {
+        name_index: u16,
+        descriptor_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantNameAndType {
     const TAG: u8 = 12;
     const MIN_VERSION: ClassVersion = ClassVersion(45, 3);
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            name_index: buffer.read_u16::<BigEndian>()?,
-            descriptor_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.name_index)?;
-        buffer.write_u16::<BigEndian>(self.descriptor_index)
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -581,37 +475,15 @@ impl ConstantUtf8Info {
         result.shrink_to_fit();
         result
     }
-
-    // TODO: Properly encode classes
-    pub fn encode(&self) -> Vec<u8> {
-        let mut result = Vec::with_capacity(self.text.len());
-
-        let mut buffer = [0u8; 4];
-
-        for char in self.text.chars() {
-            let len = char.encode_utf8(&mut buffer).len();
-
-            // Matches utf8 specification up to 3 bytes
-            if len <= 3 {
-                result.extend_from_slice(&buffer[..len]);
-                continue;
-            }
-
-            // Now we need to do some random stuff
-            let _extended = [0b11101101u8, 0u8, 0u8, 0b11101101u8, 0u8, 0u8];
-
-            // extended[5] = 0b1000_0000 | (char & 0x3f);
-        }
-
-        result
-    }
 }
 
 impl ConstantPoolTag for ConstantUtf8Info {
     const TAG: u8 = 1;
     const MIN_VERSION: ClassVersion = ClassVersion::new(45, 3);
+}
 
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+impl BufferedRead for ConstantUtf8Info {
+    fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
         let len = buffer.read_u16::<BigEndian>()?;
 
         let mut text_buffer = vec![0u8; len as usize];
@@ -626,7 +498,7 @@ impl ConstantPoolTag for ConstantUtf8Info {
     }
 
     // TODO: This is not compliant, but its way faster and works for most common unicode characters
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
+    fn write<T: Write>(&self, buffer: &mut T) -> io::Result<()> {
         buffer.write_u16::<BigEndian>(self.text.len() as u16)?;
         buffer.write_all(self.text.as_bytes())?;
         Ok(())
@@ -647,141 +519,89 @@ pub enum ReferenceKind {
     InvokeInterface = 9,
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantMethodHandle {
-    reference_kind: ReferenceKind,
-    index: u16,
+impl BufferedRead for ReferenceKind {
+    fn read<T: Read + Seek>(buffer: &mut T) -> io::Result<Self> {
+        match Self::from_u8(buffer.read_u8()?) {
+            Some(v) => Ok(v),
+            None => Err(Error::new(
+                ErrorKind::Other,
+                "Reference kind value out of bounds!",
+            )),
+        }
+    }
+
+    fn write<T: Write + Seek>(&self, buffer: &mut T) -> io::Result<()> {
+        buffer.write_u8(*self as u8)
+    }
+}
+
+readable_struct! {
+    pub struct ConstantMethodHandle {
+        reference_kind: ReferenceKind,
+        index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantMethodHandle {
     const TAG: u8 = 15;
     const MIN_VERSION: ClassVersion = ClassVersion(51, 0);
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            reference_kind: match ReferenceKind::from_u8(buffer.read_u8()?) {
-                Some(v) => v,
-                None => {
-                    return Err(Error::new(
-                        ErrorKind::Other,
-                        "Reference kind value out of bounds!",
-                    ));
-                }
-            },
-            index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u8(self.reference_kind as u8)?;
-        buffer.write_u16::<BigEndian>(self.index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantMethodType {
-    descriptor_index: u16,
+readable_struct! {
+    pub struct ConstantMethodType {
+        descriptor_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantMethodType {
     const TAG: u8 = 16;
     const MIN_VERSION: ClassVersion = ClassVersion(51, 0);
     const STACK_LOADABLE: Option<ClassVersion> = Some(ClassVersion(51, 0));
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            descriptor_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.descriptor_index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantDynamic {
-    bootstrap_method_attr_index: u16,
-    name_and_type_index: u16,
+readable_struct! {
+    pub struct ConstantDynamic {
+        bootstrap_method_attr_index: u16,
+        name_and_type_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantDynamic {
     const TAG: u8 = 17;
     const MIN_VERSION: ClassVersion = ClassVersion(55, 0);
     const STACK_LOADABLE: Option<ClassVersion> = Some(ClassVersion(55, 0));
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            bootstrap_method_attr_index: buffer.read_u16::<BigEndian>()?,
-            name_and_type_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.bootstrap_method_attr_index)?;
-        buffer.write_u16::<BigEndian>(self.name_and_type_index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantInvokeDynamic {
-    bootstrap_method_attr_index: u16,
-    name_and_type_index: u16,
+readable_struct! {
+    pub struct ConstantInvokeDynamic {
+        bootstrap_method_attr_index: u16,
+        name_and_type_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantInvokeDynamic {
     const TAG: u8 = 18;
     const MIN_VERSION: ClassVersion = ClassVersion(51, 0);
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            bootstrap_method_attr_index: buffer.read_u16::<BigEndian>()?,
-            name_and_type_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.bootstrap_method_attr_index)?;
-        buffer.write_u16::<BigEndian>(self.name_and_type_index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantModule {
-    name_index: u16,
+readable_struct! {
+    pub struct ConstantModule {
+        name_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantModule {
     const TAG: u8 = 19;
     const MIN_VERSION: ClassVersion = ClassVersion(53, 0);
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            name_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.name_index)
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConstantPackage {
-    name_index: u16,
+readable_struct! {
+    pub struct ConstantPackage {
+        name_index: u16,
+    }
 }
 
 impl ConstantPoolTag for ConstantPackage {
     const TAG: u8 = 20;
     const MIN_VERSION: ClassVersion = ClassVersion(53, 0);
-
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-        Ok(Self {
-            name_index: buffer.read_u16::<BigEndian>()?,
-        })
-    }
-
-    fn write(&self, buffer: &mut Cursor<&mut Vec<u8>>) -> io::Result<()> {
-        buffer.write_u16::<BigEndian>(self.name_index)
-    }
 }

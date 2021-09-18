@@ -1,10 +1,11 @@
 use std::io;
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Seek};
 
 use byteorder::{BigEndian, ReadBytesExt};
 
-use crate::class::class_file::{AttributeInfo, BufferedRead};
+use crate::class::class_file::AttributeInfo;
 use crate::class::constant::Constant;
+use crate::class::BufferedRead;
 use crate::instruction::Instruction;
 use crate::instruction::InstructionReader;
 use crate::jvm::JavaEnv;
@@ -45,7 +46,7 @@ impl CodeAttribute {
 }
 
 impl BufferedRead for CodeAttribute {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn read<T: Read + Seek>(buffer: &mut T) -> io::Result<Self> {
         let max_stack = buffer.read_u16::<BigEndian>()?;
         let max_locals = buffer.read_u16::<BigEndian>()?;
 
@@ -74,7 +75,7 @@ pub struct ExceptionRange {
 }
 
 impl BufferedRead for ExceptionRange {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
         Ok(ExceptionRange {
             try_start: buffer.read_u16::<BigEndian>()?,
             try_end: buffer.read_u16::<BigEndian>()?,
@@ -91,7 +92,7 @@ pub struct LineNumber {
 }
 
 impl BufferedRead for LineNumber {
-    fn read(buffer: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+    fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
         Ok(LineNumber {
             instruction: buffer.read_u16::<BigEndian>()?,
             line_num: buffer.read_u16::<BigEndian>()?,

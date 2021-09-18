@@ -35,18 +35,7 @@ pub fn set_property(jvm: &mut Arc<RwLock<JavaEnv>>, obj: ObjectHandle, key: &str
     jvm.invoke_virtual(element, obj, vec![k, v]).unwrap();
 }
 
-pub fn build_system_properties(jvm: &mut Arc<RwLock<JavaEnv>>) {
-    jvm.init_class("java/util/Properties");
-    let schema = jvm.write().class_schema("java/util/Properties");
-    let obj = ObjectHandle::new(schema);
-
-    jvm.invoke_virtual(
-        ClassElement::new("java/util/Properties", "<init>", "()V"),
-        obj,
-        vec![],
-    )
-    .unwrap();
-
+pub fn build_system_properties(jvm: &mut Arc<RwLock<JavaEnv>>, obj: ObjectHandle) {
     set_property(jvm, obj, "java.version", "16.0.0");
     set_property(jvm, obj, "java.vendor", "jmeggitt");
     set_property(
@@ -101,10 +90,7 @@ pub fn build_system_properties(jvm: &mut Arc<RwLock<JavaEnv>>) {
     );
     set_property(jvm, obj, "file.encoding", "utf-8");
 
-    let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("props"));
-    jvm.write()
-        .static_fields
-        .insert(field_reference, JavaValue::Reference(Some(obj)));
+    // let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("props"));
 }
 
 pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
@@ -123,7 +109,33 @@ pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
         "(ILjava/lang/String;)V",
         Java_java_hooks_PrintStreamHook_sendIO as *const c_void,
     );
-    build_system_properties(jvm);
+
+    jvm.init_class("java/util/Properties");
+    jvm.init_class("sun/misc/VM");
+    let schema = jvm.write().class_schema("java/util/Properties");
+    let obj = ObjectHandle::new(schema);
+
+    jvm.invoke_virtual(
+        ClassElement::new("java/util/Properties", "<init>", "()V"),
+        obj,
+        vec![],
+    )
+    .unwrap();
+
+    jvm.write().static_fields.set_static(
+        "java/lang/System",
+        "props",
+        JavaValue::Reference(Some(obj)),
+    );
+
+    build_system_properties(jvm, obj);
+    let vm_props = jvm
+        .read()
+        .static_fields
+        .get_static("sun/misc/VM", "savedProps")
+        .unwrap()
+        .expect_object();
+    build_system_properties(jvm, vm_props);
 
     // Don't init stdout/stderr if doing tests to save time
     if cfg!(test) {
@@ -151,11 +163,13 @@ pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
         .unwrap();
 
     let mut jvm = jvm.write();
-    let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("out"));
-    jvm.static_fields.insert(field_reference, stdout);
+    // let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("out"));
+    jvm.static_fields
+        .set_static("java/lang/System", "out", stdout);
 
-    let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("err"));
-    jvm.static_fields.insert(field_reference, stderr);
+    // let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("err"));
+    jvm.static_fields
+        .set_static("java/lang/System", "err", stderr);
 }
 
 pub unsafe extern "system" fn empty(_env: *mut JNIEnv, _cls: jclass) {}

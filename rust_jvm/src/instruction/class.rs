@@ -33,8 +33,8 @@ impl getstatic {
         let descriptor = FieldDescriptor::read_str(desc).ok()?;
         let ret = descriptor.initial_local();
 
-        let field_reference = format!("{}_{}", clean_str(class), clean_str(field));
-        jvm.static_fields.insert(field_reference, ret);
+        // let field_reference = format!("{}_{}", clean_str(class), clean_str(field));
+        jvm.static_fields.set_static(&class, &field, ret);
         Some(ret)
     }
 }
@@ -79,11 +79,11 @@ impl InstructionAction for getstatic {
                 class_name = raw_class.super_class();
             }
 
-            let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
+            // let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
             let value = {
                 let mut lock = jvm.write();
-                match lock.static_fields.get(&field_reference) {
-                    Some(v) => *v,
+                match lock.static_fields.get_static(&class_name, &field_name) {
+                    Some(v) => v,
                     None => match Self::check_static_init(
                         &mut *lock,
                         &class_name,
@@ -91,10 +91,7 @@ impl InstructionAction for getstatic {
                         &descriptor,
                     ) {
                         Some(v) => v,
-                        // Check if the element exists, but has not been initialized yet
-                        None => {
-                            panic!("Static value not found: {}::{}", &class_name, &field_name)
-                        }
+                        None => panic!("Static value not found: {}::{}", &class_name, &field_name),
                     },
                 }
             };
@@ -236,8 +233,10 @@ impl InstructionAction for putstatic {
             "Put value {:?} into {}::{} {}",
             &value, &class_name, &field_name, descriptor
         );
-        let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
-        jvm.write().static_fields.insert(field_reference, value);
+        // let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
+        jvm.write()
+            .static_fields
+            .set_static(&class_name, &field_name, value);
         Ok(())
     }
 }

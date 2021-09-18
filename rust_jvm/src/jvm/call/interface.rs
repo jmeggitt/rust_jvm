@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 
-use std::ffi::{c_void, CStr, CString};
-use std::mem::forget;
+use std::ffi::{c_void, CStr, CString, VaList};
+use std::mem::{forget, transmute};
 use std::ptr::{copy_nonoverlapping, null, null_mut, write_bytes};
 
 use jni::sys::{
@@ -13,6 +13,7 @@ use jni::sys::{
 
 use crate::class::constant::ClassElement;
 use crate::class::BufferedRead;
+use crate::jvm::call::ffi::ClassHandle;
 use crate::jvm::call::{FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{
     FieldDescriptor, JavaPrimitive, JavaValue, ManualInstanceReference, ObjectReference,
@@ -282,34 +283,34 @@ pub fn build_interface(jvm: &mut Arc<RwLock<JavaEnv>>) -> JNINativeInterface_ {
         SetFloatField: Some(SetFloatField),
         SetDoubleField: Some(SetDoubleField),
         GetStaticMethodID: Some(GetStaticMethodID),
-        CallStaticObjectMethod: None,
+        CallStaticObjectMethod: Some(CallStaticObjectMethod),
         CallStaticObjectMethodV: Some(CallStaticObjectMethodV),
         CallStaticObjectMethodA: Some(CallStaticObjectMethodA),
-        CallStaticBooleanMethod: None,
+        CallStaticBooleanMethod: Some(CallStaticBooleanMethod),
         CallStaticBooleanMethodV: Some(CallStaticBooleanMethodV),
         CallStaticBooleanMethodA: Some(CallStaticBooleanMethodA),
-        CallStaticByteMethod: None,
+        CallStaticByteMethod: Some(CallStaticByteMethod),
         CallStaticByteMethodV: Some(CallStaticByteMethodV),
         CallStaticByteMethodA: Some(CallStaticByteMethodA),
-        CallStaticCharMethod: None,
+        CallStaticCharMethod: Some(CallStaticCharMethod),
         CallStaticCharMethodV: Some(CallStaticCharMethodV),
         CallStaticCharMethodA: Some(CallStaticCharMethodA),
-        CallStaticShortMethod: None,
+        CallStaticShortMethod: Some(CallStaticShortMethod),
         CallStaticShortMethodV: Some(CallStaticShortMethodV),
         CallStaticShortMethodA: Some(CallStaticShortMethodA),
-        CallStaticIntMethod: None,
+        CallStaticIntMethod: Some(CallStaticIntMethod),
         CallStaticIntMethodV: Some(CallStaticIntMethodV),
         CallStaticIntMethodA: Some(CallStaticIntMethodA),
-        CallStaticLongMethod: None,
+        CallStaticLongMethod: Some(CallStaticLongMethod),
         CallStaticLongMethodV: Some(CallStaticLongMethodV),
         CallStaticLongMethodA: Some(CallStaticLongMethodA),
-        CallStaticFloatMethod: None,
+        CallStaticFloatMethod: Some(CallStaticFloatMethod),
         CallStaticFloatMethodV: Some(CallStaticFloatMethodV),
         CallStaticFloatMethodA: Some(CallStaticFloatMethodA),
-        CallStaticDoubleMethod: None,
+        CallStaticDoubleMethod: Some(CallStaticDoubleMethod),
         CallStaticDoubleMethodV: Some(CallStaticDoubleMethodV),
         CallStaticDoubleMethodA: Some(CallStaticDoubleMethodA),
-        CallStaticVoidMethod: None,
+        CallStaticVoidMethod: Some(CallStaticVoidMethod),
         CallStaticVoidMethodV: Some(CallStaticVoidMethodV),
         CallStaticVoidMethodA: Some(CallStaticVoidMethodA),
         GetStaticFieldID: Some(GetStaticFieldID),
@@ -473,7 +474,18 @@ pub unsafe extern "system" fn IsAssignableFrom(
     sub: jclass,
     sup: jclass,
 ) -> jboolean {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let subclass = obj_expect!(env, sub).unwrap_as_class();
+    let supclass = obj_expect!(env, sup).unwrap_as_class();
+
+    // TODO: Idk if this may cause issues for me later
+    let jvm = env.read();
+    let ret = matches!(jvm.instanceof(&subclass, &supclass), Some(true)) as jboolean;
+    warn!(
+        "JNIEnv.IsAssignableFrom({:?}, {:?}) -> {}",
+        &subclass, &supclass, ret
+    );
+    ret
 }
 
 #[no_mangle]
@@ -517,7 +529,7 @@ pub unsafe extern "system" fn ExceptionClear(env: *mut JNIEnv) {
 
 #[no_mangle]
 pub unsafe extern "system" fn FatalError(env: *mut JNIEnv, msg: *const c_char) -> ! {
-    unimplemented!()
+    panic!("Fatal Error: {}", CStr::from_ptr(msg).to_string_lossy())
 }
 
 #[no_mangle]
@@ -532,18 +544,17 @@ pub unsafe extern "system" fn PopLocalFrame(env: *mut JNIEnv, result: jobject) -
 
 #[no_mangle]
 pub unsafe extern "system" fn NewGlobalRef(env: *mut JNIEnv, lobj: jobject) -> jobject {
-    unimplemented!()
+    // TODO: Once GC is working, this should ensure a global reference exists for a given object
+    lobj
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn DeleteGlobalRef(env: *mut JNIEnv, gref: jobject) {
-    unimplemented!()
+    // TODO: Once GC is working, this should remove a global reference from NewGlobalRef
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn DeleteLocalRef(env: *mut JNIEnv, obj: jobject) {
-    unimplemented!()
-}
+pub unsafe extern "system" fn DeleteLocalRef(env: *mut JNIEnv, obj: jobject) {}
 
 #[no_mangle]
 pub unsafe extern "system" fn IsSameObject(
@@ -551,7 +562,7 @@ pub unsafe extern "system" fn IsSameObject(
     obj1: jobject,
     obj2: jobject,
 ) -> jboolean {
-    unimplemented!()
+    (ObjectHandle::from_ptr(obj1) == ObjectHandle::from_ptr(obj2)) as jboolean
 }
 
 #[no_mangle]
@@ -559,9 +570,11 @@ pub unsafe extern "system" fn NewLocalRef(env: *mut JNIEnv, ref_: jobject) -> jo
     unimplemented!()
 }
 
+/// Due to hotspot jvm limitations it can only support a limited number of local references on a
+/// thread at a any time. This JVM does not have that limitation so always return success.
 #[no_mangle]
 pub unsafe extern "system" fn EnsureLocalCapacity(env: *mut JNIEnv, capacity: jint) -> jint {
-    unimplemented!()
+    0
 }
 
 #[no_mangle]
@@ -1030,7 +1043,58 @@ pub unsafe extern "system" fn GetFieldID(
     name: *const c_char,
     sig: *const c_char,
 ) -> jfieldID {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let name = CStr::from_ptr(name);
+    let sig = CStr::from_ptr(sig);
+
+    let class = obj_expect!(env, clazz, null_mut());
+    let target_class = class.unwrap_as_class();
+
+    let raw_class = env
+        .read()
+        .class_loader
+        .class(&target_class)
+        .unwrap()
+        .to_owned();
+    let raw_field = raw_class
+        .get_field(&name.to_string_lossy(), &sig.to_string_lossy())
+        .unwrap();
+    // .unwrap_as_class();
+
+    let target_class_schema = env.write().class_schema(&target_class);
+    let field_schema = env.write().class_schema("java/lang/reflect/Field");
+    let field_obj = ObjectHandle::new(field_schema.clone());
+    let instance = field_obj.expect_instance();
+    instance.write_named_field("clazz", Some(class));
+
+    // let name = raw_field.name(&raw_class.constants).unwrap();
+    let slot = match target_class_schema
+        .field_offsets
+        .get(&*name.to_string_lossy())
+    {
+        Some(v) => v.offset as jint,
+        None => -1,
+    };
+    instance.write_named_field("slot", slot);
+    let mut jvm = env.write();
+    instance.write_named_field("name", jvm.build_string(&name.to_string_lossy()));
+
+    let type_class = match FieldDescriptor::read_str(&sig.to_string_lossy()).unwrap() {
+        FieldDescriptor::Byte => jvm.class_instance("byte"),
+        FieldDescriptor::Char => jvm.class_instance("char"),
+        FieldDescriptor::Double => jvm.class_instance("double"),
+        FieldDescriptor::Float => jvm.class_instance("float"),
+        FieldDescriptor::Int => jvm.class_instance("int"),
+        FieldDescriptor::Long => jvm.class_instance("long"),
+        FieldDescriptor::Short => jvm.class_instance("short"),
+        FieldDescriptor::Boolean => jvm.class_instance("boolean"),
+        FieldDescriptor::Object(x) => jvm.class_instance(&x),
+        FieldDescriptor::Array(x) => jvm.class_instance(&format!("[{:?}", x)),
+        _ => panic!("Can't get classes for these types"),
+    };
+    instance.write_named_field("type", Some(type_class));
+    instance.write_named_field("modifiers", raw_field.access.bits() as jint);
+    field_obj.ptr() as jfieldID
 }
 
 #[no_mangle]
@@ -1226,217 +1290,75 @@ pub unsafe extern "system" fn GetStaticMethodID(
     Box::leak(Box::new(element)) as *mut ClassElement as *mut _
 }
 
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticObjectMethodV(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jobject {
-    unimplemented!()
-}
+macro_rules! call_static {
+    (($fn:ident, $fnv:ident, $fna:ident)($($out_match:tt)+) -> $out:ty) => {
+        call_static!(($fn, $fnv, $fna)($($out_match)+) -> $out | Default::default());
+    };
+    (($fn:ident, $fnv:ident, $fna:ident)($($out_match:tt)+) -> $out:ty | $default:expr) => {
+        call_static!{@impl extern "C" $fn(mut args: ...)(|x| {
+            let mut out_vals = Vec::with_capacity(x.len());
+            for arg in x {
+                let va_value: jvalue = transmute(args.arg::<u64>());
+                out_vals.push(arg.cast(va_value).unwrap());
+            }
+            out_vals
+        })($($out_match)+) -> $out | $default}
+        call_static!{@impl extern "system" $fnv(args: va_list)(|x| {
+            let mut va_args: VaList = transmute(args);
+            let mut out_vals = Vec::with_capacity(x.len());
+            for arg in x {
+                let va_value: jvalue = transmute(va_args.arg::<u64>());
+                out_vals.push(arg.cast(va_value).unwrap());
+            }
+            out_vals
+        })($($out_match)+) -> $out | $default}
+        call_static!{@impl extern "system" $fna(args: *const jvalue)(|x| {
+            let mut out_vals = Vec::with_capacity(x.len());
+            for (idx, arg) in x.into_iter().enumerate() {
+                out_vals.push(arg.cast(*args.add(idx)).unwrap());
+            }
+            out_vals
+        })($($out_match)+) -> $out | $default}
+    };
+    (@impl extern $extern:literal $fn:ident($($fn_args:tt)+)(|$args:ident| $load_args:expr)($($out_match:tt)+) -> $out:ty | $default:expr) => {
+        #[no_mangle]
+        pub unsafe extern $extern fn $fn(
+            env: *mut JNIEnv,
+            clazz: jclass,
+            method_id: jmethodID,
+            $($fn_args)+
+        ) -> $out {
+            let element = (&*(method_id as *mut ClassElement)).clone();
 
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticObjectMethodA(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jobject {
-    unimplemented!()
-}
+            let java_args = if let Ok(FieldDescriptor::Method {args: $args, returns}) = FieldDescriptor::read_str(&element.desc) {
+                $load_args
+            } else {
+                panic!("Invalid field descriptor for method");
+            };
 
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticBooleanMethodV(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticBooleanMethodA(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticByteMethodV(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jbyte {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticByteMethodA(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jbyte {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticCharMethodV(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jchar {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticCharMethodA(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jchar {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticShortMethodV(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jshort {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticShortMethodA(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jshort {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticIntMethodV(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticIntMethodA(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticLongMethodV(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jlong {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticLongMethodA(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jlong {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticFloatMethodV(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jfloat {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticFloatMethodA(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jfloat {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticDoubleMethodV(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jdouble {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticDoubleMethodA(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jdouble {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticVoidMethodV(
-    env: *mut JNIEnv,
-    cls: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallStaticVoidMethodA(
-    env: *mut JNIEnv,
-    cls: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) {
-    let mut env = RawJNIEnv::new(env);
-    let element = read_method_id(method_id);
-    let parsed_args = read_args(&element.desc, args);
-
-    // let mut jvm = &mut *((&**env).reserved0 as *mut JavaEnv);
-    match env.invoke_static(element.clone(), parsed_args) {
-        Ok(None) => {}
-        Err(FlowControl::Throws(x)) => {
-            env.write_thrown(x);
-            // (&mut **(env as *mut *mut JNINativeInterface_)).reserved1 = x.pack().l as _;
+            let mut env = RawJNIEnv::new(env);
+            match env.invoke_static(element, java_args) {
+                $($out_match)+
+                Err(FlowControl::Throws(x)) => {
+                    env.write_thrown(x);
+                    $default
+                }
+                x => panic!("{:?}", x),
+            }
         }
-        x => panic!("{:?}", x),
-    }
+    };
 }
+
+call_static!((CallStaticObjectMethod, CallStaticObjectMethodV, CallStaticObjectMethodA)(Ok(Some(JavaValue::Reference(x))) => x.pack().l,) -> jobject | null_mut());
+call_static!((CallStaticBooleanMethod, CallStaticBooleanMethodV, CallStaticBooleanMethodA)(Ok(Some(JavaValue::Byte(x))) => x as _,) -> jboolean);
+call_static!((CallStaticByteMethod, CallStaticByteMethodV, CallStaticByteMethodA)(Ok(Some(JavaValue::Byte(x))) => x,) -> jbyte);
+call_static!((CallStaticCharMethod, CallStaticCharMethodV, CallStaticCharMethodA)(Ok(Some(JavaValue::Char(x))) => x,) -> jchar);
+call_static!((CallStaticShortMethod, CallStaticShortMethodV, CallStaticShortMethodA)(Ok(Some(JavaValue::Short(x))) => x,) -> jshort);
+call_static!((CallStaticIntMethod, CallStaticIntMethodV, CallStaticIntMethodA)(Ok(Some(JavaValue::Int(x))) => x,) -> jint);
+call_static!((CallStaticLongMethod, CallStaticLongMethodV, CallStaticLongMethodA)(Ok(Some(JavaValue::Long(x))) => x,) -> jlong);
+call_static!((CallStaticFloatMethod, CallStaticFloatMethodV, CallStaticFloatMethodA)(Ok(Some(JavaValue::Float(x))) => x,) -> jfloat);
+call_static!((CallStaticDoubleMethod, CallStaticDoubleMethodV, CallStaticDoubleMethodA)(Ok(Some(JavaValue::Double(x))) => x,) -> jdouble);
+call_static!((CallStaticVoidMethod, CallStaticVoidMethodV, CallStaticVoidMethodA)(Ok(None) => {},) -> ());
 
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticFieldID(
@@ -1654,7 +1576,12 @@ pub unsafe extern "system" fn ReleaseStringChars(
 
 #[no_mangle]
 pub unsafe extern "system" fn NewStringUTF(env: *mut JNIEnv, utf: *const c_char) -> jstring {
-    unimplemented!()
+    let input = CStr::from_ptr(utf);
+    let env = RawJNIEnv::new(env);
+    let mut jvm = env.write();
+    jvm.build_string(&input.to_string_lossy())
+        .expect_object()
+        .ptr()
 }
 
 #[no_mangle]
