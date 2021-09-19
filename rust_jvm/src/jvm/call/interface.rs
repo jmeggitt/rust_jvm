@@ -17,8 +17,8 @@ use crate::class::BufferedRead;
 use crate::jvm::call::ffi::ClassHandle;
 use crate::jvm::call::{FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{
-    ArrayReference, FieldDescriptor, JavaPrimitive, JavaValue, ManualInstanceReference,
-    ObjectReference,
+    ArrayReference, FieldDescriptor, InstanceReference, JavaPrimitive, JavaValue,
+    ManualInstanceReference, ObjectReference,
 };
 use crate::jvm::{JavaEnv, ObjectHandle};
 use parking_lot::RwLock;
@@ -615,7 +615,11 @@ pub unsafe extern "system" fn IsInstanceOf(
     obj: jobject,
     clazz: jclass,
 ) -> jboolean {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let obj_class = obj_expect!(env, obj).get_class();
+    let super_class = obj_expect!(env, clazz).unwrap_as_class();
+    let jvm = env.read();
+    matches!(jvm.instanceof(&obj_class, &super_class), Some(true)) as jboolean
 }
 
 #[no_mangle]
@@ -685,79 +689,12 @@ pub unsafe extern "system" fn GetObjectField(
     obj: jobject,
     field_id: jfieldID,
 ) -> jobject {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetBooleanField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetByteField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-) -> jbyte {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetCharField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-) -> jchar {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetShortField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-) -> jshort {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetIntField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-) -> jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetLongField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-) -> jlong {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetFloatField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-) -> jfloat {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetDoubleField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-) -> jdouble {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let obj = obj_expect!(env, obj, null_mut()).expect_instance();
+    let field = obj_expect!(env, field_id as jobject, null_mut()).expect_instance();
+    let field_name: Option<ObjectHandle> = field.read_named_field("name");
+    let out: Option<ObjectHandle> = obj.read_named_field(field_name.unwrap().expect_string());
+    out.pack().l
 }
 
 #[no_mangle]
@@ -767,88 +704,55 @@ pub unsafe extern "system" fn SetObjectField(
     field_id: jfieldID,
     val: jobject,
 ) {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let obj = obj_expect!(env, obj).expect_instance();
+    let field = obj_expect!(env, field_id as jobject).expect_instance();
+    let field_name: Option<ObjectHandle> = field.read_named_field("name");
+    obj.write_named_field(
+        field_name.unwrap().expect_string(),
+        ObjectHandle::from_ptr(val),
+    );
 }
 
-#[no_mangle]
-pub unsafe extern "system" fn SetBooleanField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-    val: jboolean,
-) {
-    unimplemented!()
+macro_rules! impl_obj_field {
+    ($type:ty: $get:ident, $set:ident) => {
+        #[no_mangle]
+        pub unsafe extern "system" fn $get(
+            env: *mut JNIEnv,
+            obj: jobject,
+            field_id: jfieldID,
+        ) -> $type {
+            let env = RawJNIEnv::new(env);
+            let obj = obj_expect!(env, obj).expect_instance();
+            let field = obj_expect!(env, field_id as jobject).expect_instance();
+            let field_name: Option<ObjectHandle> = field.read_named_field("name");
+            obj.read_named_field(field_name.unwrap().expect_string())
+        }
+
+        #[no_mangle]
+        pub unsafe extern "system" fn $set(
+            env: *mut JNIEnv,
+            obj: jobject,
+            field_id: jfieldID,
+            val: $type,
+        ) {
+            let env = RawJNIEnv::new(env);
+            let obj = obj_expect!(env, obj).expect_instance();
+            let field = obj_expect!(env, field_id as jobject).expect_instance();
+            let field_name: Option<ObjectHandle> = field.read_named_field("name");
+            obj.write_named_field(field_name.unwrap().expect_string(), val);
+        }
+    };
 }
 
-#[no_mangle]
-pub unsafe extern "system" fn SetByteField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-    val: jbyte,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetCharField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-    val: jchar,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetShortField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-    val: jshort,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetIntField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-    val: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetLongField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-    val: jlong,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetFloatField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-    val: jfloat,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetDoubleField(
-    env: *mut JNIEnv,
-    obj: jobject,
-    field_id: jfieldID,
-    val: jdouble,
-) {
-    unimplemented!()
-}
+impl_obj_field!(jboolean: GetBooleanField, SetBooleanField);
+impl_obj_field!(jbyte: GetByteField, SetByteField);
+impl_obj_field!(jchar: GetCharField, SetCharField);
+impl_obj_field!(jshort: GetShortField, SetShortField);
+impl_obj_field!(jint: GetIntField, SetIntField);
+impl_obj_field!(jlong: GetLongField, SetLongField);
+impl_obj_field!(jfloat: GetFloatField, SetFloatField);
+impl_obj_field!(jdouble: GetDoubleField, SetDoubleField);
 
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticMethodID(
@@ -1028,179 +932,59 @@ pub unsafe extern "system" fn GetStaticFieldID(
     name: *const c_char,
     sig: *const c_char,
 ) -> jfieldID {
-    unimplemented!()
+    (&**env).GetFieldID.unwrap()(env, clazz, name, sig)
 }
 
-#[no_mangle]
-pub unsafe extern "system" fn GetStaticObjectField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-) -> jobject {
-    unimplemented!()
+macro_rules! impl_static_field {
+    ($type:ty, $get:ident($($match_tokens:tt)+), $set:ident(|$x:ident| $y:expr)) => {
+        impl_static_field!{$type, $get($($match_tokens)+), $set(|$x| $y), Default::default()}
+    };
+    ($type:ty, $get:ident($($match_tokens:tt)+), $set:ident(|$x:ident| $y:expr), $default:expr) => {
+        #[no_mangle]
+        pub unsafe extern "system" fn $get(
+            env: *mut JNIEnv,
+            clazz: jclass,
+            field_id: jfieldID,
+        ) -> $type {
+            let env = RawJNIEnv::new(env);
+            let field = obj_expect!(env, field_id as jobject, $default).expect_instance();
+            let field_name: Option<ObjectHandle> = field.read_named_field("name");
+            let class = obj_expect!(env, clazz, $default).unwrap_as_class();
+
+            let jvm = env.read();
+            match jvm.static_fields.get_static(&field_name.unwrap().expect_string(), &class) {
+                $($match_tokens)+,
+                x => panic!("Static not found: {:?}", x),
+            }
+        }
+
+
+        #[no_mangle]
+        pub unsafe extern "system" fn $set(
+            env: *mut JNIEnv,
+            clazz: jclass,
+            field_id: jfieldID,
+            $x: $type,
+        ) {
+            let env = RawJNIEnv::new(env);
+            let field = obj_expect!(env, field_id as jobject).expect_instance();
+            let field_name: Option<ObjectHandle> = field.read_named_field("name");
+            let class = obj_expect!(env, clazz).unwrap_as_class();
+
+            env.write().static_fields.set_static(&field_name.unwrap().expect_string(), &class, $y);
+        }
+    };
 }
 
-#[no_mangle]
-pub unsafe extern "system" fn GetStaticBooleanField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetStaticByteField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-) -> jbyte {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetStaticCharField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-) -> jchar {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetStaticShortField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-) -> jshort {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetStaticIntField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-) -> jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetStaticLongField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-) -> jlong {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetStaticFloatField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-) -> jfloat {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetStaticDoubleField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-) -> jdouble {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetStaticObjectField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-    value: jobject,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetStaticBooleanField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-    value: jboolean,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetStaticByteField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-    value: jbyte,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetStaticCharField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-    value: jchar,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetStaticShortField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-    value: jshort,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetStaticIntField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-    value: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetStaticLongField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-    value: jlong,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetStaticFloatField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-    value: jfloat,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetStaticDoubleField(
-    env: *mut JNIEnv,
-    clazz: jclass,
-    field_id: jfieldID,
-    value: jdouble,
-) {
-    unimplemented!()
-}
+impl_static_field!(jobject, GetStaticObjectField(Some(JavaValue::Reference(x)) => x.pack().l), SetStaticObjectField(|x| JavaValue::Reference(ObjectHandle::from_ptr(x))), null_mut());
+impl_static_field!(jboolean, GetStaticBooleanField(Some(JavaValue::Byte(x)) => x as _), SetStaticBooleanField(|x| JavaValue::Byte(x as _)));
+impl_static_field!(jbyte, GetStaticByteField(Some(JavaValue::Byte(x)) => x), SetStaticByteField(|x| JavaValue::Byte(x)));
+impl_static_field!(jchar, GetStaticCharField(Some(JavaValue::Char(x)) => x), SetStaticCharField(|x| JavaValue::Char(x)));
+impl_static_field!(jshort, GetStaticShortField(Some(JavaValue::Short(x)) => x), SetStaticShortField(|x| JavaValue::Short(x)));
+impl_static_field!(jint, GetStaticIntField(Some(JavaValue::Int(x)) => x), SetStaticIntField(|x| JavaValue::Int(x)));
+impl_static_field!(jlong, GetStaticLongField(Some(JavaValue::Long(x)) => x), SetStaticLongField(|x| JavaValue::Long(x)));
+impl_static_field!(jfloat, GetStaticFloatField(Some(JavaValue::Float(x)) => x), SetStaticFloatField(|x| JavaValue::Float(x)));
+impl_static_field!(jdouble, GetStaticDoubleField(Some(JavaValue::Double(x)) => x), SetStaticDoubleField(|x| JavaValue::Double(x)));
 
 #[no_mangle]
 pub unsafe extern "system" fn NewString(
@@ -1345,7 +1129,7 @@ macro_rules! impl_array {
             mode: jint,
         ) {
             let env = RawJNIEnv::new(env);
-            let mut arr = obj_expect!(env, array).expect_array::<$java_type>();
+            let arr = obj_expect!(env, array).expect_array::<$java_type>();
 
             // Reclaim elements
             let elements = Vec::from_raw_parts(elems as *mut $java_type, arr.len(), arr.len());

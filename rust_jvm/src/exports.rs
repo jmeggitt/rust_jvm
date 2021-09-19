@@ -32,10 +32,10 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 macro_rules! obj_expect {
-    ($env:ident, $obj:ident) => {
+    ($env:expr, $obj:expr) => {
         obj_expect!($env, $obj, Default::default())
     };
-    ($env:ident, $obj:ident, $ret:expr) => {
+    ($env:expr, $obj:expr, $ret:expr) => {
         match ObjectHandle::from_ptr($obj as _) {
             Some(v) => v,
             None => {

@@ -11,7 +11,7 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 
 macro_rules! array_instruction {
-    (@$type:ident $name:ident, $inst:literal, $arr_type:ty, $local:ident, $desc:expr) => {
+    (@$type:ident $name:ident, $inst:literal, $arr_type:ty, $local:ident, $($desc:expr)+) => {
         instruction! {@partial $name, $inst}
         impl InstructionAction for $name {
             fn exec(
@@ -19,24 +19,25 @@ macro_rules! array_instruction {
                 frame: &mut StackFrame,
                 _jvm: &mut std::sync::Arc<parking_lot::RwLock<crate::jvm::JavaEnv>>,
             ) -> Result<(), FlowControl> {
-                array_instruction! {@$type frame, $arr_type, $local, $desc}
+                array_instruction! {@$type frame, $arr_type, $local, $($desc)+}
             }
         }
     };
-    (@load $frame:ident, $arr_type:ty, $local:ident, $desc:expr) => {
+    (@load $frame:ident, $arr_type:ty, $local:ident, $($desc:expr)+) => {
         let index = $frame.stack.pop().unwrap().as_int().unwrap() as usize;
         if let JavaValue::Reference(Some(arr)) = $frame.stack.pop().unwrap() {
             let array = arr.expect_array::<$arr_type>();
-            $frame
+            $($frame
                 .stack
                 .push(JavaValue::$local(array.read_array(index) as _));
+            let _ = $desc;)+ // to get previous statement to repeat
         } else {
             panic!("xaload expected reference")
         }
         Ok(())
     };
-    (@store $frame:ident, $arr_type:ty, $local:ident, $desc:expr) => {
-        let value = $desc.assign_from($frame.stack.pop().unwrap());
+    (@store $frame:ident, $arr_type:ty, $local:ident, $($desc:expr)+) => {
+        $(let value = $desc.assign_from($frame.stack.pop().unwrap());)+
         let index = $frame.stack.pop().unwrap().as_int().unwrap() as usize;
 
         if let JavaValue::Reference(Some(arr)) = $frame.stack.pop().unwrap() {
@@ -56,14 +57,14 @@ array_instruction! {@load  baload, 0x33, jbyte, Byte, FieldDescriptor::Byte}
 array_instruction! {@store bastore, 0x54, jbyte, Byte, FieldDescriptor::Byte}
 array_instruction! {@load  caload, 0x34, jchar, Char, FieldDescriptor::Char}
 array_instruction! {@store castore, 0x55, jchar, Char, FieldDescriptor::Char}
-array_instruction! {@load  daload, 0x31, jdouble, Double, FieldDescriptor::Double}
-array_instruction! {@store dastore, 0x52, jdouble, Double, FieldDescriptor::Double}
+array_instruction! {@load  daload, 0x31, jdouble, Double, FieldDescriptor::Double FieldDescriptor::Double}
+array_instruction! {@store dastore, 0x52, jdouble, Double, FieldDescriptor::Double FieldDescriptor::Double}
 array_instruction! {@load  faload, 0x30, jfloat, Float, FieldDescriptor::Float}
 array_instruction! {@store fastore, 0x51, jfloat, Float, FieldDescriptor::Float}
 array_instruction! {@load  iaload, 0x2e, jint, Int, FieldDescriptor::Int}
 array_instruction! {@store iastore, 0x4f, jint, Int, FieldDescriptor::Int}
-array_instruction! {@load  laload, 0x2f, jlong, Long, FieldDescriptor::Long}
-array_instruction! {@store lastore, 0x50, jlong, Long, FieldDescriptor::Long}
+array_instruction! {@load  laload, 0x2f, jlong, Long, FieldDescriptor::Long FieldDescriptor::Long}
+array_instruction! {@store lastore, 0x50, jlong, Long, FieldDescriptor::Long FieldDescriptor::Long}
 array_instruction! {@load  saload, 0x35, jshort, Short, FieldDescriptor::Short}
 array_instruction! {@store sastore, 0x56, jshort, Short, FieldDescriptor::Short}
 

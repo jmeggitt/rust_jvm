@@ -102,7 +102,6 @@ impl StackFrame {
         StackFrame::verify_computational_types(&self.locals);
         StackFrame::verify_computational_types(&self.stack);
 
-        // let instructions = self.code.instructions.clone();
         for (offset, instruction) in &code.instructions {
             trace!("\t{}:\t{:?}", offset, instruction);
         }
