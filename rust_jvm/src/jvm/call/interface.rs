@@ -1208,7 +1208,15 @@ pub unsafe extern "system" fn NewString(
     unicode: *const jchar,
     len: jsize,
 ) -> jstring {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let handle = ObjectHandle::new(env.write().class_schema("java/lang/String"));
+    let object = handle.expect_instance();
+
+    let mut chars = vec![0; len as usize];
+    unicode.copy_to(chars.as_mut_ptr(), len as usize);
+
+    object.write_named_field("value", Some(ObjectHandle::array_from_data(chars)));
+    handle.ptr()
 }
 
 #[no_mangle]
@@ -1223,7 +1231,18 @@ pub unsafe extern "system" fn GetStringChars(
     str: jstring,
     is_copy: *mut jboolean,
 ) -> *const jchar {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    if !is_copy.is_null() {
+        *is_copy = JNI_TRUE;
+    }
+
+    let arr: Option<ObjectHandle> = obj_expect!(env, str, null_mut())
+        .expect_instance()
+        .read_named_field("value");
+    let mut clone = arr.unwrap().expect_array::<jchar>().raw_fields().to_vec();
+    let ret = clone.as_mut_ptr();
+    forget(clone); // Forget it so it can be recovered later
+    ret
 }
 
 #[no_mangle]
@@ -1232,7 +1251,14 @@ pub unsafe extern "system" fn ReleaseStringChars(
     str: jstring,
     chars: *const jchar,
 ) {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let obj: Option<ObjectHandle> = obj_expect!(env, str)
+        .expect_instance()
+        .read_named_field("value");
+    let mut arr = obj.unwrap().expect_array::<jchar>();
+
+    // Reclaim elements so they get dropped at the end of the function
+    Vec::from_raw_parts(chars as *mut jchar, arr.len(), arr.len());
 }
 
 #[no_mangle]
@@ -1264,7 +1290,6 @@ pub unsafe extern "system" fn GetStringUTFChars(
 
     let obj = obj_expect!(jvm, str, null());
     let str = obj.expect_string();
-    // let boxed = str.into_boxed_str().into_boxed_bytes();
 
     let ret = CString::new(str).unwrap();
     ret.into_raw() as _
@@ -1300,7 +1325,9 @@ macro_rules! impl_array {
             is_copy: *mut jboolean,
         ) -> *mut $type {
             let env = RawJNIEnv::new(env);
-            *is_copy = JNI_TRUE;
+            if !is_copy.is_null() {
+                *is_copy = JNI_TRUE;
+            }
             let mut clone = obj_expect!(env, array, null_mut())
                 .expect_array::<$java_type>()
                 .raw_fields()
@@ -1554,7 +1581,7 @@ pub unsafe extern "system" fn GetStringCritical(
     string: jstring,
     is_copy: *mut jboolean,
 ) -> *const jchar {
-    unimplemented!()
+    (&**env).GetStringChars.unwrap()(env, string, is_copy)
 }
 
 #[no_mangle]
@@ -1563,7 +1590,7 @@ pub unsafe extern "system" fn ReleaseStringCritical(
     string: jstring,
     cstring: *const jchar,
 ) {
-    unimplemented!()
+    (&**env).ReleaseStringChars.unwrap()(env, string, cstring)
 }
 
 #[no_mangle]
