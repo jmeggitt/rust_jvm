@@ -8,7 +8,8 @@ use jni::sys::{
     jarray, jboolean, jbooleanArray, jbyte, jbyteArray, jchar, jcharArray, jclass, jdouble,
     jdoubleArray, jfieldID, jfloat, jfloatArray, jint, jintArray, jlong, jlongArray, jmethodID,
     jobject, jobjectArray, jobjectRefType, jshort, jshortArray, jsize, jstring, jthrowable, jvalue,
-    jweak, va_list, JNIEnv, JNINativeInterface_, JNINativeMethod, JavaVM, JNI_TRUE,
+    jweak, va_list, JNIEnv, JNINativeInterface_, JNINativeMethod, JavaVM, JNI_ABORT, JNI_COMMIT,
+    JNI_TRUE,
 };
 
 use crate::class::constant::ClassElement;
@@ -16,7 +17,8 @@ use crate::class::BufferedRead;
 use crate::jvm::call::ffi::ClassHandle;
 use crate::jvm::call::{FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{
-    FieldDescriptor, JavaPrimitive, JavaValue, ManualInstanceReference, ObjectReference,
+    ArrayReference, FieldDescriptor, JavaPrimitive, JavaValue, ManualInstanceReference,
+    ObjectReference,
 };
 use crate::jvm::{JavaEnv, ObjectHandle};
 use parking_lot::RwLock;
@@ -203,64 +205,64 @@ pub fn build_interface(jvm: &mut Arc<RwLock<JavaEnv>>) -> JNINativeInterface_ {
         GetObjectClass: Some(get_object_class),
         IsInstanceOf: Some(IsInstanceOf),
         GetMethodID: Some(get_method_id),
-        CallObjectMethod: None,
+        CallObjectMethod: Some(CallObjectMethod),
         CallObjectMethodV: Some(CallObjectMethodV),
         CallObjectMethodA: Some(call_obj_method_a),
-        CallBooleanMethod: None,
+        CallBooleanMethod: Some(CallBooleanMethod),
         CallBooleanMethodV: Some(CallBooleanMethodV),
         CallBooleanMethodA: Some(CallBooleanMethodA),
-        CallByteMethod: None,
+        CallByteMethod: Some(CallByteMethod),
         CallByteMethodV: Some(CallByteMethodV),
         CallByteMethodA: Some(CallByteMethodA),
-        CallCharMethod: None,
+        CallCharMethod: Some(CallCharMethod),
         CallCharMethodV: Some(CallCharMethodV),
         CallCharMethodA: Some(CallCharMethodA),
-        CallShortMethod: None,
+        CallShortMethod: Some(CallShortMethod),
         CallShortMethodV: Some(CallShortMethodV),
         CallShortMethodA: Some(CallShortMethodA),
-        CallIntMethod: None,
+        CallIntMethod: Some(CallIntMethod),
         CallIntMethodV: Some(CallIntMethodV),
         CallIntMethodA: Some(CallIntMethodA),
-        CallLongMethod: None,
+        CallLongMethod: Some(CallLongMethod),
         CallLongMethodV: Some(CallLongMethodV),
         CallLongMethodA: Some(CallLongMethodA),
-        CallFloatMethod: None,
+        CallFloatMethod: Some(CallFloatMethod),
         CallFloatMethodV: Some(CallFloatMethodV),
         CallFloatMethodA: Some(CallFloatMethodA),
-        CallDoubleMethod: None,
+        CallDoubleMethod: Some(CallDoubleMethod),
         CallDoubleMethodV: Some(CallDoubleMethodV),
         CallDoubleMethodA: Some(CallDoubleMethodA),
-        CallVoidMethod: None,
+        CallVoidMethod: Some(CallVoidMethod),
         CallVoidMethodV: Some(CallVoidMethodV),
         CallVoidMethodA: Some(CallVoidMethodA),
-        CallNonvirtualObjectMethod: None,
+        CallNonvirtualObjectMethod: Some(CallNonvirtualObjectMethod),
         CallNonvirtualObjectMethodV: Some(CallNonvirtualObjectMethodV),
         CallNonvirtualObjectMethodA: Some(CallNonvirtualObjectMethodA),
-        CallNonvirtualBooleanMethod: None,
+        CallNonvirtualBooleanMethod: Some(CallNonvirtualBooleanMethod),
         CallNonvirtualBooleanMethodV: Some(CallNonvirtualBooleanMethodV),
         CallNonvirtualBooleanMethodA: Some(CallNonvirtualBooleanMethodA),
-        CallNonvirtualByteMethod: None,
+        CallNonvirtualByteMethod: Some(CallNonvirtualByteMethod),
         CallNonvirtualByteMethodV: Some(CallNonvirtualByteMethodV),
         CallNonvirtualByteMethodA: Some(CallNonvirtualByteMethodA),
-        CallNonvirtualCharMethod: None,
+        CallNonvirtualCharMethod: Some(CallNonvirtualCharMethod),
         CallNonvirtualCharMethodV: Some(CallNonvirtualCharMethodV),
         CallNonvirtualCharMethodA: Some(CallNonvirtualCharMethodA),
-        CallNonvirtualShortMethod: None,
+        CallNonvirtualShortMethod: Some(CallNonvirtualShortMethod),
         CallNonvirtualShortMethodV: Some(CallNonvirtualShortMethodV),
         CallNonvirtualShortMethodA: Some(CallNonvirtualShortMethodA),
-        CallNonvirtualIntMethod: None,
+        CallNonvirtualIntMethod: Some(CallNonvirtualIntMethod),
         CallNonvirtualIntMethodV: Some(CallNonvirtualIntMethodV),
         CallNonvirtualIntMethodA: Some(CallNonvirtualIntMethodA),
-        CallNonvirtualLongMethod: None,
+        CallNonvirtualLongMethod: Some(CallNonvirtualLongMethod),
         CallNonvirtualLongMethodV: Some(CallNonvirtualLongMethodV),
         CallNonvirtualLongMethodA: Some(CallNonvirtualLongMethodA),
-        CallNonvirtualFloatMethod: None,
+        CallNonvirtualFloatMethod: Some(CallNonvirtualFloatMethod),
         CallNonvirtualFloatMethodV: Some(CallNonvirtualFloatMethodV),
         CallNonvirtualFloatMethodA: Some(CallNonvirtualFloatMethodA),
-        CallNonvirtualDoubleMethod: None,
+        CallNonvirtualDoubleMethod: Some(CallNonvirtualDoubleMethod),
         CallNonvirtualDoubleMethodV: Some(CallNonvirtualDoubleMethodV),
         CallNonvirtualDoubleMethodA: Some(CallNonvirtualDoubleMethodA),
-        CallNonvirtualVoidMethod: None,
+        CallNonvirtualVoidMethod: Some(CallNonvirtualVoidMethod),
         CallNonvirtualVoidMethodV: Some(CallNonvirtualVoidMethodV),
         CallNonvirtualVoidMethodA: Some(CallNonvirtualVoidMethodA),
         GetFieldID: Some(GetFieldID),
@@ -617,426 +619,6 @@ pub unsafe extern "system" fn IsInstanceOf(
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn CallObjectMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) -> jobject {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallObjectMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jobject {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallBooleanMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallBooleanMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallByteMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) -> jbyte {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallByteMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jbyte {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallCharMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) -> jchar {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallCharMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jchar {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallShortMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) -> jshort {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallShortMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jshort {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallIntMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) -> jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallIntMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallLongMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) -> jlong {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallLongMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jlong {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallFloatMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) -> jfloat {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallFloatMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jfloat {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallDoubleMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) -> jdouble {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallDoubleMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jdouble {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallVoidMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: va_list,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallVoidMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    method_id: jmethodID,
-    args: *const jvalue,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualObjectMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jobject {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualObjectMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jobject {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualBooleanMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualBooleanMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualByteMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jbyte {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualByteMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jbyte {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualCharMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jchar {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualCharMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jchar {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualShortMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jshort {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualShortMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jshort {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualIntMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualIntMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualLongMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jlong {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualLongMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jlong {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualFloatMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jfloat {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualFloatMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jfloat {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualDoubleMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) -> jdouble {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualDoubleMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) -> jdouble {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualVoidMethodV(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: va_list,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn CallNonvirtualVoidMethodA(
-    env: *mut JNIEnv,
-    obj: jobject,
-    clazz: jclass,
-    method_id: jmethodID,
-    args: *const jvalue,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
 pub unsafe extern "system" fn GetFieldID(
     env: *mut JNIEnv,
     clazz: jclass,
@@ -1290,12 +872,12 @@ pub unsafe extern "system" fn GetStaticMethodID(
     Box::leak(Box::new(element)) as *mut ClassElement as *mut _
 }
 
-macro_rules! call_static {
-    (($fn:ident, $fnv:ident, $fna:ident)($($out_match:tt)+) -> $out:ty) => {
-        call_static!(($fn, $fnv, $fna)($($out_match)+) -> $out | Default::default());
+macro_rules! impl_call {
+    ($type:tt ($fn:ident, $fnv:ident, $fna:ident)($($out_match:tt)+) -> $out:ty) => {
+        impl_call!($type ($fn, $fnv, $fna)($($out_match)+) -> $out | Default::default());
     };
-    (($fn:ident, $fnv:ident, $fna:ident)($($out_match:tt)+) -> $out:ty | $default:expr) => {
-        call_static!{@impl extern "C" $fn(mut args: ...)(|x| {
+    ($type:tt ($fn:ident, $fnv:ident, $fna:ident)($($out_match:tt)+) -> $out:ty | $default:expr) => {
+        impl_call!{@impl $type extern "C" $fn(mut args: ...)(|x| {
             let mut out_vals = Vec::with_capacity(x.len());
             for arg in x {
                 let va_value: jvalue = transmute(args.arg::<u64>());
@@ -1303,7 +885,7 @@ macro_rules! call_static {
             }
             out_vals
         })($($out_match)+) -> $out | $default}
-        call_static!{@impl extern "system" $fnv(args: va_list)(|x| {
+        impl_call!{@impl $type extern "system" $fnv(args: va_list)(|x| {
             let mut va_args: VaList = transmute(args);
             let mut out_vals = Vec::with_capacity(x.len());
             for arg in x {
@@ -1312,7 +894,7 @@ macro_rules! call_static {
             }
             out_vals
         })($($out_match)+) -> $out | $default}
-        call_static!{@impl extern "system" $fna(args: *const jvalue)(|x| {
+        impl_call!{@impl $type extern "system" $fna(args: *const jvalue)(|x| {
             let mut out_vals = Vec::with_capacity(x.len());
             for (idx, arg) in x.into_iter().enumerate() {
                 out_vals.push(arg.cast(*args.add(idx)).unwrap());
@@ -1320,7 +902,7 @@ macro_rules! call_static {
             out_vals
         })($($out_match)+) -> $out | $default}
     };
-    (@impl extern $extern:literal $fn:ident($($fn_args:tt)+)(|$args:ident| $load_args:expr)($($out_match:tt)+) -> $out:ty | $default:expr) => {
+    (@impl static extern $extern:literal $fn:ident($($fn_args:tt)+)(|$args:ident| $load_args:expr)($($out_match:tt)+) -> $out:ty | $default:expr) => {
         #[no_mangle]
         pub unsafe extern $extern fn $fn(
             env: *mut JNIEnv,
@@ -1347,18 +929,97 @@ macro_rules! call_static {
             }
         }
     };
+    (@impl virtual extern $extern:literal $fn:ident($($fn_args:tt)+)(|$args:ident| $load_args:expr)($($out_match:tt)+) -> $out:ty | $default:expr) => {
+        #[no_mangle]
+        pub unsafe extern $extern fn $fn(
+            env: *mut JNIEnv,
+            obj: jobject,
+            method_id: jmethodID,
+            $($fn_args)+
+        ) -> $out {
+            let element = (&*(method_id as *mut ClassElement)).clone();
+
+            let java_args = if let Ok(FieldDescriptor::Method {args: $args, returns}) = FieldDescriptor::read_str(&element.desc) {
+                $load_args
+            } else {
+                panic!("Invalid field descriptor for method");
+            };
+
+            let mut env = RawJNIEnv::new(env);
+            let target = obj_expect!(env, obj, $default);
+            match env.invoke_virtual(element, target, java_args) {
+                $($out_match)+
+                Err(FlowControl::Throws(x)) => {
+                    env.write_thrown(x);
+                    $default
+                }
+                x => panic!("{:?}", x),
+            }
+        }
+    };
+    (@impl special extern $extern:literal $fn:ident($($fn_args:tt)+)(|$args:ident| $load_args:expr)($($out_match:tt)+) -> $out:ty | $default:expr) => {
+        #[no_mangle]
+        pub unsafe extern $extern fn $fn(
+            env: *mut JNIEnv,
+            obj: jobject,
+            _cls: jclass,
+            method_id: jmethodID,
+            $($fn_args)+
+        ) -> $out {
+            let element = (&*(method_id as *mut ClassElement)).clone();
+
+            let java_args = if let Ok(FieldDescriptor::Method {args: $args, returns}) = FieldDescriptor::read_str(&element.desc) {
+                $load_args
+            } else {
+                panic!("Invalid field descriptor for method");
+            };
+
+            let mut env = RawJNIEnv::new(env);
+            let target = obj_expect!(env, obj, $default);
+            match env.invoke_special(element, target, java_args) {
+                $($out_match)+
+                Err(FlowControl::Throws(x)) => {
+                    env.write_thrown(x);
+                    $default
+                }
+                x => panic!("{:?}", x),
+            }
+        }
+    };
 }
 
-call_static!((CallStaticObjectMethod, CallStaticObjectMethodV, CallStaticObjectMethodA)(Ok(Some(JavaValue::Reference(x))) => x.pack().l,) -> jobject | null_mut());
-call_static!((CallStaticBooleanMethod, CallStaticBooleanMethodV, CallStaticBooleanMethodA)(Ok(Some(JavaValue::Byte(x))) => x as _,) -> jboolean);
-call_static!((CallStaticByteMethod, CallStaticByteMethodV, CallStaticByteMethodA)(Ok(Some(JavaValue::Byte(x))) => x,) -> jbyte);
-call_static!((CallStaticCharMethod, CallStaticCharMethodV, CallStaticCharMethodA)(Ok(Some(JavaValue::Char(x))) => x,) -> jchar);
-call_static!((CallStaticShortMethod, CallStaticShortMethodV, CallStaticShortMethodA)(Ok(Some(JavaValue::Short(x))) => x,) -> jshort);
-call_static!((CallStaticIntMethod, CallStaticIntMethodV, CallStaticIntMethodA)(Ok(Some(JavaValue::Int(x))) => x,) -> jint);
-call_static!((CallStaticLongMethod, CallStaticLongMethodV, CallStaticLongMethodA)(Ok(Some(JavaValue::Long(x))) => x,) -> jlong);
-call_static!((CallStaticFloatMethod, CallStaticFloatMethodV, CallStaticFloatMethodA)(Ok(Some(JavaValue::Float(x))) => x,) -> jfloat);
-call_static!((CallStaticDoubleMethod, CallStaticDoubleMethodV, CallStaticDoubleMethodA)(Ok(Some(JavaValue::Double(x))) => x,) -> jdouble);
-call_static!((CallStaticVoidMethod, CallStaticVoidMethodV, CallStaticVoidMethodA)(Ok(None) => {},) -> ());
+impl_call!(static (CallStaticObjectMethod, CallStaticObjectMethodV, CallStaticObjectMethodA)(Ok(Some(JavaValue::Reference(x))) => x.pack().l,) -> jobject | null_mut());
+impl_call!(static (CallStaticBooleanMethod, CallStaticBooleanMethodV, CallStaticBooleanMethodA)(Ok(Some(JavaValue::Byte(x))) => x as _,) -> jboolean);
+impl_call!(static (CallStaticByteMethod, CallStaticByteMethodV, CallStaticByteMethodA)(Ok(Some(JavaValue::Byte(x))) => x,) -> jbyte);
+impl_call!(static (CallStaticCharMethod, CallStaticCharMethodV, CallStaticCharMethodA)(Ok(Some(JavaValue::Char(x))) => x,) -> jchar);
+impl_call!(static (CallStaticShortMethod, CallStaticShortMethodV, CallStaticShortMethodA)(Ok(Some(JavaValue::Short(x))) => x,) -> jshort);
+impl_call!(static (CallStaticIntMethod, CallStaticIntMethodV, CallStaticIntMethodA)(Ok(Some(JavaValue::Int(x))) => x,) -> jint);
+impl_call!(static (CallStaticLongMethod, CallStaticLongMethodV, CallStaticLongMethodA)(Ok(Some(JavaValue::Long(x))) => x,) -> jlong);
+impl_call!(static (CallStaticFloatMethod, CallStaticFloatMethodV, CallStaticFloatMethodA)(Ok(Some(JavaValue::Float(x))) => x,) -> jfloat);
+impl_call!(static (CallStaticDoubleMethod, CallStaticDoubleMethodV, CallStaticDoubleMethodA)(Ok(Some(JavaValue::Double(x))) => x,) -> jdouble);
+impl_call!(static (CallStaticVoidMethod, CallStaticVoidMethodV, CallStaticVoidMethodA)(Ok(None) => {},) -> ());
+
+impl_call!(virtual (CallObjectMethod, CallObjectMethodV, CallObjectMethodA)(Ok(Some(JavaValue::Reference(x))) => x.pack().l,) -> jobject | null_mut());
+impl_call!(virtual (CallBooleanMethod, CallBooleanMethodV, CallBooleanMethodA)(Ok(Some(JavaValue::Byte(x))) => x as _,) -> jboolean);
+impl_call!(virtual (CallByteMethod, CallByteMethodV, CallByteMethodA)(Ok(Some(JavaValue::Byte(x))) => x,) -> jbyte);
+impl_call!(virtual (CallCharMethod, CallCharMethodV, CallCharMethodA)(Ok(Some(JavaValue::Char(x))) => x,) -> jchar);
+impl_call!(virtual (CallShortMethod, CallShortMethodV, CallShortMethodA)(Ok(Some(JavaValue::Short(x))) => x,) -> jshort);
+impl_call!(virtual (CallIntMethod, CallIntMethodV, CallIntMethodA)(Ok(Some(JavaValue::Int(x))) => x,) -> jint);
+impl_call!(virtual (CallLongMethod, CallLongMethodV, CallLongMethodA)(Ok(Some(JavaValue::Long(x))) => x,) -> jlong);
+impl_call!(virtual (CallFloatMethod, CallFloatMethodV, CallFloatMethodA)(Ok(Some(JavaValue::Float(x))) => x,) -> jfloat);
+impl_call!(virtual (CallDoubleMethod, CallDoubleMethodV, CallDoubleMethodA)(Ok(Some(JavaValue::Double(x))) => x,) -> jdouble);
+impl_call!(virtual (CallVoidMethod, CallVoidMethodV, CallVoidMethodA)(Ok(None) => {},) -> ());
+
+impl_call!(special (CallNonvirtualObjectMethod, CallNonvirtualObjectMethodV, CallNonvirtualObjectMethodA)(Ok(Some(JavaValue::Reference(x))) => x.pack().l,) -> jobject | null_mut());
+impl_call!(special (CallNonvirtualBooleanMethod, CallNonvirtualBooleanMethodV, CallNonvirtualBooleanMethodA)(Ok(Some(JavaValue::Byte(x))) => x as _,) -> jboolean);
+impl_call!(special (CallNonvirtualByteMethod, CallNonvirtualByteMethodV, CallNonvirtualByteMethodA)(Ok(Some(JavaValue::Byte(x))) => x,) -> jbyte);
+impl_call!(special (CallNonvirtualCharMethod, CallNonvirtualCharMethodV, CallNonvirtualCharMethodA)(Ok(Some(JavaValue::Char(x))) => x,) -> jchar);
+impl_call!(special (CallNonvirtualShortMethod, CallNonvirtualShortMethodV, CallNonvirtualShortMethodA)(Ok(Some(JavaValue::Short(x))) => x,) -> jshort);
+impl_call!(special (CallNonvirtualIntMethod, CallNonvirtualIntMethodV, CallNonvirtualIntMethodA)(Ok(Some(JavaValue::Int(x))) => x,) -> jint);
+impl_call!(special (CallNonvirtualLongMethod, CallNonvirtualLongMethodV, CallNonvirtualLongMethodA)(Ok(Some(JavaValue::Long(x))) => x,) -> jlong);
+impl_call!(special (CallNonvirtualFloatMethod, CallNonvirtualFloatMethodV, CallNonvirtualFloatMethodA)(Ok(Some(JavaValue::Float(x))) => x,) -> jfloat);
+impl_call!(special (CallNonvirtualDoubleMethod, CallNonvirtualDoubleMethodV, CallNonvirtualDoubleMethodA)(Ok(Some(JavaValue::Double(x))) => x,) -> jdouble);
+impl_call!(special (CallNonvirtualVoidMethod, CallNonvirtualVoidMethodV, CallNonvirtualVoidMethodA)(Ok(None) => {},) -> ());
 
 #[no_mangle]
 pub unsafe extern "system" fn GetStaticFieldID(
@@ -1621,26 +1282,178 @@ pub unsafe extern "system" fn ReleaseStringUTFChars(
 
 #[no_mangle]
 pub unsafe extern "system" fn GetArrayLength(env: *mut JNIEnv, array: jarray) -> jsize {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    obj_expect!(env, array).unknown_array_length().unwrap() as jsize
 }
+
+macro_rules! impl_array {
+    ($type:ty, $java_type:ty: $new_arr:ident, $get_elements:ident, $release_elements:ident, $get_region:ident, $set_region:ident) => {
+        #[no_mangle]
+        pub unsafe extern "system" fn $new_arr(_env: *mut JNIEnv, len: jsize) -> jarray {
+            ObjectHandle::new_array::<$java_type>(len as usize).ptr()
+        }
+
+        #[no_mangle]
+        pub unsafe extern "system" fn $get_elements(
+            env: *mut JNIEnv,
+            array: jarray,
+            is_copy: *mut jboolean,
+        ) -> *mut $type {
+            let env = RawJNIEnv::new(env);
+            *is_copy = JNI_TRUE;
+            let mut clone = obj_expect!(env, array, null_mut())
+                .expect_array::<$java_type>()
+                .raw_fields()
+                .to_vec();
+            let ret = clone.as_mut_ptr();
+            forget(clone); // Forget it so it can be recovered later
+            ret as _
+        }
+
+        #[no_mangle]
+        pub unsafe extern "system" fn $release_elements(
+            env: *mut JNIEnv,
+            array: jarray,
+            elems: *mut $type,
+            mode: jint,
+        ) {
+            let env = RawJNIEnv::new(env);
+            let mut arr = obj_expect!(env, array).expect_array::<$java_type>();
+
+            // Reclaim elements
+            let elements = Vec::from_raw_parts(elems as *mut $java_type, arr.len(), arr.len());
+
+            // Copy back elements
+            if mode & JNI_ABORT == 0 {
+                arr.raw_fields().copy_from_slice(&elements);
+            }
+
+            // Do not free the buffer
+            if mode & JNI_COMMIT == 1 {
+                forget(elements);
+            }
+        }
+
+        #[no_mangle]
+        pub unsafe extern "system" fn $get_region(
+            env: *mut JNIEnv,
+            array: jarray,
+            start: jsize,
+            len: jsize,
+            buf: *mut $type,
+        ) {
+            let env = RawJNIEnv::new(env);
+            let arr = obj_expect!(env, array).expect_array::<$java_type>();
+            assert!(start >= 0 && len >= 0 && start + len <= arr.len() as jint);
+            (arr.raw_fields().as_ptr() as *const $type)
+                .offset(start as isize)
+                .copy_to(buf, len as usize);
+        }
+
+        #[no_mangle]
+        pub unsafe extern "system" fn $set_region(
+            env: *mut JNIEnv,
+            array: jarray,
+            start: jsize,
+            len: jsize,
+            buf: *const $type,
+        ) {
+            let env = RawJNIEnv::new(env);
+            let arr = obj_expect!(env, array).expect_array::<$java_type>();
+            assert!(start >= 0 && len >= 0 && start + len <= arr.len() as jint);
+            buf.copy_to(
+                (arr.raw_fields().as_mut_ptr() as *mut $type).offset(start as isize),
+                len as usize,
+            );
+        }
+    };
+}
+
+impl_array!(
+    jboolean,
+    jboolean: NewBooleanArray,
+    GetBooleanArrayElements,
+    ReleaseBooleanArrayElements,
+    GetBooleanArrayRegion,
+    SetBooleanArrayRegion
+);
+impl_array!(
+    jbyte,
+    jbyte: NewByteArray,
+    GetByteArrayElements,
+    ReleaseByteArrayElements,
+    GetByteArrayRegion,
+    SetByteArrayRegion
+);
+impl_array!(
+    jchar,
+    jchar: NewCharArray,
+    GetCharArrayElements,
+    ReleaseCharArrayElements,
+    GetCharArrayRegion,
+    SetCharArrayRegion
+);
+impl_array!(
+    jshort,
+    jshort: NewShortArray,
+    GetShortArrayElements,
+    ReleaseShortArrayElements,
+    GetShortArrayRegion,
+    SetShortArrayRegion
+);
+impl_array!(
+    jint,
+    jint: NewIntArray,
+    GetIntArrayElements,
+    ReleaseIntArrayElements,
+    GetIntArrayRegion,
+    SetIntArrayRegion
+);
+impl_array!(
+    jlong,
+    jlong: NewLongArray,
+    GetLongArrayElements,
+    ReleaseLongArrayElements,
+    GetLongArrayRegion,
+    SetLongArrayRegion
+);
+impl_array!(
+    jfloat,
+    jfloat: NewFloatArray,
+    GetFloatArrayElements,
+    ReleaseFloatArrayElements,
+    GetFloatArrayRegion,
+    SetFloatArrayRegion
+);
+impl_array!(
+    jdouble,
+    jdouble: NewDoubleArray,
+    GetDoubleArrayElements,
+    ReleaseDoubleArrayElements,
+    GetDoubleArrayRegion,
+    SetDoubleArrayRegion
+);
 
 #[no_mangle]
 pub unsafe extern "system" fn NewObjectArray(
-    env: *mut JNIEnv,
+    _env: *mut JNIEnv,
     len: jsize,
-    clazz: jclass,
+    _clazz: jclass,
     init: jobject,
 ) -> jobjectArray {
-    unimplemented!()
+    let initial = vec![ObjectHandle::from_ptr(init); len as usize];
+    ObjectHandle::array_from_data(initial).ptr()
 }
-
 #[no_mangle]
 pub unsafe extern "system" fn GetObjectArrayElement(
     env: *mut JNIEnv,
     array: jobjectArray,
     index: jsize,
 ) -> jobject {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    obj_expect!(env, array, null_mut()).expect_array::<Option<ObjectHandle>>()[index as usize]
+        .pack()
+        .l
 }
 
 #[no_mangle]
@@ -1650,375 +1463,10 @@ pub unsafe extern "system" fn SetObjectArrayElement(
     index: jsize,
     val: jobject,
 ) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn NewBooleanArray(env: *mut JNIEnv, len: jsize) -> jbooleanArray {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn NewByteArray(env: *mut JNIEnv, len: jsize) -> jbyteArray {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn NewCharArray(env: *mut JNIEnv, len: jsize) -> jcharArray {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn NewShortArray(env: *mut JNIEnv, len: jsize) -> jshortArray {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn NewIntArray(env: *mut JNIEnv, len: jsize) -> jintArray {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn NewLongArray(env: *mut JNIEnv, len: jsize) -> jlongArray {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn NewFloatArray(env: *mut JNIEnv, len: jsize) -> jfloatArray {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn NewDoubleArray(env: *mut JNIEnv, len: jsize) -> jdoubleArray {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetBooleanArrayElements(
-    env: *mut JNIEnv,
-    array: jbooleanArray,
-    is_copy: *mut jboolean,
-) -> *mut jboolean {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetByteArrayElements(
-    env: *mut JNIEnv,
-    array: jbyteArray,
-    is_copy: *mut jboolean,
-) -> *mut jbyte {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetCharArrayElements(
-    env: *mut JNIEnv,
-    array: jcharArray,
-    is_copy: *mut jboolean,
-) -> *mut jchar {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetShortArrayElements(
-    env: *mut JNIEnv,
-    array: jshortArray,
-    is_copy: *mut jboolean,
-) -> *mut jshort {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetIntArrayElements(
-    env: *mut JNIEnv,
-    array: jintArray,
-    is_copy: *mut jboolean,
-) -> *mut jint {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetLongArrayElements(
-    env: *mut JNIEnv,
-    array: jlongArray,
-    is_copy: *mut jboolean,
-) -> *mut jlong {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetFloatArrayElements(
-    env: *mut JNIEnv,
-    array: jfloatArray,
-    is_copy: *mut jboolean,
-) -> *mut jfloat {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetDoubleArrayElements(
-    env: *mut JNIEnv,
-    array: jdoubleArray,
-    is_copy: *mut jboolean,
-) -> *mut jdouble {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn ReleaseBooleanArrayElements(
-    env: *mut JNIEnv,
-    array: jbooleanArray,
-    elems: *mut jboolean,
-    mode: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn ReleaseByteArrayElements(
-    env: *mut JNIEnv,
-    array: jbyteArray,
-    elems: *mut jbyte,
-    mode: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn ReleaseCharArrayElements(
-    env: *mut JNIEnv,
-    array: jcharArray,
-    elems: *mut jchar,
-    mode: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn ReleaseShortArrayElements(
-    env: *mut JNIEnv,
-    array: jshortArray,
-    elems: *mut jshort,
-    mode: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn ReleaseIntArrayElements(
-    env: *mut JNIEnv,
-    array: jintArray,
-    elems: *mut jint,
-    mode: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn ReleaseLongArrayElements(
-    env: *mut JNIEnv,
-    array: jlongArray,
-    elems: *mut jlong,
-    mode: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn ReleaseFloatArrayElements(
-    env: *mut JNIEnv,
-    array: jfloatArray,
-    elems: *mut jfloat,
-    mode: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn ReleaseDoubleArrayElements(
-    env: *mut JNIEnv,
-    array: jdoubleArray,
-    elems: *mut jdouble,
-    mode: jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetBooleanArrayRegion(
-    env: *mut JNIEnv,
-    array: jbooleanArray,
-    start: jsize,
-    l: jsize,
-    buf: *mut jboolean,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetByteArrayRegion(
-    env: *mut JNIEnv,
-    array: jbyteArray,
-    start: jsize,
-    len: jsize,
-    buf: *mut jbyte,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetCharArrayRegion(
-    env: *mut JNIEnv,
-    array: jcharArray,
-    start: jsize,
-    len: jsize,
-    buf: *mut jchar,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetShortArrayRegion(
-    env: *mut JNIEnv,
-    array: jshortArray,
-    start: jsize,
-    len: jsize,
-    buf: *mut jshort,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetIntArrayRegion(
-    env: *mut JNIEnv,
-    array: jintArray,
-    start: jsize,
-    len: jsize,
-    buf: *mut jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetLongArrayRegion(
-    env: *mut JNIEnv,
-    array: jlongArray,
-    start: jsize,
-    len: jsize,
-    buf: *mut jlong,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetFloatArrayRegion(
-    env: *mut JNIEnv,
-    array: jfloatArray,
-    start: jsize,
-    len: jsize,
-    buf: *mut jfloat,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn GetDoubleArrayRegion(
-    env: *mut JNIEnv,
-    array: jdoubleArray,
-    start: jsize,
-    len: jsize,
-    buf: *mut jdouble,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetBooleanArrayRegion(
-    env: *mut JNIEnv,
-    array: jbooleanArray,
-    start: jsize,
-    l: jsize,
-    buf: *const jboolean,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetByteArrayRegion(
-    env: *mut JNIEnv,
-    array: jbyteArray,
-    start: jsize,
-    len: jsize,
-    buf: *const jbyte,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetCharArrayRegion(
-    env: *mut JNIEnv,
-    array: jcharArray,
-    start: jsize,
-    len: jsize,
-    buf: *const jchar,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetShortArrayRegion(
-    env: *mut JNIEnv,
-    array: jshortArray,
-    start: jsize,
-    len: jsize,
-    buf: *const jshort,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetIntArrayRegion(
-    env: *mut JNIEnv,
-    array: jintArray,
-    start: jsize,
-    len: jsize,
-    buf: *const jint,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetLongArrayRegion(
-    env: *mut JNIEnv,
-    array: jlongArray,
-    start: jsize,
-    len: jsize,
-    buf: *const jlong,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetFloatArrayRegion(
-    env: *mut JNIEnv,
-    array: jfloatArray,
-    start: jsize,
-    len: jsize,
-    buf: *const jfloat,
-) {
-    unimplemented!()
-}
-
-#[no_mangle]
-pub unsafe extern "system" fn SetDoubleArrayRegion(
-    env: *mut JNIEnv,
-    array: jdoubleArray,
-    start: jsize,
-    len: jsize,
-    buf: *const jdouble,
-) {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    obj_expect!(env, array)
+        .expect_array::<Option<ObjectHandle>>()
+        .write_array(index as usize, ObjectHandle::from_ptr(val));
 }
 
 #[no_mangle]
