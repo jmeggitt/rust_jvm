@@ -59,21 +59,27 @@ impl StackFrame {
 
     // TODO: Implement methods for other computational types
 
-    pub fn verify_computational_types(buffer: &[JavaValue]) {
+    pub fn verify_computational_types(buffer: &[JavaValue]) -> bool {
         let mut idx = 0;
         while idx < buffer.len() {
             match &buffer[idx] {
                 JavaValue::Long(_) => {
-                    assert!(matches!(&buffer[idx + 1], JavaValue::Long(_)));
+                    if !matches!(&buffer[idx + 1], JavaValue::Long(_)) {
+                        return false;
+                    }
                     idx += 2;
                 }
                 JavaValue::Double(_) => {
-                    assert!(matches!(&buffer[idx + 1], JavaValue::Double(_)));
+                    if !matches!(&buffer[idx + 1], JavaValue::Double(_)) {
+                        return false;
+                    }
                     idx += 2;
                 }
                 _ => idx += 1,
             }
         }
+
+        true
     }
 
     pub fn debug_print(&self) {
@@ -99,8 +105,17 @@ impl StackFrame {
         code: &CodeAttribute,
     ) -> Result<Option<JavaValue>, FlowControl> {
         // self.debug_print();
-        StackFrame::verify_computational_types(&self.locals);
-        StackFrame::verify_computational_types(&self.stack);
+        if !StackFrame::verify_computational_types(&self.locals)
+            || !StackFrame::verify_computational_types(&self.stack)
+        {
+            error!("Failed buffer verification");
+            self.debug_print();
+            jvm.write().debug_print_call_stack();
+
+            #[cfg(feature = "thread_profiler")]
+            thread_profiler::write_profile("jvm.profile");
+            panic!("Failed buffer verification")
+        }
 
         for (offset, instruction) in &code.instructions {
             trace!("\t{}:\t{:?}", offset, instruction);
@@ -124,13 +139,26 @@ impl StackFrame {
             {
                 #[cfg(feature = "profile")]
                 let type_name = format!("{:?}", &code.instructions[rip].1);
-                profile_scope_cfg!(
-                    "{}",
-                    &type_name[..type_name.find('(').unwrap_or(type_name.len())]
+                #[cfg(feature = "profile")]
+                let mut profile_scope = thread_profiler::ProfileScope::new(
+                    type_name[..type_name.find('(').unwrap_or(type_name.len())].to_string(),
                 );
+                // profile_scope_cfg!(
+                //     "{}",
+                //     &type_name[..type_name.find('(').unwrap_or(type_name.len())]
+                // );
 
-                StackFrame::verify_computational_types(&self.locals);
-                StackFrame::verify_computational_types(&self.stack);
+                if !StackFrame::verify_computational_types(&self.locals)
+                    || !StackFrame::verify_computational_types(&self.stack)
+                {
+                    error!("Failed buffer verification");
+                    self.debug_print();
+                    jvm.write().debug_print_call_stack();
+
+                    #[cfg(feature = "thread_profiler")]
+                    thread_profiler::write_profile("jvm.profile");
+                    panic!("Failed buffer verification")
+                }
 
                 match code.instructions[rip].1.exec(self, jvm) {
                     Err(FlowControl::Branch(mut branch_offset)) => {
@@ -186,6 +214,10 @@ impl StackFrame {
                     Err(x) => return Err(x),
                     _ => rip += 1,
                 };
+
+                // Explicitly drop profile scope so it persists for the duration of the instruction
+                #[cfg(feature = "profile")]
+                std::mem::drop(profile_scope);
             }
         }
     }

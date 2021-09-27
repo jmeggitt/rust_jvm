@@ -177,7 +177,12 @@ impl ClassLoader {
                 Ok(true)
             }
             None => {
-                warn!("Unable to find class {} in class path!", class);
+                if !class.starts_with('[') {
+                    warn!("Unable to find class {} in class path!", class);
+                }
+                if class.contains('.') {
+                    panic!("Attempted to find class with '.' in name")
+                }
                 Ok(false)
             }
         };

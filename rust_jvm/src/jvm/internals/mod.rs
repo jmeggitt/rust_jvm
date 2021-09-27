@@ -1,111 +1,57 @@
-use crate::jvm::call::NativeManager;
+use crate::jvm::call::{NativeManager, RawJNIEnv};
+use jni::sys::jclass;
 use std::ffi::c_void;
 
 mod java_unsafe;
+mod method_handles;
 pub mod reflection;
 mod system;
 
-// TODO: mod java_unsafe;
+pub extern "system" fn register_method_handles_natives(env: RawJNIEnv, _cls: jclass) {
+    use method_handles::*;
+    let method_handle_natives = [
+        ("init", "(Ljava/lang/invoke/MemberName;Ljava/lang/Object;)V", method_handle_natives_init as _),
+        ("expand", "(Ljava/lang/invoke/MemberName;)V", method_handle_natives_expand as _),
+        ("resolve", "(Ljava/lang/invoke/MemberName;Ljava/lang/Class;)Ljava/lang/invoke/MemberName;", method_handle_natives_resolve as _),
+        ("getMembers", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Class;I[Ljava/lang/invoke/MemberName;)I", method_handle_natives_get_members as _),
+        ("objectFieldOffset", "(Ljava/lang/invoke/MemberName;)J", method_handle_natives_object_field_offset as _),
+        ("staticFieldOffset", "(Ljava/lang/invoke/MemberName;)J", method_handle_natives_static_field_ffset as _),
+        ("staticFieldBase", "(Ljava/lang/invoke/MemberName;)Ljava/lang/Object;", method_handle_natives_static_field_base as _),
+        ("getMemberVMInfo", "(Ljava/lang/invoke/MemberName;)Ljava/lang/Object;", method_handle_natives_get_member_vm_info as _),
+        ("getConstant", "(I)I", method_handle_natives_get_constant as _),
+        ("setCallSiteTargetNormal", "(Ljava/lang/invoke/CallSite;Ljava/lang/invoke/MethodHandle;)V", method_handle_natives_set_call_site_target_normal as _),
+        ("setCallSiteTargetVolatile", "(Ljava/lang/invoke/CallSite;Ljava/lang/invoke/MethodHandle;)V", method_handle_natives_set_call_site_target_volatile as _),
+        ("getNamedCon", "(I[Ljava/lang/Object;)I", method_handle_natives_get_named_con as _),
+    ];
 
-pub fn register_natives(natives: &mut NativeManager) {
-    // TODO: may be unnessesary as it is able to find these from the local cdylib symbol table
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "arrayBaseOffset",
-    //     "(Ljava/lang/Class;)I",
-    //     java_unsafe::Java_sun_misc_Unsafe_arrayBaseOffset as *mut c_void,
-    // );
-    //
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "arrayIndexScale",
-    //     "(Ljava/lang/Class;)I",
-    //     java_unsafe::Java_sun_misc_Unsafe_arrayIndexScale as *mut c_void,
-    // );
-    //
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "addressSize",
-    //     "()I",
-    //     java_unsafe::Java_sun_misc_Unsafe_addressSize as *mut c_void,
-    // );
-    //
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "objectFieldOffset",
-    //     "(Ljava/lang/reflect/Field;)J",
-    //     java_unsafe::Java_sun_misc_Unsafe_objectFieldOffset as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "compareAndSwapObject",
-    //     "(Ljava/lang/Object;JLjava/lang/Object;Ljava/lang/Object;)Z",
-    //     java_unsafe::Java_sun_misc_Unsafe_compareAndSwapObject as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "getIntVolatile",
-    //     "(Ljava/lang/Object;J)I",
-    //     java_unsafe::Java_sun_misc_Unsafe_getIntVolatile as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "compareAndSwapInt",
-    //     "(Ljava/lang/Object;JII)Z",
-    //     java_unsafe::Java_sun_misc_Unsafe_compareAndSwapInt as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "allocateMemory",
-    //     "(J)J",
-    //     java_unsafe::Java_sun_misc_Unsafe_allocateMemory as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "freeMemory",
-    //     "(J)V",
-    //     java_unsafe::Java_sun_misc_Unsafe_freeMemory as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "putLong",
-    //     "(JJ)V",
-    //     java_unsafe::Java_sun_misc_Unsafe_putLong__JJ as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "getByte",
-    //     "(J)B",
-    //     java_unsafe::Java_sun_misc_Unsafe_getByte__J as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "ensureClassInitialized",
-    //     "(Ljava/lang/Class;)V",
-    //     java_unsafe::Java_sun_misc_Unsafe_ensureClassInitialized as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "staticFieldOffset",
-    //     "(Ljava/lang/reflect/Field;)J",
-    //     java_unsafe::Java_sun_misc_Unsafe_staticFieldOffset as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "staticFieldBase",
-    //     "(Ljava/lang/reflect/Field;)Ljava/lang/Object;",
-    //     java_unsafe::Java_sun_misc_Unsafe_staticFieldBase as *mut c_void,
-    // );
-    // natives.register_fn(
-    //     "sun/misc/Unsafe",
-    //     "getObjectVolatile",
-    //     "(Ljava/lang/Object;J)Ljava/lang/Object;",
-    //     java_unsafe::Java_sun_misc_Unsafe_getObjectVolatile as *mut c_void,
-    // );
+    let method_handle = [
+        (
+            "invoke",
+            "([Ljava/lang/Object;)Ljava/lang/Object;",
+            method_handle_invoke as _,
+        ),
+        (
+            "invokeExact",
+            "([Ljava/lang/Object;)Ljava/lang/Object;",
+            method_handle_invoke_exact as _,
+        ),
+    ];
 
+    let mut jvm = env.write();
+    for (name, sig, fn_ptr) in method_handle_natives {
+        jvm.linked_libraries
+            .register_fn("java/lang/invoke/MethodHandleNatives", name, sig, fn_ptr);
+    }
+
+    for (name, sig, fn_ptr) in method_handle {
+        jvm.linked_libraries
+            .register_fn("java/lang/invoke/MethodHandle", name, sig, fn_ptr);
+    }
+}
+
+pub extern "system" fn unsafe_register_natives(env: RawJNIEnv, _cls: jclass) {
     use java_unsafe::*;
     let unsafe_functions = [
-        // ("registerNatives", "()V", Java_sun_misc_Unsafe_registerNatives as _),
         ("getInt", "(Ljava/lang/Object;J)I", Java_sun_misc_Unsafe_getInt__Ljava_lang_Object_2J as _),
         ("putInt", "(Ljava/lang/Object;JI)V", Java_sun_misc_Unsafe_putInt__Ljava_lang_Object_2JI as _),
         ("getObject", "(Ljava/lang/Object;J)Ljava/lang/Object;", Java_sun_misc_Unsafe_getObject as _),
@@ -193,7 +139,9 @@ pub fn register_natives(natives: &mut NativeManager) {
         ("fullFence", "()V", Java_sun_misc_Unsafe_fullFence as _),
     ];
 
+    let mut jvm = env.write();
     for (name, sig, fn_ptr) in unsafe_functions {
-        natives.register_fn("sun/misc/Unsafe", name, sig, fn_ptr);
+        jvm.linked_libraries
+            .register_fn("sun/misc/Unsafe", name, sig, fn_ptr);
     }
 }

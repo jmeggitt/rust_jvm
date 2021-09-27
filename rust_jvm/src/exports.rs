@@ -23,6 +23,7 @@ use std::env::var;
 use std::ffi::{c_void, CStr};
 use std::fs::File;
 use std::hash::{Hash, Hasher};
+use std::mem::size_of;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::process::exit;
@@ -69,7 +70,7 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
 
     CombinedLogger::init(vec![
         TermLogger::new(
-            LevelFilter::Warn,
+            LevelFilter::Info,
             Config::default(),
             TerminalMode::Mixed,
             ColorChoice::Always,
@@ -112,18 +113,19 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
     let mut jvm = Box::new(JavaEnv::new(class_loader));
     let interface = build_interface(&mut *jvm);
 
-    let vm = JNIInvokeInterface_ {
-        reserved0: Box::leak(jvm) as *mut Arc<RwLock<JavaEnv>> as _,
-        reserved1: null_mut(),
-        reserved2: null_mut(),
-        DestroyJavaVM: None,
-        AttachCurrentThread: None,
-        DetachCurrentThread: None,
-        GetEnv: None,
-        AttachCurrentThreadAsDaemon: None,
-    };
+    let vm = &jvm.read().jni_vm as *const _;
+    // let vm = JNIInvokeInterface_ {
+    //     reserved0: Box::leak(jvm) as *mut Arc<RwLock<JavaEnv>> as _,
+    //     reserved1: null_mut(),
+    //     reserved2: null_mut(),
+    //     DestroyJavaVM: None,
+    //     AttachCurrentThread: None,
+    //     DetachCurrentThread: None,
+    //     GetEnv: None,
+    //     AttachCurrentThreadAsDaemon: None,
+    // };
 
-    *pvm = Box::leak(Box::new(Box::new(vm))) as *mut _ as *mut JavaVM;
+    *pvm = Box::leak(Box::new(vm)) as *mut _ as *mut JavaVM;
     *penv = Box::leak(Box::new(Box::new(interface))) as *mut _ as *mut JNIEnv;
 
     0
@@ -140,7 +142,7 @@ pub unsafe extern "system" fn JNI_GetCreatedJavaVMs_impl(
 
 #[no_mangle]
 pub extern "system" fn JVM_GetInterfaceVersion_impl() -> i32 {
-    60
+    4
 }
 
 /*************************************************************************
@@ -164,8 +166,10 @@ pub unsafe extern "system" fn JVM_Clone_impl(env: RawJNIEnv, obj: jobject) -> jo
 
     match obj.memory_layout() {
         ObjectType::Instance => {
-            ObjectWrapper::new(RawObject::clone(&*obj.expect_instance())).into_raw()
+            obj.expect_instance().clone().into_raw()
+            // ObjectWrapper::new(RawObject::clone(&*obj.expect_instance())).into_raw()
         }
+        // TODO: Do arrays even implement clone?
         ObjectType::Array(jboolean::ID) => {
             ObjectWrapper::new(RawObject::clone(&*obj.expect_array::<jboolean>())).into_raw()
         }
@@ -399,21 +403,78 @@ pub unsafe extern "system" fn JVM_ActiveProcessorCount_impl() -> jint {
 }
 
 #[no_mangle]
-pub unsafe extern "system" fn JVM_LoadLibrary_impl(name: *mut u8) -> *mut c_void {
+pub unsafe extern "system" fn JVM_LoadLibrary_impl(name: *mut c_char) -> *mut c_void {
+    warn!("JVM_LoadLibrary({:?})", CStr::from_ptr(name));
     unimplemented!()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_UnloadLibrary_impl(handle: *mut c_void) {
+    warn!("JVM_UnloadLibrary({:p})", handle);
     unimplemented!()
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn JVM_FindLibraryEntry_impl(
     handle: *mut c_void,
-    name: *mut u8,
+    name: *mut c_char,
 ) -> *mut c_void {
-    unimplemented!()
+    // warn!("JVM_FindLibraryEntry({:p}, {:?})", handle, CStr::from_ptr(name));
+
+    #[cfg(windows)]
+    let ret = winapi::um::libloaderapi::GetProcAddress(handle as *mut _, name) as *mut c_void;
+
+    // if direct_attempt.is_null() {
+    //     let mut buffer = vec![null_mut(); 512];
+    //     let byte_len = size_of::<*mut winapi::shared::minwindef::HMODULE>() * buffer.len();
+    //     let mut req_len = 0;
+    //
+    //     let process_handle = winapi::um::processthreadsapi::GetCurrentProcess();
+    //     warn!("Passed Handle: {:p}, Process Handle: {:p}", handle, process_handle);
+    //     if winapi::um::psapi::EnumProcessModules(process_handle, buffer.as_mut_ptr(), byte_len as u32, &mut req_len) == 0 {
+    //         let err = winapi::um::errhandlingapi::GetLastError();
+    //         error!("Failed to get all loaded modules for process! (Err: {})", err);
+    //         return direct_attempt;
+    //     }
+    //
+    //     let entries = req_len as usize / size_of::<*mut winapi::shared::minwindef::HMODULE>();
+    //     warn!("Found {} loaded modules", entries);
+    //     for index in 0..entries {
+    //         direct_attempt = winapi::um::libloaderapi::GetProcAddress(buffer[index], name) as *mut c_void;
+    //         if !direct_attempt.is_null() {
+    //             break
+    //         }
+    //     }
+    // }
+
+    #[cfg_attr(any(target_os = "linux", target_os = "android"), link(name = "dl"))]
+    #[cfg_attr(any(target_os = "freebsd", target_os = "dragonfly"), link(name = "c"))]
+    #[cfg(unix)]
+    extern "C" {
+        fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    }
+
+    #[cfg(unix)]
+    let ret: *mut c_void = dlsym(handle, name);
+
+    if ret.is_null() {
+        warn!(
+            "JVM_FindLibraryEntry({:p}, {:?}) -> Symbol Not Found",
+            handle,
+            CStr::from_ptr(name)
+        );
+    } else {
+        warn!(
+            "JVM_FindLibraryEntry({:p}, {:?}) -> {:p}",
+            handle,
+            CStr::from_ptr(name),
+            ret
+        );
+    }
+
+    ret
+    // let name = CStr::from_ptr(name);
+    // unimplemented!("JVM_FindLibraryEntry_impl({:?}, {:?})", handle, name)
 }
 
 #[no_mangle]
@@ -680,18 +741,28 @@ pub unsafe extern "system" fn JVM_GetCallerClass_impl(env: RawJNIEnv, depth: i32
     let call_stack = jvm.thread_manager.get_current_call_stack().unwrap();
     // let len = jvm.call_stack.len();
 
-    if call_stack.len() < 3 {
-        panic!("Attempted to call Java_sun_reflect_Reflection_getCallerClass__ without caller");
-    }
+    // if call_stack.len() < 2 - depth as usize {
+    //     panic!("Attempted to call Java_sun_reflect_Reflection_getCallerClass__ without caller");
+    // }
 
     // len - 1 = Reflection.class
     // len - 2 = Target class
     // len - 3 = Caller class
 
     // jvm.debug_print_call_stack();
-    call_stack[(call_stack.len() as jint + depth - 2) as usize]
-        .0
-        .ptr()
+    let index = (call_stack.len() as jint + depth - 2) as usize;
+    // jvm.thread_manager.info_print_call_stack();
+    // if index < call_stack.len() {
+    //     warn!("JVM_GetCallerClass({}) -> {:?}", depth, call_stack[index].1);
+    // } else {
+    //     warn!("JVM_GetCallerClass({}) -> ?", depth);
+    //     // jvm.debug_print_call_stack();
+    // }
+    if index < call_stack.len() {
+        return call_stack[index].0.ptr();
+    }
+
+    null_mut()
 }
 
 /*
@@ -772,7 +843,10 @@ pub unsafe extern "system" fn JVM_FindLoadedClass_impl(
     loader: jobject,
     name: jstring,
 ) -> jclass {
-    unimplemented!()
+    let name = obj_expect!(env, name, null_mut())
+        .expect_string()
+        .replace('.', "/");
+    env.write().class_instance(&name).ptr()
 }
 
 /* Define a class */
@@ -905,9 +979,24 @@ pub unsafe extern "system" fn JVM_GetDeclaredClasses_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetDeclaringClass_impl(
     env: RawJNIEnv,
-    of_class: jclass,
-) -> jclass {
-    unimplemented!()
+    of_class: Option<ObjectHandle>,
+) -> Option<ObjectHandle> {
+    // Can check NestHost attribute for nested classes
+    // Can check EnclosingClass for local
+    // How to check inner class?
+    let name = of_class?.unwrap_as_class();
+    let mut lock = env.write();
+    let class = lock.class_loader.class(&name)?;
+
+    if let Some(host) = class.nest_host() {
+        return Some(lock.class_instance(&host));
+    }
+
+    if let Some((enclosing, _, _)) = class.enclosing_method() {
+        return Some(lock.class_instance(&enclosing));
+    }
+
+    None
 }
 
 /* Generics support _impl(JDK 1.5) */
@@ -1155,7 +1244,6 @@ pub unsafe extern "system" fn JVM_GetClassAccessFlags_impl(env: RawJNIEnv, cls: 
         .read_named_field("name");
     let class_name = jstring_name.unwrap().expect_string().replace('.', "/");
 
-    warn!("Getting access flags: {}", &class_name);
     let mut flags = env
         .read()
         .class_loader
@@ -2371,7 +2459,7 @@ PART 3: I/O and Network Support
  */
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetLastErrorString_impl(buf: *mut u8, len: i32) -> jint {
-    unimplemented!()
+    0 // TODO: It would probably be helpful to implement this
 }
 
 /*
@@ -2499,7 +2587,19 @@ pub unsafe extern "system" fn JVM_Socket_impl(
     type_name: jint,
     protocol: jint,
 ) -> jint {
-    unimplemented!()
+    info!("JVM_Socket({}, {}, {})", domain, type_name, protocol);
+    #[cfg(unix)]
+    {
+        #[link(name = "c")]
+        extern "C" {
+            pub fn socket(domain: i32, socket_type: i32, protocol: i32) -> i32;
+        }
+
+        return socket(domain, type_name, protocol);
+    }
+
+    #[cfg(windows)]
+    return winapi::um::winsock2::socket(domain, type_name, protocol);
 }
 
 #[no_mangle]
@@ -2712,9 +2812,21 @@ pub unsafe extern "system" fn JVM_InitAgentProperties_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_GetEnclosingMethodInfo_impl(
     env: RawJNIEnv,
-    of_class: jclass,
-) -> jobjectArray {
-    unimplemented!()
+    of_class: Option<ObjectHandle>,
+) -> Option<ObjectHandle> {
+    let name = of_class?.unwrap_as_class();
+    let mut lock = env.write();
+    let class = lock.class_loader.class(&name)?;
+    let (enclosing, method, desc) = class.enclosing_method()?;
+
+    let enclosing_class = lock.class_instance(&enclosing);
+    let method = lock.build_string(&method).expect_object();
+    let desc = lock.build_string(&desc).expect_object();
+    Some(ObjectHandle::array_from_data(vec![
+        Some(enclosing_class),
+        Some(method),
+        Some(desc),
+    ]))
 }
 
 /*

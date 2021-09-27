@@ -4,13 +4,17 @@ use byteorder::ReadBytesExt;
 use hashbrown::HashSet;
 use jni::sys::jvalue;
 
+use crate::class::constant::ClassElement;
 use crate::class::BufferedRead;
-use crate::jvm::mem::ConstTypeId;
-use crate::jvm::{JavaValue, ObjectHandle};
+use crate::jvm::call::JavaEnvInvoke;
+use crate::jvm::mem::{ConstTypeId, ManualInstanceReference, ObjectReference};
+use crate::jvm::{JavaEnv, JavaValue, ObjectHandle};
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort};
 use libffi::middle::{Cif, Type};
+use parking_lot::RwLock;
 use std::fmt::{Debug, Display, Formatter};
 use std::ptr::null_mut;
+use std::sync::Arc;
 
 pub trait JavaPrimitive: 'static + Sized + Copy + ConstTypeId {
     fn pack(self) -> jvalue;
@@ -83,6 +87,95 @@ pub enum FieldDescriptor {
     },
 }
 
+impl FieldDescriptor {
+    pub fn from_class(class: ObjectHandle) -> Self {
+        if class.get_class() == "java/lang/Class" {
+            let name = class.unwrap_as_class();
+            return Self::from_class_name(&name);
+        }
+
+        assert_eq!(class.get_class(), "java/lang/invoke/MethodType");
+        let instance = class.expect_instance();
+        let ptype: Option<ObjectHandle> = instance.read_named_field("ptype");
+        let ptype = ptype.unwrap().expect_array::<Option<ObjectHandle>>();
+        let rtype: Option<ObjectHandle> = instance.read_named_field("rtype");
+
+        FieldDescriptor::Method {
+            args: ptype
+                .to_vec()
+                .into_iter()
+                .map(Option::unwrap)
+                .map(FieldDescriptor::from_class)
+                .collect(),
+            returns: Box::new(Self::from_class(rtype.unwrap())),
+        }
+    }
+
+    pub fn from_class_name(name: &str) -> Self {
+        match name {
+            "boolean" => FieldDescriptor::Boolean,
+            "byte" => FieldDescriptor::Byte,
+            "char" => FieldDescriptor::Char,
+            "short" => FieldDescriptor::Short,
+            "int" => FieldDescriptor::Int,
+            "long" => FieldDescriptor::Long,
+            "float" => FieldDescriptor::Float,
+            "double" => FieldDescriptor::Double,
+            "void" => FieldDescriptor::Void,
+            x => {
+                if x.starts_with('[') {
+                    return FieldDescriptor::Array(Box::new(Self::from_class_name(&x[1..])));
+                }
+
+                FieldDescriptor::Object(x.to_string())
+            }
+        }
+    }
+
+    pub fn to_class(&self, jvm: &mut Arc<RwLock<JavaEnv>>) -> ObjectHandle {
+        match self {
+            FieldDescriptor::Byte => jvm.write().class_instance("byte"),
+            FieldDescriptor::Char => jvm.write().class_instance("char"),
+            FieldDescriptor::Double => jvm.write().class_instance("double"),
+            FieldDescriptor::Float => jvm.write().class_instance("float"),
+            FieldDescriptor::Int => jvm.write().class_instance("int"),
+            FieldDescriptor::Long => jvm.write().class_instance("long"),
+            FieldDescriptor::Short => jvm.write().class_instance("short"),
+            FieldDescriptor::Boolean => jvm.write().class_instance("boolean"),
+            FieldDescriptor::Object(name) => jvm.write().class_instance(name),
+            FieldDescriptor::Array(boxed) => jvm.write().class_instance(&format!("[{}", boxed)),
+            FieldDescriptor::Void => jvm.write().class_instance("void"),
+            FieldDescriptor::Method { args, returns } => {
+                let rtype = returns.to_class(jvm);
+                let ptype = args
+                    .iter()
+                    .map(|x| Some(x.to_class(jvm)))
+                    .collect::<Vec<Option<ObjectHandle>>>();
+                let ptype = ObjectHandle::array_from_data(ptype);
+
+                let schema = jvm.write().class_schema("java/lang/invoke/MethodType");
+                let out = ObjectHandle::new(schema);
+                jvm.invoke_virtual(
+                    ClassElement::new(
+                        "java/lang/invoke/MethodType",
+                        "<init>",
+                        "(Ljava/lang/Class;[Ljava/lang/Class;Z)V",
+                    ),
+                    out,
+                    vec![
+                        JavaValue::Reference(Some(rtype)),
+                        JavaValue::Reference(Some(ptype)),
+                        JavaValue::Byte(1),
+                    ],
+                )
+                .unwrap();
+
+                out
+            }
+        }
+    }
+}
+
 impl Debug for FieldDescriptor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         <Self as Display>::fmt(self, f)
@@ -139,9 +232,11 @@ impl FieldDescriptor {
             (FieldDescriptor::Short, JavaValue::Byte(x)) => JavaValue::Short(x as _),
             (FieldDescriptor::Short, JavaValue::Short(x)) => JavaValue::Short(x as _),
             (FieldDescriptor::Short, JavaValue::Char(x)) => JavaValue::Short(x as _),
+            (FieldDescriptor::Short, JavaValue::Int(x)) => JavaValue::Short(x as _),
             (FieldDescriptor::Char, JavaValue::Byte(x)) => JavaValue::Char(x as _),
             (FieldDescriptor::Char, JavaValue::Short(x)) => JavaValue::Char(x as _),
             (FieldDescriptor::Char, JavaValue::Char(x)) => JavaValue::Char(x as _),
+            (FieldDescriptor::Char, JavaValue::Int(x)) => JavaValue::Char(x as _),
             (FieldDescriptor::Int, JavaValue::Byte(x)) => JavaValue::Int(x as _),
             (FieldDescriptor::Int, JavaValue::Short(x)) => JavaValue::Int(x as _),
             (FieldDescriptor::Int, JavaValue::Char(x)) => JavaValue::Int(x as _),

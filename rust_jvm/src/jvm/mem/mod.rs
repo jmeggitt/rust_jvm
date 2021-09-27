@@ -17,6 +17,11 @@ mod raw;
 mod schema;
 mod types;
 
+// TODO: Define shortcuts based on types
+pub type ClassHandle = ObjectHandle;
+pub type StringHandle = ObjectHandle;
+pub type ObjArrayHandle = ObjectHandle;
+
 /// All distinct java values
 #[derive(Copy, Clone)]
 pub enum JavaValue {

@@ -3,24 +3,28 @@ use std::option::Option::Some;
 use std::sync::Arc;
 
 use hashbrown::{HashMap, HashSet};
-use jni::sys::jchar;
+use jni::sys::{
+    jchar, jint, JNIInvokeInterface_, JavaVM, JNI_VERSION_1_1, JNI_VERSION_1_2, JNI_VERSION_1_4,
+    JNI_VERSION_1_6, JNI_VERSION_1_8,
+};
 use walkdir::WalkDir;
 
 // use crate::class::{Class, ClassLoader, MethodInfo};
 // use crate::constant_pool::Constant;
 use crate::class::constant::Constant;
 use crate::class::{Class, ClassLoader, MethodInfo};
-use crate::jvm::call::{clean_str, NativeManager, VirtualMachine};
+use crate::jvm::call::{build_interface, clean_str, NativeManager, VirtualMachine};
 use crate::jvm::hooks::register_hooks;
 use crate::jvm::mem::{
     ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle, OBJECT_SCHEMA,
 };
 use crate::jvm::thread::{first_time_sys_thread_init, JavaThreadManager};
 use parking_lot::RwLock;
-use std::ffi::CString;
+use std::ffi::{c_void, CString};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::{Index, IndexMut};
+use std::ptr::null_mut;
 
 pub mod call;
 pub mod mem;
@@ -45,6 +49,53 @@ pub struct JavaEnv {
 
     pub interned_strings: HashMap<String, ObjectHandle>,
     schemas: HashMap<String, Arc<ClassSchema>>,
+
+    pub jni_vm: JNIInvokeInterface_,
+}
+
+// :(
+unsafe impl Sync for JavaEnv {}
+
+unsafe impl Send for JavaEnv {}
+
+unsafe extern "system" fn get_env(vm: *mut JavaVM, penv: *mut *mut c_void, version: jint) -> jint {
+    match version {
+        JNI_VERSION_1_1 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_1"),
+        JNI_VERSION_1_2 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_2"),
+        JNI_VERSION_1_4 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_4"),
+        JNI_VERSION_1_6 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_6"),
+        JNI_VERSION_1_8 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_8"),
+        x => error!("Unknown JNIEnv interface version: {:X}", x),
+    };
+
+    let mut handle = (&*((&**vm).reserved0 as *mut Arc<RwLock<JavaEnv>>)).clone();
+    let interface = build_interface(&mut handle);
+    *penv = Box::leak(Box::new(Box::new(interface))) as *mut _ as *mut c_void;
+    version
+}
+
+unsafe extern "system" fn attach_thread_as_daemon(
+    vm: *mut JavaVM,
+    penv: *mut *mut c_void,
+    args: *mut c_void,
+) -> jint {
+    unimplemented!()
+}
+
+unsafe extern "system" fn destroy_vm(vm: *mut JavaVM) -> jint {
+    unimplemented!()
+}
+
+unsafe extern "system" fn attach_thread(
+    vm: *mut JavaVM,
+    penv: *mut *mut c_void,
+    args: *mut c_void,
+) -> jint {
+    unimplemented!()
+}
+
+unsafe extern "system" fn detach_thread(vm: *mut JavaVM) -> jint {
+    unimplemented!()
 }
 
 impl JavaEnv {
@@ -59,17 +110,47 @@ impl JavaEnv {
             thread_manager: JavaThreadManager::default(),
             interned_strings: HashMap::new(),
             schemas: HashMap::new(),
+            jni_vm: JNIInvokeInterface_ {
+                reserved0: null_mut(),
+                reserved1: null_mut(),
+                reserved2: null_mut(),
+                DestroyJavaVM: Some(destroy_vm),
+                AttachCurrentThread: Some(attach_thread),
+                DetachCurrentThread: Some(detach_thread),
+                GetEnv: Some(get_env),
+                AttachCurrentThreadAsDaemon: Some(attach_thread_as_daemon),
+            },
         };
 
         #[cfg(feature = "thread_profiler")]
         thread_profiler::register_thread_with_profiler();
 
-        // warn!("Loading core")
-        jvm.load_core_libs().unwrap();
         let mut jvm = Arc::new(RwLock::new(jvm));
+        let self_box = Box::new(jvm.clone());
+        jvm.write().jni_vm.reserved0 = Box::leak(self_box) as *mut Arc<RwLock<JavaEnv>> as _;
+
+        // let interface = build_interface(&mut jvm);
+        //
+        // let vm = JNIInvokeInterface_ {
+        //     reserved0: Box::leak(jvm) as *mut Arc<RwLock<JavaEnv>> as _,
+        //     reserved1: null_mut(),
+        //     reserved2: null_mut(),
+        //     DestroyJavaVM: None,
+        //     AttachCurrentThread: None,
+        //     DetachCurrentThread: None,
+        //     GetEnv: None,
+        //     AttachCurrentThreadAsDaemon: None,
+        // };
 
         first_time_sys_thread_init(&mut jvm);
+
+        Self::load_lib_by_name(&mut jvm, "java").unwrap();
+        Self::load_lib_by_name(&mut jvm, "zip").unwrap();
+        Self::load_lib_by_name(&mut jvm, "instrument").unwrap();
         register_hooks(&mut jvm);
+
+        // warn!("Loading core")
+        // Self::load_core_libs(&mut jvm).unwrap();
 
         jvm
     }
@@ -175,12 +256,13 @@ impl JavaEnv {
         None
     }
 
-    // TODO: Split function into windows and unix versions?
-    pub fn load_core_libs(&mut self) -> io::Result<()> {
+    pub fn load_lib_by_name(jvm: &mut Arc<RwLock<JavaEnv>>, name: &str) -> io::Result<()> {
+        let lock = jvm.read();
+
         #[cfg(unix)]
-        let lib_dir = self.class_loader.class_path().java_home().join("lib");
+        let lib_dir = lock.class_loader.class_path().java_home().join("lib/amd64");
         #[cfg(windows)]
-        let lib_dir = self.class_loader.class_path().java_home().join("bin");
+        let lib_dir = lock.class_loader.class_path().java_home().join("bin");
         info!("Loading shared libraries from {}", lib_dir.display());
 
         #[cfg(windows)]
@@ -191,6 +273,53 @@ impl JavaEnv {
                 panic!("Failed to set dll directory (error: {})", err);
             }
         }
+
+        let mut vm_ptr = &lock.jni_vm as *const _;
+        // Explicitly drop read lock to prevent lock from persisting until end of function and
+        // blocking library load
+        std::mem::drop(lock);
+
+        let target_lib = if cfg!(windows) {
+            lib_dir.join(format!("{}.dll", name))
+        } else {
+            lib_dir.join(format!("lib{}.so", name))
+        };
+
+        if !target_lib.exists() {
+            error!("Dynamic Library not found: {}", target_lib.display());
+            return Ok(());
+        }
+
+        if let Err(e) = NativeManager::load_library(jvm.clone(), target_lib, &mut vm_ptr) {
+            error!("{}", e);
+        };
+
+        Ok(())
+    }
+
+    // TODO: Split function into windows and unix versions?
+    pub fn load_core_libs(jvm: &mut Arc<RwLock<JavaEnv>>) -> io::Result<()> {
+        let lock = jvm.read();
+
+        #[cfg(unix)]
+        let lib_dir = lock.class_loader.class_path().java_home().join("lib");
+        #[cfg(windows)]
+        let lib_dir = lock.class_loader.class_path().java_home().join("bin");
+        info!("Loading shared libraries from {}", lib_dir.display());
+
+        #[cfg(windows)]
+        unsafe {
+            let path = CString::new(format!("{}", lib_dir.display())).unwrap();
+            if winapi::um::winbase::SetDllDirectoryA(path.as_ptr()) == 0 {
+                let err = winapi::um::errhandlingapi::GetLastError();
+                panic!("Failed to set dll directory (error: {})", err);
+            }
+        }
+
+        let mut vm_ptr = &lock.jni_vm as *const _;
+        // Explicitly drop read lock to prevent lock from persisting until end of function and
+        // blocking library load
+        std::mem::drop(lock);
 
         // Load includes in deterministic order to ensure regularity between runs
         for entry in WalkDir::new(&lib_dir).sort_by_file_name() {
@@ -206,16 +335,16 @@ impl JavaEnv {
 
             #[cfg(unix)]
             if entry.path().extension() == Some("so".as_ref()) {
-                self.linked_libraries
-                    .load_library(entry.path().to_path_buf())?;
+                NativeManager::load_library(jvm.clone(), entry.path().to_path_buf(), &mut vm_ptr)?;
             }
 
             #[cfg(windows)]
             if entry.path().extension() == Some("dll".as_ref()) {
-                if let Err(e) = self
-                    .linked_libraries
-                    .load_library(entry.path().to_path_buf())
-                {
+                if let Err(e) = NativeManager::load_library(
+                    jvm.clone(),
+                    entry.path().to_path_buf(),
+                    &mut vm_ptr,
+                ) {
                     error!("{}", e);
                 };
             }

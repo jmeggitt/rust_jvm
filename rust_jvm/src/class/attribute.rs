@@ -1,5 +1,5 @@
 use std::io;
-use std::io::{Cursor, Read, Seek};
+use std::io::{Cursor, Read, Seek, Write};
 
 use byteorder::{BigEndian, ReadBytesExt};
 
@@ -97,5 +97,25 @@ impl BufferedRead for LineNumber {
             instruction: buffer.read_u16::<BigEndian>()?,
             line_num: buffer.read_u16::<BigEndian>()?,
         })
+    }
+}
+
+readable_struct! {
+    pub struct EnclosingMethod {
+        class_index: u16,
+        method_index: u16,
+    }
+}
+
+readable_struct! {
+    pub struct NestHost {
+        host_class_index: u16,
+    }
+}
+
+readable_struct! {
+    pub no_copy struct BootstrapMethod {
+        bootstrap_method_ref: u16,
+        bootstrap_arguments: Vec<u16>,
     }
 }

@@ -41,7 +41,7 @@ num_cpus = "1.13.0"
 page_size = "0.4.2"
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.3"
+winapi = { version = "0.3", features = ["psapi", "winsock2"] }
 
 [dependencies.serde_json]
 version = "1.0.67"

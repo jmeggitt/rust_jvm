@@ -17,8 +17,8 @@ use crate::class::BufferedRead;
 use crate::jvm::call::ffi::ClassHandle;
 use crate::jvm::call::{FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{
-    ArrayReference, FieldDescriptor, InstanceReference, JavaPrimitive, JavaValue,
-    ManualInstanceReference, ObjectReference,
+    ArrayReference, FieldDescriptor, InstanceReference, JavaPrimitive, JavaTypeEnum, JavaValue,
+    ManualInstanceReference, ObjectReference, ObjectType,
 };
 use crate::jvm::{JavaEnv, ObjectHandle};
 use parking_lot::RwLock;
@@ -170,8 +170,10 @@ unsafe extern "system" fn call_obj_method_a(
 
 #[inline]
 pub fn build_interface(jvm: &mut Arc<RwLock<JavaEnv>>) -> JNINativeInterface_ {
+    let boxed = Box::new(jvm.clone());
     JNINativeInterface_ {
-        reserved0: jvm as *mut Arc<RwLock<JavaEnv>> as *mut c_void,
+        // Make a memory leak because its easier than doing things right
+        reserved0: Box::leak(boxed) as *mut Arc<RwLock<JavaEnv>> as *mut c_void,
         reserved1: null_mut(),
         reserved2: null_mut(),
         reserved3: null_mut(),
@@ -482,12 +484,7 @@ pub unsafe extern "system" fn IsAssignableFrom(
 
     // TODO: Idk if this may cause issues for me later
     let jvm = env.read();
-    let ret = matches!(jvm.instanceof(&subclass, &supclass), Some(true)) as jboolean;
-    warn!(
-        "JNIEnv.IsAssignableFrom({:?}, {:?}) -> {}",
-        &subclass, &supclass, ret
-    );
-    ret
+    matches!(jvm.instanceof(&subclass, &supclass), Some(true)) as jboolean
 }
 
 #[no_mangle]
@@ -581,7 +578,10 @@ pub unsafe extern "system" fn EnsureLocalCapacity(env: *mut JNIEnv, capacity: ji
 
 #[no_mangle]
 pub unsafe extern "system" fn AllocObject(env: *mut JNIEnv, clazz: jclass) -> jobject {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let class_name = obj_expect!(env, clazz, null_mut()).unwrap_as_class();
+    let schema = env.write().class_schema(&class_name);
+    ObjectHandle::new(schema).ptr()
 }
 
 #[no_mangle]
@@ -591,7 +591,9 @@ pub unsafe extern "system" fn NewObjectV(
     method_id: jmethodID,
     args: va_list,
 ) -> jobject {
-    unimplemented!()
+    let obj = (&**env).AllocObject.unwrap()(env, clazz);
+    (&**env).CallVoidMethodV.unwrap()(env, obj, method_id, args);
+    obj
 }
 
 #[no_mangle]
@@ -601,12 +603,17 @@ pub unsafe extern "system" fn NewObjectA(
     method_id: jmethodID,
     args: *const jvalue,
 ) -> jobject {
-    unimplemented!()
+    let obj = (&**env).AllocObject.unwrap()(env, clazz);
+    (&**env).CallVoidMethodA.unwrap()(env, obj, method_id, args);
+    obj
 }
 
 #[no_mangle]
 pub unsafe extern "system" fn GetObjectClass(env: *mut JNIEnv, obj: jobject) -> jclass {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let class_name = obj_expect!(env, obj, null_mut()).get_class();
+    let mut jvm = env.write();
+    jvm.class_instance(&class_name).ptr()
 }
 
 #[no_mangle]
@@ -893,7 +900,7 @@ macro_rules! impl_call {
 }
 
 impl_call!(static (CallStaticObjectMethod, CallStaticObjectMethodV, CallStaticObjectMethodA)(Ok(Some(JavaValue::Reference(x))) => x.pack().l,) -> jobject | null_mut());
-impl_call!(static (CallStaticBooleanMethod, CallStaticBooleanMethodV, CallStaticBooleanMethodA)(Ok(Some(JavaValue::Byte(x))) => x as _,) -> jboolean);
+impl_call!(static (CallStaticBooleanMethod, CallStaticBooleanMethodV, CallStaticBooleanMethodA)(Ok(Some(JavaValue::Byte(x))) => x as _, Ok(Some(JavaValue::Int(x))) => x as _,) -> jboolean);
 impl_call!(static (CallStaticByteMethod, CallStaticByteMethodV, CallStaticByteMethodA)(Ok(Some(JavaValue::Byte(x))) => x,) -> jbyte);
 impl_call!(static (CallStaticCharMethod, CallStaticCharMethodV, CallStaticCharMethodA)(Ok(Some(JavaValue::Char(x))) => x,) -> jchar);
 impl_call!(static (CallStaticShortMethod, CallStaticShortMethodV, CallStaticShortMethodA)(Ok(Some(JavaValue::Short(x))) => x,) -> jshort);
@@ -1047,6 +1054,14 @@ pub unsafe extern "system" fn ReleaseStringChars(
 
 #[no_mangle]
 pub unsafe extern "system" fn NewStringUTF(env: *mut JNIEnv, utf: *const c_char) -> jstring {
+    if env.is_null() {
+        panic!("Got null for JNIEnv");
+    }
+
+    if utf.is_null() {
+        return null_mut();
+    }
+
     let input = CStr::from_ptr(utf);
     let env = RawJNIEnv::new(env);
     let mut jvm = env.write();
@@ -1318,7 +1333,15 @@ pub unsafe extern "system" fn GetStringRegion(
     len: jsize,
     buf: *mut jchar,
 ) {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    let array: Option<ObjectHandle> = obj_expect!(env, str)
+        .expect_instance()
+        .read_named_field("value");
+    let arr = array.unwrap().expect_array::<jchar>();
+    assert!(start >= 0 && len >= 0 && start + len <= arr.len() as jint);
+    (arr.raw_fields().as_ptr() as *const jchar)
+        .offset(start as isize)
+        .copy_to(buf, len as usize);
 }
 
 #[no_mangle]
@@ -1346,7 +1369,34 @@ pub unsafe extern "system" fn GetPrimitiveArrayCritical(
     array: jarray,
     is_copy: *mut jboolean,
 ) -> *mut c_void {
-    unimplemented!()
+    let obj = obj_expect!(RawJNIEnv::new(env), array, null_mut()).memory_layout();
+    match obj {
+        ObjectType::Array(JavaTypeEnum::Boolean) => {
+            (&**env).GetBooleanArrayElements.unwrap()(env, array, is_copy) as _
+        }
+        ObjectType::Array(JavaTypeEnum::Byte) => {
+            (&**env).GetByteArrayElements.unwrap()(env, array, is_copy) as _
+        }
+        ObjectType::Array(JavaTypeEnum::Short) => {
+            (&**env).GetShortArrayElements.unwrap()(env, array, is_copy) as _
+        }
+        ObjectType::Array(JavaTypeEnum::Char) => {
+            (&**env).GetCharArrayElements.unwrap()(env, array, is_copy) as _
+        }
+        ObjectType::Array(JavaTypeEnum::Int) => {
+            (&**env).GetIntArrayElements.unwrap()(env, array, is_copy) as _
+        }
+        ObjectType::Array(JavaTypeEnum::Long) => {
+            (&**env).GetLongArrayElements.unwrap()(env, array, is_copy) as _
+        }
+        ObjectType::Array(JavaTypeEnum::Float) => {
+            (&**env).GetFloatArrayElements.unwrap()(env, array, is_copy) as _
+        }
+        ObjectType::Array(JavaTypeEnum::Double) => {
+            (&**env).GetDoubleArrayElements.unwrap()(env, array, is_copy) as _
+        }
+        _ => panic!(),
+    }
 }
 
 #[no_mangle]
@@ -1356,7 +1406,34 @@ pub unsafe extern "system" fn ReleasePrimitiveArrayCritical(
     carray: *mut c_void,
     mode: jint,
 ) {
-    unimplemented!()
+    let obj = obj_expect!(RawJNIEnv::new(env), array).memory_layout();
+    match obj {
+        ObjectType::Array(JavaTypeEnum::Boolean) => {
+            (&**env).ReleaseBooleanArrayElements.unwrap()(env, array, carray as _, mode)
+        }
+        ObjectType::Array(JavaTypeEnum::Byte) => {
+            (&**env).ReleaseByteArrayElements.unwrap()(env, array, carray as _, mode)
+        }
+        ObjectType::Array(JavaTypeEnum::Short) => {
+            (&**env).ReleaseShortArrayElements.unwrap()(env, array, carray as _, mode)
+        }
+        ObjectType::Array(JavaTypeEnum::Char) => {
+            (&**env).ReleaseCharArrayElements.unwrap()(env, array, carray as _, mode)
+        }
+        ObjectType::Array(JavaTypeEnum::Int) => {
+            (&**env).ReleaseIntArrayElements.unwrap()(env, array, carray as _, mode)
+        }
+        ObjectType::Array(JavaTypeEnum::Long) => {
+            (&**env).ReleaseLongArrayElements.unwrap()(env, array, carray as _, mode)
+        }
+        ObjectType::Array(JavaTypeEnum::Float) => {
+            (&**env).ReleaseFloatArrayElements.unwrap()(env, array, carray as _, mode)
+        }
+        ObjectType::Array(JavaTypeEnum::Double) => {
+            (&**env).ReleaseDoubleArrayElements.unwrap()(env, array, carray as _, mode)
+        }
+        _ => panic!(),
+    }
 }
 
 #[no_mangle]

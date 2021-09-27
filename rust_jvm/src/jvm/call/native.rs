@@ -3,15 +3,16 @@ use crate::jvm::call::FlowControl;
 use crate::jvm::mem::{FieldDescriptor, JavaValue, ObjectHandle};
 use crate::jvm::{internals, JavaEnv};
 use hashbrown::HashMap;
-use jni::sys::JNINativeInterface_;
+use jni::sys::{jint, JNINativeInterface_, JavaVM};
 use libffi::middle::{Arg, Cif, CodePtr};
 use libloading::Library;
 use parking_lot::RwLock;
 use std::ffi::c_void;
 use std::io;
 use std::io::{Error, ErrorKind};
+use std::mem::transmute;
 use std::path::PathBuf;
-use std::ptr::null_mut;
+use std::ptr::{null, null_mut};
 use std::sync::Arc;
 
 pub struct NativeCall {
@@ -185,18 +186,26 @@ impl NativeManager {
         for (key, value) in vars() {
             info!("\t{}: {}", key, value);
         }
-        internals::register_natives(&mut manager);
+        // internals::register_natives(&mut manager);
         manager
     }
 
-    pub fn load_library(&mut self, path: PathBuf) -> io::Result<()> {
+    pub fn load_library(
+        jvm: Arc<RwLock<JavaEnv>>,
+        path: PathBuf,
+        vm: *mut JavaVM,
+    ) -> io::Result<()> {
         info!("Loading dynamic library {}", path.display());
-        if !self.libs.contains_key(&path) {
+        let lock = jvm.read();
+        let has_library = lock.linked_libraries.libs.contains_key(&path);
+        std::mem::drop(lock);
+        if !has_library {
             unsafe {
                 match Library::new(&path) {
                     Ok(v) => {
-                        self.load_order.push(path.clone());
-                        self.libs.insert(path, v)
+                        let mut lock = jvm.write();
+                        lock.linked_libraries.load_order.push(path.clone());
+                        lock.linked_libraries.libs.insert(path.clone(), v)
                     }
                     Err(e) => {
                         return Err(Error::new(
@@ -208,8 +217,23 @@ impl NativeManager {
                                 path.display()
                             ),
                         ));
-                    } // Err(e) => return Err(Error::new(ErrorKind::Other, e)),
+                    }
                 };
+
+                let load_fn = jvm
+                    .read()
+                    .linked_libraries
+                    .libs
+                    .get(&path)
+                    .unwrap()
+                    .get::<unsafe extern "C" fn()>(b"JNI_OnLoad")
+                    .map(|x| x.into_raw().into_raw() as *mut c_void);
+                if let Ok(onload) = load_fn {
+                    info!("Running JNI_OnLoad for {}", path.display());
+                    let onload: unsafe extern "system" fn(*mut JavaVM, *const c_void) -> jint =
+                        transmute(onload);
+                    onload(vm, null());
+                }
             }
         }
 

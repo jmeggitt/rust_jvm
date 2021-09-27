@@ -545,6 +545,7 @@ readable_struct! {
 impl ConstantPoolTag for ConstantMethodHandle {
     const TAG: u8 = 15;
     const MIN_VERSION: ClassVersion = ClassVersion(51, 0);
+    const STACK_LOADABLE: Option<ClassVersion> = Some(ClassVersion(51, 0));
 }
 
 readable_struct! {

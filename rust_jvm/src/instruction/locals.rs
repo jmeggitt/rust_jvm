@@ -43,6 +43,17 @@ impl InstructionAction for astore {
         let astore(index) = *self;
         let value = frame.stack.pop().unwrap();
         assert!(matches!(&value, JavaValue::Reference(_)));
+        if matches!(
+            frame.locals[index as usize],
+            JavaValue::Long(_) | JavaValue::Double(_)
+        ) {
+            warn!(
+                "Performed partial overwrite of type 2 computational type in slot {}",
+                index
+            );
+            frame.locals[(index ^ 1) as usize] = JavaValue::Int(0);
+        }
+
         frame.locals[index as usize] = value;
         Ok(())
     }
@@ -93,6 +104,16 @@ impl InstructionAction for fstore {
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let fstore(index) = *self;
+        if matches!(
+            frame.locals[index as usize],
+            JavaValue::Long(_) | JavaValue::Double(_)
+        ) {
+            warn!(
+                "Performed partial overwrite of type 2 computational type in slot {}",
+                index
+            );
+            frame.locals[(index ^ 1) as usize] = JavaValue::Int(0);
+        }
         frame.locals[index as usize] = frame.stack.pop().unwrap();
         Ok(())
     }
@@ -117,6 +138,16 @@ impl InstructionAction for istore {
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let istore(index) = *self;
+        if matches!(
+            frame.locals[index as usize],
+            JavaValue::Long(_) | JavaValue::Double(_)
+        ) {
+            warn!(
+                "Performed partial overwrite of type 2 computational type in slot {}",
+                index
+            );
+            frame.locals[(index ^ 1) as usize] = JavaValue::Int(0);
+        }
         frame.locals[index as usize] = frame.stack.pop().unwrap();
         Ok(())
     }

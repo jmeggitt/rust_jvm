@@ -3,7 +3,7 @@ use std::io::{Cursor, Error, ErrorKind, Read, Seek, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::class::attribute::CodeAttribute;
+use crate::class::attribute::{BootstrapMethod, CodeAttribute, EnclosingMethod, NestHost};
 use crate::class::constant::{Constant, ConstantClass, ConstantPool};
 use crate::class::version::{check_magic_number, ClassVersion};
 use crate::class::BufferedRead;
@@ -17,8 +17,11 @@ bitflags! {
         const STATIC = 0x0008;
         const FINAL = 0x0010;
         const SUPER = 0x0020;
+        const SYNCHRONIZED = 0x0020;
         const VOLATILE = 0x0040;
+        const BRIDGE = 0x0040;
         const TRANSIENT = 0x0080;
+        const VARARGS = 0x0080;
         const NATIVE = 0x0100;
         const INTERFACE = 0x0200;
         const ABSTRACT = 0x0400;
@@ -51,15 +54,54 @@ pub struct Class {
     version: ClassVersion,
     pub constants: Vec<Constant>,
     pub access_flags: AccessFlags,
-    pub(crate) this_class: u16,
-    super_class: u16,
-    interfaces: Vec<u16>,
+    pub this_class: u16,
+    pub super_class: u16,
+    pub interfaces: Vec<u16>,
     pub fields: Vec<FieldInfo>,
     pub methods: Vec<MethodInfo>,
-    attributes: Vec<AttributeInfo>,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 impl Class {
+    pub fn bootstrap_methods(&self) -> Option<Vec<BootstrapMethod>> {
+        let constants = self.constants();
+        for attribute in &self.attributes {
+            if constants.text(attribute.name_index) == "BootstrapMethods" {
+                let mut buffer = Cursor::new(attribute.info.to_owned());
+                let attr = <Vec<BootstrapMethod> as BufferedRead>::read(&mut buffer).ok()?;
+                // let class = constants.class_name(attr.class_index).to_owned();
+                // let (name, desc) = constants.name_and_type(attr.method_index);
+                return Some(attr);
+            }
+        }
+        None
+    }
+
+    pub fn enclosing_method(&self) -> Option<(String, String, String)> {
+        let constants = self.constants();
+        for attribute in &self.attributes {
+            if constants.text(attribute.name_index) == "EnclosingMethod" {
+                let mut buffer = Cursor::new(attribute.info.to_owned());
+                let attr = EnclosingMethod::read(&mut buffer).ok()?;
+                let class = constants.class_name(attr.class_index).to_owned();
+                let (name, desc) = constants.name_and_type(attr.method_index);
+                return Some((class, name.to_owned(), desc.to_owned()));
+            }
+        }
+        None
+    }
+    pub fn nest_host(&self) -> Option<String> {
+        let constants = self.constants();
+        for attribute in &self.attributes {
+            if constants.text(attribute.name_index) == "NestHost" {
+                let mut buffer = Cursor::new(attribute.info.to_owned());
+                let attr = NestHost::read(&mut buffer).ok()?;
+                return Some(constants.class_name(attr.host_class_index).to_owned());
+            }
+        }
+        None
+    }
+
     #[deprecated(since = "0.2.0", note = "Replace with new Class::constants method")]
     pub fn old_constants(&self) -> &[Constant] {
         &self.constants
@@ -355,7 +397,7 @@ impl BufferedRead for FieldInfo {
 
 #[derive(Debug, Clone)]
 pub struct AttributeInfo {
-    name_index: u16,
+    pub name_index: u16,
     info: Vec<u8>,
 }
 
@@ -380,9 +422,9 @@ impl BufferedRead for AttributeInfo {
 #[derive(Debug, Clone)]
 pub struct MethodInfo {
     pub access: AccessFlags,
-    name_index: u16,
-    descriptor_index: u16,
-    attributes: Vec<AttributeInfo>,
+    pub name_index: u16,
+    pub descriptor_index: u16,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 impl MethodInfo {

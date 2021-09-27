@@ -54,7 +54,7 @@ fn main() {
         &symbol_list_path
     );
 
-    let mut symbols = read_symbols();
+    let symbols = read_symbols();
 
     // Define linkage for symbols expected on windows by other java 8 dlls that are not present in regular java 8
     def_sym("JVM_BeforeHalt", "JVM_Unsupported");

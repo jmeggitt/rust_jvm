@@ -193,6 +193,20 @@ impl JavaThreadManager {
         }
     }
 
+    pub fn info_print_call_stack(&self) {
+        let current_thread = current();
+        let info = self
+            .threads
+            .get(&current_thread.id())
+            .expect("Unable to find current thread");
+
+        let mut padding = String::new();
+        for debug_str in &info.call_stack {
+            info!("{}{:?}", &padding, debug_str.1);
+            padding.push_str("   ");
+        }
+    }
+
     pub fn set_sticky_exception(&mut self, throwable: Option<ObjectHandle>) {
         self.threads
             .get_mut(&current().id())
@@ -201,49 +215,57 @@ impl JavaThreadManager {
     }
 
     pub fn get_sticky_exception(&self) -> Option<ObjectHandle> {
-        self.threads.get(&current().id()).unwrap().sticky_exception
+        self.threads
+            .get(&current().id())
+            .and_then(|x| x.sticky_exception)
     }
 }
 
 impl SynchronousMonitor<ObjectHandle> for Arc<RwLock<JavaEnv>> {
     fn lock(&self, target: ObjectHandle) {
-        let monitor = self
-            .write()
+        let mut lock = self.write();
+        let monitor = lock
             .thread_manager
             .monitor
             .entry(target)
             .or_default()
             .clone();
 
+        std::mem::drop(lock);
         monitor.lock();
     }
 
     fn try_lock(&self, target: ObjectHandle) -> bool {
-        let monitor = self
-            .write()
+        let mut lock = self.write();
+        let monitor = lock
             .thread_manager
             .monitor
             .entry(target)
             .or_default()
             .clone();
 
+        std::mem::drop(lock);
         monitor.try_lock()
     }
 
     fn unlock(&self, target: ObjectHandle) {
-        let monitor = self
-            .read()
+        let mut lock = self.write();
+        let monitor = lock
             .thread_manager
             .monitor
-            .get(&target)
-            .unwrap()
+            .entry(target)
+            .or_default()
             .clone();
 
+        std::mem::drop(lock);
         monitor.unlock();
     }
 
     fn check_lock(&self, target: ObjectHandle) -> bool {
-        match self.read().thread_manager.monitor.get(&target) {
+        let lock = self.read();
+        let value = lock.thread_manager.monitor.get(&target).cloned();
+        std::mem::drop(lock);
+        match value {
             Some(v) => v.check_lock(),
             None => false,
         }
@@ -254,13 +276,17 @@ impl SynchronousMonitor<ObjectHandle> for Arc<RwLock<JavaEnv>> {
 pub unsafe extern "system" fn JVM_MonitorWait_impl(env: RawJNIEnv, obj: jobject, ms: jlong) {
     // TODO: Should this also acquire the lock?
     let target = obj_expect!(env, obj);
-    let monitor = env
-        .write()
+    let mut lock = env.write();
+
+    let monitor = lock
         .thread_manager
         .monitor
         .entry(target)
         .or_default()
         .clone();
+
+    // Explicitly drop lock to prevent it from blocking other threads
+    std::mem::drop(lock);
 
     let mut guard = monitor.mutex.lock();
     monitor
@@ -511,6 +537,9 @@ pub unsafe extern "system" fn JVM_StartThread_impl(env: RawJNIEnv, thread: jobje
         {
             barrier_clone.wait();
         }
+
+        #[cfg(feature = "thread_profiler")]
+        thread_profiler::register_thread_with_profiler();
 
         let field = ClassElement {
             class: "java/lang/Thread".to_string(),

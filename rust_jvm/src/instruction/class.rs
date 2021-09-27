@@ -5,7 +5,11 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 // use crate::r#mod::{AccessFlags, BufferedRead};
 // use crate::constant_pool::{ClassElement, Constant};
-use crate::class::constant::{ClassElement, Constant};
+use crate::class::constant::{
+    ClassElement, Constant, ConstantClass, ConstantDouble, ConstantFieldRef, ConstantFloat,
+    ConstantInteger, ConstantLong, ConstantMethodHandle, ConstantMethodRef, ConstantMethodType,
+    ConstantPool, ConstantString, ReferenceKind,
+};
 use crate::class::{AccessFlags, BufferedRead};
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
 use crate::jvm::call::{clean_str, FlowControl, JavaEnvInvoke, StackFrame};
@@ -13,6 +17,7 @@ use crate::jvm::mem::FieldDescriptor;
 use crate::jvm::mem::{JavaValue, ManualInstanceReference, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
+use std::process::exit;
 use std::sync::Arc;
 
 instruction! {@partial getstatic, 0xb2, u16}
@@ -64,8 +69,16 @@ impl InstructionAction for getstatic {
                 .expect_utf8()
                 .unwrap();
 
+            #[cfg(feature = "profile")]
+            let mut profile_scope = thread_profiler::ProfileScope::new("acquire-write-lock".into());
+
+            let mut lock = jvm.write();
+            #[cfg(feature = "profile")]
+            std::mem::drop(profile_scope);
+
+            #[cfg(feature = "profile")]
+            let mut profile_scope = thread_profiler::ProfileScope::new("align-static-ref".into());
             loop {
-                let lock = jvm.read();
                 let raw_class = lock.class_loader.class(&class_name).unwrap();
                 if raw_class.get_field(&field_name, &descriptor).is_some() {
                     break;
@@ -78,26 +91,29 @@ impl InstructionAction for getstatic {
 
                 class_name = raw_class.super_class();
             }
+            #[cfg(feature = "profile")]
+            std::mem::drop(profile_scope);
 
             // let field_reference = format!("{}_{}", clean_str(&class_name), clean_str(&field_name));
-            let value = {
-                let mut lock = jvm.write();
-                match lock.static_fields.get_static(&class_name, &field_name) {
-                    Some(v) => v,
-                    None => match Self::check_static_init(
-                        &mut *lock,
-                        &class_name,
-                        &field_name,
-                        &descriptor,
-                    ) {
+
+            #[cfg(feature = "profile")]
+            let mut profile_scope = thread_profiler::ProfileScope::new("static-lookup".into());
+            let value = match lock.static_fields.get_static(&class_name, &field_name) {
+                Some(v) => v,
+                None => {
+                    match Self::check_static_init(&mut *lock, &class_name, &field_name, &descriptor)
+                    {
                         Some(v) => v,
                         None => panic!("Static value not found: {}::{}", &class_name, &field_name),
-                    },
+                    }
                 }
             };
+            #[cfg(feature = "profile")]
+            std::mem::drop(profile_scope);
+
             debug!(
-                "Got value {:?} from {}::{} {}",
-                &value, &class_name, &field_name, descriptor
+                "Get static request for {}::{} {}",
+                &class_name, &field_name, descriptor
             );
 
             if matches!(&value, JavaValue::Long(_) | JavaValue::Double(_)) {
@@ -394,17 +410,17 @@ impl InstructionAction for invokespecial {
                 ),
             };
 
-        info!(
+        debug!(
             "Calling special: {}::{} {}",
             &class_name, &field_name, &descriptor
         );
         if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
-            info!(
-                "Popping {} args ({} slots)",
-                args.len(),
-                FieldDescriptor::word_len(&args)
-            );
-            info!("Frame size: {}", frame.stack.len());
+            // debug!(
+            //     "Popping {} args ({} slots)",
+            //     args.len(),
+            //     FieldDescriptor::word_len(&args)
+            // );
+            // info!("Frame size: {}", frame.stack.len());
             let stack_args =
                 frame.stack[frame.stack.len() - FieldDescriptor::word_len(&args)..].to_vec();
 
@@ -423,7 +439,7 @@ impl InstructionAction for invokespecial {
                 }
             };
 
-            info!("Got target: {}", target.get_class());
+            // info!("Got target: {}", target.get_class());
 
             // stack_args.insert(0, JavaValue::Reference(Some(target.clone())));
             let method = ClassElement::new(method_class, field_name, descriptor);
@@ -717,3 +733,332 @@ impl InstructionAction for instanceof {
 //     let object = ObjectHandle::new(jvm.class_schema("java/lang/NullPointerException"));
 //     frame.throws = Some(JavaValue::Reference(Some(object)));
 // }
+
+#[derive(Debug, Copy, Clone)]
+pub struct invokedynamic(u16);
+
+impl crate::instruction::Instruction for invokedynamic {
+    fn write(&self, buffer: &mut std::io::Cursor<Vec<u8>>) -> std::io::Result<()> {
+        {
+            use byteorder::WriteBytesExt;
+            buffer.write_u8(<Self as crate::instruction::StaticInstruct>::FORM)?;
+            buffer.write_u16::<byteorder::BigEndian>(self.0)?;
+            buffer.write_u16::<byteorder::BigEndian>(0)
+        }
+    }
+    fn exec(
+        &self,
+        stack: &mut crate::jvm::call::StackFrame,
+        jvm: &mut std::sync::Arc<parking_lot::RwLock<crate::jvm::JavaEnv>>,
+    ) -> Result<(), crate::jvm::call::FlowControl> {
+        <Self as crate::instruction::InstructionAction>::exec(self, stack, jvm)
+    }
+}
+
+impl crate::instruction::StaticInstruct for invokedynamic {
+    const FORM: u8 = 0xba;
+
+    fn read(
+        _: u8,
+        buffer: &mut std::io::Cursor<Vec<u8>>,
+    ) -> std::io::Result<Box<dyn crate::instruction::Instruction>> {
+        use byteorder::ReadBytesExt;
+        let index = buffer.read_u16::<byteorder::BigEndian>()?;
+        assert_eq!(buffer.read_u16::<byteorder::BigEndian>()?, 0);
+        Ok(Box::new(invokedynamic(index)))
+    }
+}
+
+impl InstructionAction for invokedynamic {
+    fn exec(
+        &self,
+        frame: &mut StackFrame,
+        jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        let invokedynamic(field) = *self;
+
+        let constants = ConstantPool::from(&frame.constants[..]);
+
+        let (bootstrap_idx, desc_index) = match &frame.constants[field as usize - 1] {
+            Constant::InvokeDynamic(v) => (v.bootstrap_method_attr_index, v.name_and_type_index),
+            x => panic!("Unexpected constant in invokedynamic: {:?}", x),
+        };
+
+        let field = frame.constants[desc_index as usize - 1]
+            .expect_name_and_type()
+            .unwrap();
+        let field_name = frame.constants[field.name_index as usize - 1]
+            .expect_utf8()
+            .unwrap();
+        let descriptor = frame.constants[field.descriptor_index as usize - 1]
+            .expect_utf8()
+            .unwrap();
+
+        info!("Dynamic: {} {}", &field_name, &descriptor);
+
+        let (current_class, class_name) = {
+            let lock = jvm.read();
+            let current_class = lock
+                .thread_manager
+                .get_current_call_stack()
+                .unwrap()
+                .last()
+                .unwrap()
+                .0;
+            (current_class, current_class.unwrap_as_class())
+        };
+
+        let bootstrap = {
+            let lock = jvm.read();
+            lock.class_loader
+                .class(&class_name)
+                .unwrap()
+                .bootstrap_methods()
+        };
+
+        let bootstrap_method = match bootstrap {
+            Some(v) => v[bootstrap_idx as usize].to_owned(),
+            None => panic!("No bootstrap method attribute on {}", &class_name),
+        };
+
+        info!("{:?}", &bootstrap_method);
+
+        let mut lookup = None;
+
+        info!("bootstrap_arguments");
+        let mut dyn_args = Vec::with_capacity(bootstrap_method.bootstrap_arguments.len());
+        for arg in bootstrap_method.bootstrap_arguments {
+            match &frame.constants[arg as usize - 1] {
+                Constant::Class(ConstantClass { name_index }) => {
+                    let name = frame.constants[*name_index as usize - 1]
+                        .expect_utf8()
+                        .unwrap();
+                    info!("\tClass {}", &name);
+                    dyn_args.push(JavaValue::Reference(Some(
+                        jvm.write().class_instance(&name),
+                    )));
+                }
+                Constant::String(ConstantString { string_index }) => {
+                    let name = frame.constants[*string_index as usize - 1]
+                        .expect_utf8()
+                        .unwrap();
+                    info!("\tString {}", &name);
+                    dyn_args.push(jvm.write().build_string(&name));
+                }
+                Constant::Int(ConstantInteger { value }) => {
+                    info!("\tInt {}", value);
+                    dyn_args.push(JavaValue::Int(*value));
+                }
+                Constant::Float(ConstantFloat { value }) => {
+                    info!("\tFloat {}", value);
+                    dyn_args.push(JavaValue::Float(*value));
+                }
+                Constant::Long(ConstantLong { value }) => {
+                    info!("\tLong {}", value);
+                    dyn_args.push(JavaValue::Long(*value));
+                    dyn_args.push(JavaValue::Long(*value));
+                }
+                Constant::Double(ConstantDouble { value }) => {
+                    info!("\tDouble {}", value);
+                    dyn_args.push(JavaValue::Double(*value));
+                    dyn_args.push(JavaValue::Double(*value));
+                }
+                Constant::MethodType(ConstantMethodType { descriptor_index }) => {
+                    let desc = frame.constants[*descriptor_index as usize - 1]
+                        .expect_utf8()
+                        .unwrap();
+                    info!("\tMethod Type {}", &desc);
+                    let desc = FieldDescriptor::read_str(&desc).unwrap().to_class(jvm);
+                    dyn_args.push(JavaValue::Reference(Some(desc)));
+                }
+                Constant::MethodHandle(ConstantMethodHandle {
+                    reference_kind,
+                    index,
+                }) => {
+                    let lookup_ref = match lookup {
+                        Some(v) => v,
+                        None => {
+                            let element = ClassElement::new(
+                                "java/lang/invoke/MethodHandles",
+                                "lookup",
+                                "()Ljava/lang/invoke/MethodHandles$Lookup;",
+                            );
+                            jvm.write()
+                                .class_loader
+                                .attempt_load("java/lang/invoke/MethodHandles")
+                                .unwrap();
+                            match jvm.invoke_static(element, vec![])? {
+                                Some(JavaValue::Reference(Some(v))) => {
+                                    lookup = Some(v);
+                                    v
+                                }
+                                x => panic!("{:?}", x),
+                            }
+                        }
+                    };
+
+                    let (class, field, desc) = constants.class_element_ref(*index);
+                    let class_instance =
+                        JavaValue::Reference(Some(jvm.write().class_instance(class)));
+                    let field_name = jvm.write().build_string(field);
+                    let field_type = JavaValue::Reference(Some(
+                        FieldDescriptor::read_str(desc).unwrap().to_class(jvm),
+                    ));
+
+                    // java.lang.invoke.MethodHandles.lookup()
+                    let handle = match reference_kind {
+                        ReferenceKind::GetField => {
+                            let element = ClassElement::new("java/lang/invoke/MethodHandles$Lookup", "findGetter", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/invoke/MethodHandle;");
+                            jvm.invoke_virtual(
+                                element,
+                                lookup_ref,
+                                vec![class_instance, field_name, field_type],
+                            )?
+                            // lookup.findGetter(C.class,"f",FT.class)
+                        }
+                        ReferenceKind::GetStatic => {
+                            let element = ClassElement::new("java/lang/invoke/MethodHandles$Lookup", "findStaticGetter", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/invoke/MethodHandle;");
+                            jvm.invoke_virtual(
+                                element,
+                                lookup_ref,
+                                vec![class_instance, field_name, field_type],
+                            )?
+                            // lookup.findStaticGetter(C.class,"f",FT.class)
+                        }
+                        ReferenceKind::PutField => {
+                            let element = ClassElement::new("java/lang/invoke/MethodHandles$Lookup", "findSetter", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/invoke/MethodHandle;");
+                            jvm.invoke_virtual(
+                                element,
+                                lookup_ref,
+                                vec![class_instance, field_name, field_type],
+                            )?
+                            // lookup.findSetter(C.class,"f",FT.class)
+                        }
+                        ReferenceKind::PutStatic => {
+                            let element = ClassElement::new("java/lang/invoke/MethodHandles$Lookup", "findStaticSetter", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/invoke/MethodHandle;");
+                            jvm.invoke_virtual(
+                                element,
+                                lookup_ref,
+                                vec![class_instance, field_name, field_type],
+                            )?
+                            // lookup.findStaticSetter(C.class,"f",FT.class)
+                        }
+                        ReferenceKind::InvokeVirtual => {
+                            let element = ClassElement::new("java/lang/invoke/MethodHandles$Lookup", "findVirtual", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;");
+                            jvm.invoke_virtual(
+                                element,
+                                lookup_ref,
+                                vec![class_instance, field_name, field_type],
+                            )?
+                            // lookup.findVirtual(C.class,"m",MT)
+                        }
+                        ReferenceKind::InvokeStatic => {
+                            let element = ClassElement::new("java/lang/invoke/MethodHandles$Lookup", "findStatic", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;");
+                            jvm.invoke_virtual(
+                                element,
+                                lookup_ref,
+                                vec![class_instance, field_name, field_type],
+                            )?
+                            // lookup.findStatic(C.class,"m",MT)
+                        }
+                        ReferenceKind::InvokeSpecial => {
+                            let element = ClassElement::new("java/lang/invoke/MethodHandles$Lookup", "findSpecial", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/Class;)Ljava/lang/invoke/MethodHandle;");
+                            jvm.invoke_virtual(
+                                element,
+                                lookup_ref,
+                                vec![
+                                    class_instance,
+                                    field_name,
+                                    field_type,
+                                    JavaValue::Reference(Some(current_class)),
+                                ],
+                            )?
+                            // lookup.findSpecial(C.class,"m",MT,this.class)
+                        }
+                        ReferenceKind::NewInvokeSpecial => {
+                            let element = ClassElement::new("java/lang/invoke/MethodHandles$Lookup", "findConstructor", "(Ljava/lang/Class;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;");
+                            jvm.invoke_virtual(
+                                element,
+                                lookup_ref,
+                                vec![class_instance, field_type],
+                            )?
+                            // lookup.findConstructor(C.class,MT)
+                        }
+                        ReferenceKind::InvokeInterface => {
+                            let element = ClassElement::new("java/lang/invoke/MethodHandles$Lookup", "findVirtual", "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;");
+                            jvm.invoke_virtual(
+                                element,
+                                lookup_ref,
+                                vec![class_instance, field_name, field_type],
+                            )?
+                            // lookup.findVirtual(C.class,"m",MT)
+                        }
+                    };
+
+                    dyn_args.push(handle.unwrap());
+                }
+                Constant::Dynamic(x) => panic!("Not sure what to do: {:?}", x),
+                x => panic!("Constant {:?} is not stack loadable", x),
+            }
+        }
+
+        // info!(
+        //     "bootstrap_method_ref {:?}",
+        //     &frame.constants[bootstrap_method.bootstrap_method_ref as usize - 1]
+        // );
+        // let ()
+
+        // let class = frame.constants[class_index as usize - 1]
+        //     .expect_class()
+        //     .unwrap();
+        // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+        // jvm.init_class(&class_name);
+
+        let (class_name, field_name, descriptor) =
+            constants.class_element_ref(bootstrap_method.bootstrap_method_ref);
+
+        if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
+            // let stack_args =
+            //     frame.stack[frame.stack.len() - FieldDescriptor::word_len(&args)..].to_vec();
+            //
+            // for _ in 0..stack_args.len() {
+            //     frame.stack.pop();
+            // }
+            //
+            // let target = match frame.stack.pop() {
+            //     Some(JavaValue::Reference(Some(v))) => v,
+            //     _ => {
+            //         // raise_null_pointer_exception(frame, jvm);
+            //         // warn!(
+            //         //     "Raised NullPointerException while trying to call {}::{} {}",
+            //         //     &class_name, &field_name, &descriptor
+            //         // );
+            //         // return;
+            //         return Err(FlowControl::throw("java/lang/NullPointerException"));
+            //     } // x => panic!("Attempted to run invokevirtual, but did not find target object: {:?}", x),
+            // };
+
+            // stack_args.insert(0, JavaValue::Reference(Some(target.clone())));
+            let method = ClassElement::new(class_name, field_name, descriptor);
+            match jvm.invoke_static(method, dyn_args) {
+                Ok(Some(JavaValue::Long(v))) => {
+                    frame.stack.push(JavaValue::Long(v));
+                    frame.stack.push(JavaValue::Long(v));
+                }
+                Ok(Some(JavaValue::Double(v))) => {
+                    frame.stack.push(JavaValue::Double(v));
+                    frame.stack.push(JavaValue::Double(v));
+                }
+                Ok(Some(v)) => frame.stack.push(v),
+                Ok(None) => {}
+                Err(e) => return Err(e),
+            }
+        } else {
+            panic!(
+                "Unable to execute {}::{} {}",
+                &class_name, &field_name, &descriptor
+            );
+        }
+        Ok(())
+    }
+}

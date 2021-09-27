@@ -12,3 +12,4 @@ std/includes
 test-env/
 *.log
 *.dump
+*.profile

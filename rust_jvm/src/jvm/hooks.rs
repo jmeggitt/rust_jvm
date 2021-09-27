@@ -2,15 +2,17 @@
 
 use std::ffi::c_void;
 
-use jni::sys::{jclass, jint, jobject, jstring, JNIEnv};
+use jni::sys::{jboolean, jclass, jint, jobject, jstring, JNIEnv};
 
 use crate::class::constant::ClassElement;
-use crate::jvm::call::{clean_str, JavaEnvInvoke, RawJNIEnv};
+use crate::jvm::call::{clean_str, JavaEnvInvoke, NativeManager, RawJNIEnv};
+use crate::jvm::internals::{register_method_handles_natives, unsafe_register_natives};
 use crate::jvm::mem::{JavaValue, ObjectHandle};
 use crate::jvm::JavaEnv;
 use home::home_dir;
 use parking_lot::RwLock;
-use std::env::current_dir;
+use std::env::{current_dir, var};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 macro_rules! load_included_class {
@@ -54,9 +56,19 @@ pub fn build_system_properties(jvm: &mut Arc<RwLock<JavaEnv>>, obj: ObjectHandle
             jvm.read().class_loader.class_path().java_home().display()
         ),
     );
-    set_property(jvm, obj, "java.class.version", "60");
-    // TODO: Use actual class path
+    set_property(jvm, obj, "java.class.version", "60.0");
+
+    // let class_path = jvm.read().class_loader.class_path().
     set_property(jvm, obj, "java.class.path", ".");
+
+    set_property(
+        jvm,
+        obj,
+        "java.specification.name",
+        "Java Platform API Specification",
+    );
+    set_property(jvm, obj, "java.specification.vendor", "jmeggitt");
+    set_property(jvm, obj, "java.specification.version", "16");
 
     set_property(jvm, obj, "os.name", std::env::consts::OS);
     set_property(jvm, obj, "os.arch", std::env::consts::ARCH);
@@ -73,9 +85,11 @@ pub fn build_system_properties(jvm: &mut Arc<RwLock<JavaEnv>>, obj: ObjectHandle
     }
 
     set_property(jvm, obj, "user.name", &whoami::username());
-    if let Some(language) = whoami::lang().next() {
-        set_property(jvm, obj, "user.language", &language);
-    }
+    // error!("Language: {:?}", whoami::lang().collect::<Vec<String>>());
+    // if let Some(language) = whoami::lang().next() {
+    // }
+    set_property(jvm, obj, "user.language", "en");
+
     set_property(
         jvm,
         obj,
@@ -90,19 +104,117 @@ pub fn build_system_properties(jvm: &mut Arc<RwLock<JavaEnv>>, obj: ObjectHandle
     );
     set_property(jvm, obj, "file.encoding", "utf-8");
 
+    let library_path = if cfg!(unix) {
+        let ld_path = var("LD_LIBRARY_PATH").unwrap_or_default();
+        // default search directories on x86_64 linux. Most directories are expected to be symbolic links
+        let default_path = "/usr/java/packages/lib:/usr/lib/x86_64-linux-gnu/jni:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/usr/lib/jni:/lib:/usr/lib";
+        if ld_path.is_empty() {
+            default_path.to_string()
+        } else {
+            format!("{}:{}", ld_path, default_path)
+        }
+    } else if cfg!(windows) {
+        let mut library_search_path = String::new();
+
+        if let Some(path) = std::env::current_exe()
+            .ok()
+            .map(|x| x.parent().unwrap().to_path_buf())
+        {
+            library_search_path.push_str(&format!("{}", path.display()));
+            library_search_path.push(';');
+        }
+
+        // Default search locations
+        library_search_path
+            .push_str("C:\\Windows\\Sun\\Java\\bin;C:\\Windows\\system32;C:\\Windows");
+
+        if let Ok(path) = var("PATH") {
+            library_search_path.push(';');
+            library_search_path.push_str(&path);
+        }
+
+        library_search_path.push_str(";.");
+        library_search_path
+    } else {
+        error!("Unable to properly init library search path; unknown platform");
+        String::new()
+    };
+
+    set_property(jvm, obj, "java.library.path", &library_path);
+
+    if cfg!(target_endian = "little") {
+        set_property(jvm, obj, "sun.cpu.endian", "little");
+        set_property(jvm, obj, "sun.io.unicode.encoding", "UnicodeLittle");
+    } else if cfg!(target_endian = "big") {
+        set_property(jvm, obj, "sun.cpu.endian", "big");
+        set_property(jvm, obj, "sun.io.unicode.encoding", "UnicodeBig");
+    }
+
+    if cfg!(target_pointer_width = "64") {
+        set_property(jvm, obj, "sun.arch.data.model", "64");
+    } else if cfg!(target_pointer_width = "32") {
+        set_property(jvm, obj, "sun.arch.data.model", "32");
+    } else if cfg!(target_pointer_width = "16") {
+        set_property(jvm, obj, "sun.arch.data.model", "16");
+    }
+
+    let java_home = jvm.read().class_loader.class_path().java_home().to_owned();
+    let library_path = if cfg!(windows) {
+        java_home.join("bin")
+    } else {
+        java_home.join("lib")
+    };
+    set_property(
+        jvm,
+        obj,
+        "sun.boot.library.path",
+        &format!("{}", library_path.display()),
+    );
+
     // let field_reference = format!("{}_{}", clean_str("java/lang/System"), clean_str("props"));
 }
 
 pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
     load_included_class!(jvm, "java/hooks/PrintStreamHook.class");
 
-    // TODO: Implement a register natives function for sun/misc/Unsafe and more declarations there
+    // { CC"Java_sun_misc_Unsafe_registerNatives",                      NULL, FN_PTR(JVM_RegisterUnsafeMethods)       },
+    // { CC"Java_java_lang_invoke_MethodHandleNatives_registerNatives", NULL, FN_PTR(JVM_RegisterMethodHandleMethods) },
+    // { CC"Java_sun_misc_Perf_registerNatives",                        NULL, FN_PTR(JVM_RegisterPerfMethods)         },
+    // { CC"Java_sun_hotspot_WhiteBox_registerNatives",                 NULL, FN_PTR(JVM_RegisterWhiteBoxMethods)     },
+
     jvm.write().linked_libraries.register_fn(
         "sun/misc/Unsafe",
         "registerNatives",
         "()V",
+        unsafe_register_natives as *const c_void,
+    );
+
+    jvm.write().linked_libraries.register_fn(
+        "java/lang/invoke/MethodHandleNatives",
+        "registerNatives",
+        "()V",
+        register_method_handles_natives as *const c_void,
+    );
+    jvm.write().linked_libraries.register_fn(
+        "sun/misc/Perf",
+        "registerNatives",
+        "()V",
         empty as *const c_void,
     );
+    jvm.write().linked_libraries.register_fn(
+        "sun/hotspot/Whitebox",
+        "registerNatives",
+        "()V",
+        empty as *const c_void,
+    );
+
+    jvm.write().linked_libraries.register_fn(
+        "java/lang/ClassLoader$NativeLibrary",
+        "load",
+        "(Ljava/lang/String;Z)V",
+        load_library as *const c_void,
+    );
+
     jvm.write().linked_libraries.register_fn(
         "java/hooks/PrintStreamHook",
         "sendIO",
@@ -110,6 +222,7 @@ pub fn register_hooks(jvm: &mut Arc<RwLock<JavaEnv>>) {
         Java_java_hooks_PrintStreamHook_sendIO as *const c_void,
     );
 
+    // jvm.invoke_static(ClassElement::new("java/lang/System", "initProperties", "()V"), vec![]).unwrap();
     jvm.init_class("java/util/Properties");
     jvm.init_class("sun/misc/VM");
     let schema = jvm.write().class_schema("java/util/Properties");
@@ -189,3 +302,52 @@ pub unsafe extern "system" fn Java_java_hooks_PrintStreamHook_sendIO(
         eprint!("{}", output);
     }
 }
+
+#[no_mangle]
+pub unsafe extern "system" fn load_library(
+    env: RawJNIEnv,
+    _cls: jclass,
+    path: jstring,
+    is_builtin: jboolean,
+) {
+    let path = obj_expect!(env, path).expect_string();
+    info!(
+        "java/lang/ClassLoader$NativeLibrary::load({:?}, {})",
+        &path,
+        is_builtin != 0
+    );
+
+    let jvm = env.read();
+    let mut vm_ptr = &jvm.jni_vm as *const _;
+    std::mem::drop(jvm);
+    if let Err(e) = NativeManager::load_library(Arc::clone(&*env), PathBuf::from(path), &mut vm_ptr)
+    {
+        error!("{}", e);
+    };
+}
+
+// C:\Program Files (x86)\Java\jdk1.8.0_291\bin
+// C:\Windows\Sun\Java\bin
+// C:\Windows\system32
+// C:\Windows
+//
+// # System Path
+// C:\Program Files\Common Files\Oracle\Java\javapath
+// C:\Program Files (x86)\Common Files\Oracle\Java\javapath
+// C:\Windows\system32
+// C:\Windows
+// C:\Windows\System32\Wbem
+// C:\Windows\System32\WindowsPowerShell\v1.0\
+// C:\Windows\System32\OpenSSH\
+// C:\Program Files\Git\cmd
+// C:\Program Files\dotnet\
+// C:\Program Files\nodejs\
+//
+// # User Path
+// C:\Users\Jasper\.cargo\bin
+// C:\Users\Jasper\AppData\Local\Microsoft\WindowsApps
+// C:\Users\Jasper\.dotnet\tools
+// C:\Users\Jasper\AppData\Roaming\npm
+//
+// # Class path
+// .

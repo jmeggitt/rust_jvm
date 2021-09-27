@@ -275,5 +275,7 @@ impl InstructionReader {
         self.register::<invokeinterface>();
         self.register::<iinc>();
         self.register::<lookupswitch>();
+        self.register::<tableswitch>();
+        self.register::<invokedynamic>();
     }
 }

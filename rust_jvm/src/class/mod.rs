@@ -9,6 +9,17 @@ macro_rules! readable_struct {
             $(pub $field: $type),+
         }
 
+        readable_struct!{@impl $name {$($field: $type),* }}
+    };
+    (pub no_copy struct $name:ident { $($field:ident: $type:ty),* $(,)? }) => {
+        #[derive(Debug, Clone)]
+        pub struct $name {
+            $(pub $field: $type),+
+        }
+
+        readable_struct!{@impl $name {$($field: $type),* }}
+    };
+    (@impl $name:ident { $($field:ident: $type:ty),* }) => {
         impl BufferedRead for $name {
             fn read<T: Read + Seek>(buffer: &mut T) -> io::Result<Self> {
                 Ok($name { $($field: <$type as BufferedRead>::read(buffer)?),+ })

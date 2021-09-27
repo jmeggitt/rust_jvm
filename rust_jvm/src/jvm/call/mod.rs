@@ -163,6 +163,9 @@ pub trait JavaEnvInvoke {
 
 impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
     fn init_class(&mut self, class: &str) {
+        #[cfg(feature = "profile")]
+        let mut profile_scope = thread_profiler::ProfileScope::new("init_class".into());
+
         let class_instance = {
             let mut jvm = self.write();
             jvm.class_instance(class)
@@ -196,10 +199,37 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             };
 
             if let Some(method_ref) = method {
-                // warn!("[<clinit>] {}: Invoking initializer", class);
-                self.invoke_static(method_ref, vec![]).unwrap();
-            } else {
-                // warn!("[<clinit>] {}: No class initializer", class);
+                // This is the most common place for a panic to occur
+                if let Err(x) = self.invoke_static(method_ref, vec![]) {
+                    let (properties, stdout) = {
+                        let mut jvm = self.write();
+                        let properties = jvm
+                            .static_fields
+                            .get_static("java/lang/System", "props")
+                            .unwrap()
+                            .expect_object();
+                        let stdout = jvm
+                            .static_fields
+                            .get_static("java/lang/System", "out")
+                            .unwrap();
+                        (properties, stdout)
+                    };
+
+                    // Attempt to print properties to stdout before panic
+                    let element = ClassElement::new(
+                        "java/util/Properties",
+                        "store",
+                        "(Ljava/io/OutputStream;Ljava/lang/String;)V",
+                    );
+                    self.invoke_virtual(
+                        element,
+                        properties,
+                        vec![stdout, JavaValue::Reference(None)],
+                    )
+                    .unwrap();
+
+                    panic!("Error during <clinit> of {}: {:?}", class, x);
+                }
             }
             // let instance = self.write().class_loader.class(class).unwrap();
             // if instance.get_method("<clinit>", "()V").is_some() {
@@ -209,6 +239,9 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             // }
         }
         self.unlock(class_instance);
+
+        #[cfg(feature = "profile")]
+        std::mem::drop(profile_scope);
     }
 
     fn invoke(
@@ -224,7 +257,13 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         //     debug!("\t{}: {:?}", idx, local);
         // }
         self.read().debug_print_call_stack();
-        StackFrame::verify_computational_types(&locals);
+        if !StackFrame::verify_computational_types(&locals) {
+            error!("Failed local verification");
+            for (idx, local) in locals.iter().enumerate() {
+                error!("\t{}/{}: {:?}", idx, locals.len(), local);
+            }
+            panic!("Failed local verification");
+        }
         let (class_name, method, constants) =
             match self
                 .read()
@@ -292,16 +331,29 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
-        profile_scope_cfg!("special {:?}", &method);
+        // profile_scope_cfg!("special {:?}", &method);
+        #[cfg(feature = "profile")]
+        let mut profile_scope =
+            thread_profiler::ProfileScope::new(format!("special {:?}", &method));
 
         assert!(self
             .read()
             .instanceof(&target.get_class(), &method.class)
             .unwrap());
 
-        StackFrame::verify_computational_types(&args);
+        if !StackFrame::verify_computational_types(&args) {
+            error!("Failed local verification");
+            for (idx, local) in args.iter().enumerate() {
+                error!("\t{}/{}: {:?}", idx, args.len(), local);
+            }
+            self.write().debug_print_call_stack();
+            panic!("Failed local verification");
+        }
         args.insert(0, JavaValue::Reference(Some(target)));
-        self.invoke(method, args)
+        let ret = self.invoke(method, args);
+        #[cfg(feature = "profile")]
+        std::mem::drop(profile_scope);
+        ret
     }
 
     fn invoke_virtual(
@@ -310,11 +362,18 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
-        profile_scope_cfg!("virtual {:?}", &method);
+        // profile_scope_cfg!("virtual {:?}", &method);
+
+        #[cfg(feature = "profile")]
+        let mut profile_scope =
+            thread_profiler::ProfileScope::new(format!("virtual {:?}", &method));
 
         method.class = target.get_class();
         args.insert(0, JavaValue::Reference(Some(target)));
-        self.invoke(method, args)
+        let ret = self.invoke(method, args);
+        #[cfg(feature = "profile")]
+        std::mem::drop(profile_scope);
+        ret
     }
 
     fn invoke_static(
@@ -322,8 +381,14 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         method: ClassElement,
         args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
-        profile_scope_cfg!("static {:?}", &method);
-        self.invoke(method, args)
+        // profile_scope_cfg!("static {:?}", &method);
+
+        #[cfg(feature = "profile")]
+        let mut profile_scope = thread_profiler::ProfileScope::new(format!("static {:?}", &method));
+        let ret = self.invoke(method, args);
+        #[cfg(feature = "profile")]
+        std::mem::drop(profile_scope);
+        ret
     }
 }
 

@@ -25,6 +25,17 @@ fn main() {
                 .long("fields")
                 .help("Print the class fields as they appear in the class file"),
         )
+        .arg(
+            Arg::with_name("methods")
+                .short("m")
+                .long("methods")
+                .help("Print the class methods as they appear in the class file"),
+        )
+        .arg(
+            Arg::with_name("attributes")
+                .long("list-attr")
+                .help("Lists the names of all attributes appearing on a class and its methods"),
+        )
         .get_matches();
 
     let class = app.value_of("class").unwrap();
@@ -62,6 +73,51 @@ fn main() {
                 field.descriptor(&raw_class.constants).unwrap(),
                 field
             );
+        }
+    }
+
+    if app.is_present("methods") {
+        for method in &raw_class.methods {
+            println!(
+                "{} ({}): {:?}",
+                method.name(&raw_class.constants).unwrap(),
+                method.descriptor(&raw_class.constants).unwrap(),
+                method
+            );
+        }
+    }
+
+    if app.is_present("attributes") {
+        let consts = raw_class.constants();
+        println!("Class Attributes:");
+        for attr in &raw_class.attributes {
+            println!("\t{}", consts.text(attr.name_index));
+        }
+
+        println!("\nField Attributes:");
+        for field in &raw_class.fields {
+            if field.attributes.is_empty() {
+                println!("\t{} [None]", consts.text(field.name_index));
+            } else {
+                println!("\t{}:", consts.text(field.name_index));
+
+                for attr in &field.attributes {
+                    println!("\t\t{}", consts.text(attr.name_index));
+                }
+            }
+        }
+
+        println!("\nMethod Attributes:");
+        for method in &raw_class.methods {
+            if method.attributes.is_empty() {
+                println!("\t{} [None]", consts.text(method.name_index));
+            } else {
+                println!("\t{}:", consts.text(method.name_index));
+
+                for attr in &method.attributes {
+                    println!("\t\t{}", consts.text(attr.name_index));
+                }
+            }
         }
     }
 }
