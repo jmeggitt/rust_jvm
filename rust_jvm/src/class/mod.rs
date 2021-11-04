@@ -2,6 +2,42 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io;
 use std::io::{Cursor, Read, Seek, Write};
 
+pub trait DebugWithConst: Sized {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result;
+
+    fn tabbed_fmt(
+        &self,
+        f: &mut Formatter<'_>,
+        pool: &ConstantPool<'_>,
+        tabs: usize,
+    ) -> std::fmt::Result {
+        let out = format!("{}", self.display(pool));
+        let offset = "  ".repeat(tabs);
+        write!(
+            f,
+            "{}{}",
+            &offset,
+            out.replace('\n', &("\n".to_string() + &offset))
+        )
+    }
+
+    fn display<'a, 'b: 'a>(
+        &'a self,
+        pool: &'a ConstantPool<'b>,
+    ) -> DebugWithConstDisplay<'a, 'b, Self> {
+        DebugWithConstDisplay(self, pool)
+    }
+}
+
+pub struct DebugWithConstDisplay<'a, 'b, T>(&'a T, &'a ConstantPool<'b>);
+
+impl<'a, 'b, T: DebugWithConst> Display for DebugWithConstDisplay<'a, 'b, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f, self.1)
+    }
+}
+
+// TODO: Replace with more readable/usable version used in class_format
 macro_rules! readable_struct {
     (pub struct $name:ident { $($field:ident: $type:ty),* $(,)? }) => {
         #[derive(Debug, Copy, Clone)]
@@ -40,8 +76,10 @@ mod jar;
 mod load;
 mod version;
 
+use crate::class::constant::ConstantPool;
 pub use class_file::*;
 pub use load::*;
+use std::fmt::{Display, Formatter};
 
 pub trait BufferedRead: Sized {
     fn read_str(string: &str) -> io::Result<Self> {

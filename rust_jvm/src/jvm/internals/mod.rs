@@ -1,6 +1,5 @@
-use crate::jvm::call::{NativeManager, RawJNIEnv};
+use crate::jvm::call::RawJNIEnv;
 use jni::sys::jclass;
-use std::ffi::c_void;
 
 mod java_unsafe;
 mod method_handles;

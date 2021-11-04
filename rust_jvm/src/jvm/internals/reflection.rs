@@ -3,7 +3,6 @@ use jni::sys::JNIEnv;
 use jni::objects::JClass;
 
 use jni::sys::{jclass, jint};
-use std::ptr::null_mut;
 
 /*
  * Class:     sun_reflect_Reflection

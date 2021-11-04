@@ -20,7 +20,7 @@ use crate::jvm::mem::{
 };
 use crate::jvm::thread::{first_time_sys_thread_init, JavaThreadManager};
 use parking_lot::RwLock;
-use std::ffi::{c_void, CString};
+use std::ffi::c_void;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::{Index, IndexMut};
@@ -75,32 +75,32 @@ unsafe extern "system" fn get_env(vm: *mut JavaVM, penv: *mut *mut c_void, versi
 }
 
 unsafe extern "system" fn attach_thread_as_daemon(
-    vm: *mut JavaVM,
-    penv: *mut *mut c_void,
-    args: *mut c_void,
+    _vm: *mut JavaVM,
+    _penv: *mut *mut c_void,
+    _args: *mut c_void,
 ) -> jint {
     unimplemented!()
 }
 
-unsafe extern "system" fn destroy_vm(vm: *mut JavaVM) -> jint {
+unsafe extern "system" fn destroy_vm(_vm: *mut JavaVM) -> jint {
     unimplemented!()
 }
 
 unsafe extern "system" fn attach_thread(
-    vm: *mut JavaVM,
-    penv: *mut *mut c_void,
-    args: *mut c_void,
+    _vm: *mut JavaVM,
+    _penv: *mut *mut c_void,
+    _args: *mut c_void,
 ) -> jint {
     unimplemented!()
 }
 
-unsafe extern "system" fn detach_thread(vm: *mut JavaVM) -> jint {
+unsafe extern "system" fn detach_thread(_vm: *mut JavaVM) -> jint {
     unimplemented!()
 }
 
 impl JavaEnv {
     pub fn new(class_loader: ClassLoader) -> Arc<RwLock<Self>> {
-        let mut jvm = JavaEnv {
+        let jvm = JavaEnv {
             class_loader,
             static_fields: StaticFields::new(),
             static_load: HashSet::new(),
@@ -267,6 +267,7 @@ impl JavaEnv {
 
         #[cfg(windows)]
         unsafe {
+            use std::ffi::CString;
             let path = CString::new(format!("{}", lib_dir.display())).unwrap();
             if winapi::um::winbase::SetDllDirectoryA(path.as_ptr()) == 0 {
                 let err = winapi::um::errhandlingapi::GetLastError();
@@ -309,6 +310,7 @@ impl JavaEnv {
 
         #[cfg(windows)]
         unsafe {
+            use std::ffi::CString;
             let path = CString::new(format!("{}", lib_dir.display())).unwrap();
             if winapi::um::winbase::SetDllDirectoryA(path.as_ptr()) == 0 {
                 let err = winapi::um::errhandlingapi::GetLastError();

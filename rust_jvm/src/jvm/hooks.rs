@@ -5,14 +5,14 @@ use std::ffi::c_void;
 use jni::sys::{jboolean, jclass, jint, jobject, jstring, JNIEnv};
 
 use crate::class::constant::ClassElement;
-use crate::jvm::call::{clean_str, JavaEnvInvoke, NativeManager, RawJNIEnv};
+use crate::jvm::call::{JavaEnvInvoke, NativeManager, RawJNIEnv};
 use crate::jvm::internals::{register_method_handles_natives, unsafe_register_natives};
 use crate::jvm::mem::{JavaValue, ObjectHandle};
 use crate::jvm::JavaEnv;
 use home::home_dir;
 use parking_lot::RwLock;
 use std::env::{current_dir, var};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 macro_rules! load_included_class {

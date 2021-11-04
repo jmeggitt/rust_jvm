@@ -12,7 +12,7 @@ use jni::sys::{
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem::{transmute, ManuallyDrop};
-use std::ptr::{null_mut, NonNull};
+use std::ptr::NonNull;
 use std::sync::Arc;
 
 macro_rules! typed_handle {

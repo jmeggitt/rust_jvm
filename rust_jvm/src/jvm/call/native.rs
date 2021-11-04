@@ -1,7 +1,7 @@
 use crate::jvm::call::interface::build_interface;
 use crate::jvm::call::FlowControl;
 use crate::jvm::mem::{FieldDescriptor, JavaValue, ObjectHandle};
-use crate::jvm::{internals, JavaEnv};
+use crate::jvm::JavaEnv;
 use hashbrown::HashMap;
 use jni::sys::{jint, JNINativeInterface_, JavaVM};
 use libffi::middle::{Arg, Cif, CodePtr};
@@ -179,7 +179,7 @@ unsafe impl Sync for NativeManager {}
 
 impl NativeManager {
     pub fn new() -> Self {
-        let mut manager = NativeManager::default();
+        let manager = NativeManager::default();
         use std::env::{current_dir, vars};
         info!("cwd: {:?}", current_dir().unwrap());
         info!("Environment variables:");

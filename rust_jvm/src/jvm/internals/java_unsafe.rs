@@ -9,7 +9,6 @@ use jni::sys::{
     jboolean, jbyte, jbyteArray, jchar, jclass, jdouble, jdoubleArray, jfloat, jint, jlong,
     jobject, jobjectArray, jshort, jstring, jthrowable, jvalue, JNI_FALSE,
 };
-use jni::JNIEnv;
 use libc::{free, malloc, realloc};
 use std::ffi::c_void;
 use std::mem::{size_of, transmute};
@@ -514,10 +513,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_reallocateMemory(
 /// Signature: (Ljava/lang/Object;JJB)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_setMemory(
-    env: RawJNIEnv,
+    _env: RawJNIEnv,
     _this: jobject,
-    obj: jobject,
-    offset: jlong,
+    _obj: jobject,
+    _offset: jlong,
     _valb: jlong,
     _: jbyte,
 ) {
@@ -529,10 +528,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_setMemory(
 /// Signature: (Ljava/lang/Object;JLjava/lang/Object;JJ)V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_copyMemory(
-    env: RawJNIEnv,
+    _env: RawJNIEnv,
     _this: jobject,
-    obj: jobject,
-    offset: jlong,
+    _obj: jobject,
+    _offset: jlong,
     _objb: jobject,
     _valb: jlong,
     _valc: jlong,
@@ -573,7 +572,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_staticFieldOffset(
     let field_name = field_name.unwrap().expect_string();
 
     // TODO: Should we allocate a slot if none exists?
-    let mut lock = env.write();
+    let lock = env.read();
     match lock
         .static_fields
         .get_field_offset(&class_name, &field_name)
@@ -1195,10 +1194,10 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDoubleVolatile(
 /// Signature: (Ljava/lang/Object{ unimplemented!() }JLjava/lang/Object{ unimplemented!() })V
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_putOrderedObject(
-    env: RawJNIEnv,
+    _env: RawJNIEnv,
     _this: jobject,
-    obj: jobject,
-    offset: jlong,
+    _obj: jobject,
+    _offset: jlong,
     _objb: jobject,
 ) {
     unimplemented!()

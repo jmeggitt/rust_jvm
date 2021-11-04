@@ -3,7 +3,9 @@
 members = [
     "rust_jvm",
     "java",
-    "class_inspect"
+    "class_inspect",
+    "class_format",
+    "simple_gc"
 ]
 
 

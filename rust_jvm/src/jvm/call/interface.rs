@@ -5,19 +5,16 @@ use std::mem::{forget, transmute};
 use std::ptr::{copy_nonoverlapping, null, null_mut, write_bytes};
 
 use jni::sys::{
-    jarray, jboolean, jbooleanArray, jbyte, jbyteArray, jchar, jcharArray, jclass, jdouble,
-    jdoubleArray, jfieldID, jfloat, jfloatArray, jint, jintArray, jlong, jlongArray, jmethodID,
-    jobject, jobjectArray, jobjectRefType, jshort, jshortArray, jsize, jstring, jthrowable, jvalue,
-    jweak, va_list, JNIEnv, JNINativeInterface_, JNINativeMethod, JavaVM, JNI_ABORT, JNI_COMMIT,
-    JNI_TRUE,
+    jarray, jboolean, jbyte, jchar, jclass, jdouble, jfieldID, jfloat, jint, jlong, jmethodID,
+    jobject, jobjectArray, jobjectRefType, jshort, jsize, jstring, jthrowable, jvalue, jweak,
+    va_list, JNIEnv, JNINativeInterface_, JNINativeMethod, JavaVM, JNI_ABORT, JNI_COMMIT, JNI_TRUE,
 };
 
 use crate::class::constant::ClassElement;
 use crate::class::BufferedRead;
-use crate::jvm::call::ffi::ClassHandle;
 use crate::jvm::call::{FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{
-    ArrayReference, FieldDescriptor, InstanceReference, JavaPrimitive, JavaTypeEnum, JavaValue,
+    ArrayReference, FieldDescriptor, JavaPrimitive, JavaTypeEnum, JavaValue,
     ManualInstanceReference, ObjectReference, ObjectType,
 };
 use crate::jvm::{JavaEnv, ObjectHandle};
@@ -1046,7 +1043,7 @@ pub unsafe extern "system" fn ReleaseStringChars(
     let obj: Option<ObjectHandle> = obj_expect!(env, str)
         .expect_instance()
         .read_named_field("value");
-    let mut arr = obj.unwrap().expect_array::<jchar>();
+    let arr = obj.unwrap().expect_array::<jchar>();
 
     // Reclaim elements so they get dropped at the end of the function
     Vec::from_raw_parts(chars as *mut jchar, arr.len(), arr.len());

@@ -2,7 +2,7 @@
 #![allow(clippy::missing_safety_doc)]
 
 use crate::class::constant::ClassElement;
-use crate::jvm::call::{clean_str, FlowControl, JavaEnvInvoke, RawJNIEnv};
+use crate::jvm::call::{FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{ArrayReference, JavaValue, ManualInstanceReference, ObjectHandle};
 use hashbrown::HashMap;
 use jni::sys::{

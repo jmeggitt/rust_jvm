@@ -11,9 +11,6 @@ use crate::jvm::mem::{
 use crate::jvm::JavaEnv;
 use jni::sys::*;
 use log::LevelFilter;
-use parking_lot::RwLock;
-// use pretty_env_logger::env_logger::Target;
-// use pretty_env_logger::formatted_builder;
 use simplelog::{
     ColorChoice, CombinedLogger, Config, ConfigBuilder, TermLogger, TerminalMode, ThreadLogMode,
     WriteLogger,
@@ -23,13 +20,11 @@ use std::env::var;
 use std::ffi::{c_void, CStr};
 use std::fs::File;
 use std::hash::{Hash, Hasher};
-use std::mem::size_of;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::process::exit;
-use std::ptr::{null, null_mut, write_bytes};
+use std::ptr::{null_mut, write_bytes};
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 macro_rules! obj_expect {
@@ -2599,7 +2594,7 @@ pub unsafe extern "system" fn JVM_Socket_impl(
     }
 
     #[cfg(windows)]
-    return winapi::um::winsock2::socket(domain, type_name, protocol);
+    return winapi::um::winsock2::socket(domain, type_name, protocol) as jint;
 }
 
 #[no_mangle]

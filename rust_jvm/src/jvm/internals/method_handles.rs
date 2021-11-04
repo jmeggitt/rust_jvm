@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 use crate::jvm::call::RawJNIEnv;
 use crate::jvm::mem::{
     ClassHandle, FieldDescriptor, ManualInstanceReference, ObjArrayHandle, ObjectHandle,

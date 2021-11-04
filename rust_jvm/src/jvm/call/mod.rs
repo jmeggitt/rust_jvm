@@ -28,7 +28,6 @@ use crate::class::AccessFlags;
 use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::thread::{handle_thread_updates, SynchronousMonitor};
 use crate::jvm::JavaEnv;
-use crate::profile_scope_cfg;
 pub use interface::build_interface;
 pub use interpreter::*;
 use jni::sys::JNIEnv;
@@ -202,7 +201,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
                 // This is the most common place for a panic to occur
                 if let Err(x) = self.invoke_static(method_ref, vec![]) {
                     let (properties, stdout) = {
-                        let mut jvm = self.write();
+                        let jvm = self.write();
                         let properties = jvm
                             .static_fields
                             .get_static("java/lang/System", "props")

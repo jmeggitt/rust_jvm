@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use jvm::class::constant::Constant;
-use jvm::class::{ClassLoader, ClassPath};
+use jvm::class::{ClassLoader, ClassPath, DebugWithConst};
 
 fn main() {
     let app = App::new(env!("CARGO_PKG_NAME"))
@@ -30,6 +30,11 @@ fn main() {
                 .short("m")
                 .long("methods")
                 .help("Print the class methods as they appear in the class file"),
+        )
+        .arg(
+            Arg::with_name("class-attr")
+                .long("class-attr")
+                .help("Print attributes attached to the class"),
         )
         .arg(
             Arg::with_name("attributes")
@@ -78,12 +83,12 @@ fn main() {
 
     if app.is_present("methods") {
         for method in &raw_class.methods {
-            println!(
-                "{} ({}): {:?}",
-                method.name(&raw_class.constants).unwrap(),
-                method.descriptor(&raw_class.constants).unwrap(),
-                method
-            );
+            println!("{}", method.display(&raw_class.constants()));
+        }
+    }
+    if app.is_present("class-attr") {
+        for attr in &raw_class.attributes {
+            println!("{}", attr.display(&raw_class.constants()));
         }
     }
 

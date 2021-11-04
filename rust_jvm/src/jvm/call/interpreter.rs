@@ -3,7 +3,6 @@ use crate::class::constant::Constant;
 use crate::jvm::call::FlowControl;
 use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;
-use crate::profile_scope_cfg;
 
 use crate::jvm::thread::handle_thread_updates;
 use parking_lot::RwLock;

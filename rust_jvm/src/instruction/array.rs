@@ -37,17 +37,17 @@ macro_rules! array_instruction {
         Ok(())
     };
     (@store $frame:ident, $arr_type:ty, $local:ident, $($desc:expr)+) => {
-        $(let value = $desc.assign_from($frame.stack.pop().unwrap());)+
+        $(let _value = $desc.assign_from($frame.stack.pop().unwrap());)+
         let index = $frame.stack.pop().unwrap().as_int().unwrap() as usize;
 
         if let JavaValue::Reference(Some(arr)) = $frame.stack.pop().unwrap() {
-            if let Some(JavaValue::$local(x)) = value {
+            if let Some(JavaValue::$local(x)) = _value {
                 let array = arr.expect_array::<$arr_type>();
                 array.write_array(index, x as _);
                 return Ok(());
             }
         }
-        panic!("Attempted to store/load from non-array: {:?}", value)
+        panic!("Attempted to store/load from non-array: {:?}", _value)
     };
 }
 

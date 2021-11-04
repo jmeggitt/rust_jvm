@@ -6,7 +6,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use num_traits::FromPrimitive;
 
 use crate::class::version::ClassVersion;
-use crate::class::BufferedRead;
+use crate::class::{BufferedRead, DebugWithConst};
 use crate::jvm::mem::FieldDescriptor;
 use std::ops::Index;
 
@@ -151,6 +151,115 @@ pub enum Constant {
     // Due to a poor choice in the JVM specification, 8 byte constants must take up 2 slots
     // for indexing.
     Placeholder,
+}
+
+impl DebugWithConst for Constant {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+        match self {
+            Constant::Utf8(ConstantUtf8Info { text }) => write!(f, "Utf8({:?})", text),
+            Constant::Int(ConstantInteger { value }) => write!(f, "Int({:?})", value),
+            Constant::Float(ConstantFloat { value }) => write!(f, "Float({:?})", value),
+            Constant::Long(ConstantLong { value }) => write!(f, "Long({:?})", value),
+            Constant::Double(ConstantDouble { value }) => write!(f, "Double({:?})", value),
+            Constant::Class(ConstantClass { name_index }) => {
+                write!(f, "Class({})", pool.text(*name_index))
+            }
+            Constant::String(ConstantString { string_index }) => {
+                write!(f, "String({:?})", pool.text(*string_index))
+            }
+            Constant::FieldRef(ConstantFieldRef {
+                class_index,
+                name_and_type_index,
+            }) => {
+                let (name, r#type) = pool.name_and_type(*name_and_type_index);
+                write!(
+                    f,
+                    "FieldRef({}::{} {})",
+                    pool.text(*class_index),
+                    name,
+                    r#type
+                )
+            }
+            Constant::MethodRef(ConstantMethodRef {
+                class_index,
+                name_and_type_index,
+            }) => {
+                let (name, r#type) = pool.name_and_type(*name_and_type_index);
+                write!(
+                    f,
+                    "MethodRef({}::{} {})",
+                    pool.text(*class_index),
+                    name,
+                    r#type
+                )
+            }
+            Constant::InterfaceMethodRef(ConstantInterfaceMethodRef {
+                class_index,
+                name_and_type_index,
+            }) => {
+                let (name, r#type) = pool.name_and_type(*name_and_type_index);
+                write!(
+                    f,
+                    "InterfaceMethodRef({}::{} {})",
+                    pool.text(*class_index),
+                    name,
+                    r#type
+                )
+            }
+            Constant::NameAndType(ConstantNameAndType {
+                name_index,
+                descriptor_index,
+            }) => write!(
+                f,
+                "NameAndType({} {})",
+                pool.text(*name_index),
+                pool.text(*descriptor_index)
+            ),
+            Constant::MethodHandle(ConstantMethodHandle {
+                reference_kind,
+                index,
+            }) => {
+                let (class, name, r#type) = pool.class_element_ref(*index);
+                write!(
+                    f,
+                    "MethodHandle({:?} {}::{} {})",
+                    reference_kind, class, name, r#type
+                )
+            }
+            Constant::MethodType(ConstantMethodType { descriptor_index }) => {
+                write!(f, "MethodType({})", pool.text(*descriptor_index))
+            }
+            Constant::Dynamic(ConstantDynamic {
+                bootstrap_method_attr_index,
+                name_and_type_index,
+            }) => {
+                let (name, r#type) = pool.name_and_type(*name_and_type_index);
+                write!(
+                    f,
+                    "Dynamic(attr[{}], {} {})",
+                    bootstrap_method_attr_index, name, r#type
+                )
+            }
+            Constant::InvokeDynamic(ConstantInvokeDynamic {
+                bootstrap_method_attr_index,
+                name_and_type_index,
+            }) => {
+                let (name, r#type) = pool.name_and_type(*name_and_type_index);
+                write!(
+                    f,
+                    "InvokeDynamic(attr[{}], {} {})",
+                    bootstrap_method_attr_index, name, r#type
+                )
+            }
+            Constant::Module(ConstantModule { name_index }) => {
+                write!(f, "Module({})", pool.text(*name_index))
+            }
+            Constant::Package(ConstantPackage { name_index }) => {
+                write!(f, "Package({})", pool.text(*name_index))
+            }
+            Constant::Placeholder => write!(f, "Placeholder"),
+        }
+    }
 }
 
 impl Constant {

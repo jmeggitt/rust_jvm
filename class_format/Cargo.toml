@@ -1,0 +1,12 @@
+[package]
+name = "class_format"
+version = "0.1.0"
+edition = "2018"
+
+
+[dependencies]
+byteorder = "1.4.3"
+num-derive = "0.3"
+num-traits = "0.2"
+jni-sys = "0.3.0"
+cesu8 = "1.1.0"

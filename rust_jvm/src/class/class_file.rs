@@ -3,11 +3,15 @@ use std::io::{Cursor, Error, ErrorKind, Read, Seek, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::class::attribute::{BootstrapMethod, CodeAttribute, EnclosingMethod, NestHost};
+use crate::class::attribute::{
+    BootstrapMethod, BootstrapMethods, CodeAttribute, EnclosingMethod, Exceptions, InnerClasses,
+    LineNumberTable, LocalVariableTable, NestHost, SourceFile,
+};
 use crate::class::constant::{Constant, ConstantClass, ConstantPool};
 use crate::class::version::{check_magic_number, ClassVersion};
-use crate::class::BufferedRead;
+use crate::class::{BufferedRead, DebugWithConst};
 use crate::jvm::mem::FieldDescriptor;
+use std::fmt::Formatter;
 
 bitflags! {
     pub struct AccessFlags: u16 {
@@ -401,6 +405,22 @@ pub struct AttributeInfo {
     info: Vec<u8>,
 }
 
+impl DebugWithConst for AttributeInfo {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+        let mut buffer = Cursor::new(self.info.clone());
+        match pool.text(self.name_index) {
+            "Code" => CodeAttribute::read(&mut buffer).unwrap().fmt(f, pool),
+            "LineNumberTable" => LineNumberTable::read(&mut buffer).unwrap().fmt(f, pool),
+            "BootstrapMethods" => BootstrapMethods::read(&mut buffer).unwrap().fmt(f, pool),
+            "SourceFile" => SourceFile::read(&mut buffer).unwrap().fmt(f, pool),
+            "InnerClasses" => InnerClasses::read(&mut buffer).unwrap().fmt(f, pool),
+            "LocalVariableTable" => LocalVariableTable::read(&mut buffer).unwrap().fmt(f, pool),
+            "Exceptions" => Exceptions::read(&mut buffer).unwrap().fmt(f, pool),
+            x => panic!("Unable to decode attribute {} for DebugWithConst", x),
+        }
+    }
+}
+
 impl BufferedRead for AttributeInfo {
     fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
         let name_index = buffer.read_u16::<BigEndian>()?;
@@ -425,6 +445,28 @@ pub struct MethodInfo {
     pub name_index: u16,
     pub descriptor_index: u16,
     pub attributes: Vec<AttributeInfo>,
+}
+
+impl DebugWithConst for MethodInfo {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "{} {}",
+            pool.text(self.name_index),
+            pool.text(self.descriptor_index)
+        )?;
+        write!(f, "  Access: {:?}", self.access)?;
+
+        if !self.attributes.is_empty() {
+            write!(f, "\n  Attributes:")?;
+            for attr in &self.attributes {
+                writeln!(f)?;
+                attr.tabbed_fmt(f, pool, 2)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl MethodInfo {
