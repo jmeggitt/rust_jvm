@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicU32, Ordering};
 use bitflags::bitflags;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 #[repr(transparent)]
 pub struct MarkHeader(AtomicU32);
@@ -52,9 +52,7 @@ impl MarkHeader {
     // pub fn has_bias_pattern(&self) -> bool {
     //     self.value() & MarkSections::
     // }
-
 }
-
 
 // #[cfg(target_pointer_width = "64")]
 // bitflags! {
@@ -76,4 +74,3 @@ impl MarkHeader {
 //         const PROMOTION_BITS = 0x0000_0000_0000_0007;
 //     }
 // }
-

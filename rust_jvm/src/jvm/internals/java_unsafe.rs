@@ -1273,22 +1273,22 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLoadAverage(
 /// Method:    loadFence
 /// Signature: ()V
 #[no_mangle]
-pub unsafe extern "system" fn Java_sun_misc_Unsafe_loadFence(_env: RawJNIEnv, _this: jobject) {
-    unimplemented!()
+pub extern "system" fn Java_sun_misc_Unsafe_loadFence(_env: RawJNIEnv, _this: jobject) {
+    std::sync::atomic::fence(Ordering::Acquire);
 }
 
 /// Class:     sun_misc_Unsafe
 /// Method:    storeFence
 /// Signature: ()V
 #[no_mangle]
-pub unsafe extern "system" fn Java_sun_misc_Unsafe_storeFence(_env: RawJNIEnv, _this: jobject) {
-    unimplemented!()
+pub extern "system" fn Java_sun_misc_Unsafe_storeFence(_env: RawJNIEnv, _this: jobject) {
+    std::sync::atomic::fence(Ordering::Release);
 }
 
 /// Class:     sun_misc_Unsafe
 /// Method:    fullFence
 /// Signature: ()V
 #[no_mangle]
-pub unsafe extern "system" fn Java_sun_misc_Unsafe_fullFence(_env: RawJNIEnv, _this: jobject) {
-    unimplemented!()
+pub extern "system" fn Java_sun_misc_Unsafe_fullFence(_env: RawJNIEnv, _this: jobject) {
+    std::sync::atomic::fence(Ordering::SeqCst);
 }

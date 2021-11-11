@@ -1,8 +1,8 @@
 use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom};
 
 use byteorder::ReadBytesExt;
-use hashbrown::HashSet;
 use jni::sys::jvalue;
+use std::collections::HashSet;
 
 use crate::class::constant::ClassElement;
 use crate::class::BufferedRead;

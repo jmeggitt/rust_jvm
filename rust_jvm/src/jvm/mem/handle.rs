@@ -1,14 +1,14 @@
 use std::ops::Deref;
 
+use crate::jvm::mem::gc::{Gc, Trace};
 use crate::jvm::mem::{
     ArrayReference, ClassSchema, ConstTypeId, InstanceReference, JavaPrimitive, JavaValue,
     ManualInstanceReference, NonCircularDebug, ObjectReference, ObjectType, RawObject,
 };
-use gc::{Finalize, Gc, Trace};
-use hashbrown::{HashMap, HashSet};
 use jni::sys::{
     _jobject, jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jobject, jshort, jvalue,
 };
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem::{transmute, ManuallyDrop};
@@ -152,24 +152,24 @@ unsafe impl Sync for ObjectHandle {}
 
 unsafe impl Send for ObjectHandle {}
 
-impl Finalize for ObjectHandle {}
+// impl Finalize for ObjectHandle {}
 
 unsafe impl Trace for ObjectHandle {
     unsafe fn trace(&self) {
         typed_handle!(|self -> out| out.ptr.trace());
     }
 
-    unsafe fn root(&self) {
-        typed_handle!(|self -> out| out.ptr.root());
-    }
-
-    unsafe fn unroot(&self) {
-        typed_handle!(|self -> out| out.ptr.unroot());
-    }
-
-    fn finalize_glue(&self) {
-        typed_handle!(|self -> out| out.ptr.finalize_glue());
-    }
+    // unsafe fn root(&self) {
+    //     typed_handle!(|self -> out| out.ptr.root());
+    // }
+    //
+    // unsafe fn unroot(&self) {
+    //     typed_handle!(|self -> out| out.ptr.unroot());
+    // }
+    //
+    // fn finalize_glue(&self) {
+    //     typed_handle!(|self -> out| out.ptr.finalize_glue());
+    // }
 }
 
 impl ObjectHandle {
@@ -385,8 +385,8 @@ mod test {
         ClassSchema, FieldDescriptor, FieldSchema, ObjectHandle, ObjectReference, ObjectType,
     };
     use gc::{Gc, Trace};
-    use hashbrown::HashMap;
     use jni::sys::jint;
+    use std::collections::HashMap;
     use std::sync::Arc;
 
     pub fn string_schema() -> Arc<ClassSchema> {

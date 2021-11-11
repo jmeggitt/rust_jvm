@@ -2,7 +2,7 @@ use crate::class::class_file::Class;
 use crate::class::constant::Constant;
 use crate::class::jar::{unpack_jar, Jar, Manifest};
 use crate::log_dump;
-use hashbrown::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufReader, Error, ErrorKind, Read, Seek, SeekFrom};

@@ -4,10 +4,10 @@
 use crate::class::constant::ClassElement;
 use crate::jvm::call::{FlowControl, JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::mem::{ArrayReference, JavaValue, ManualInstanceReference, ObjectHandle};
-use hashbrown::HashMap;
 use jni::sys::{
     jboolean, jclass, jint, jlong, jobject, jobjectArray, jstring, JNI_FALSE, JNI_TRUE,
 };
+use std::collections::HashMap;
 use std::thread::{current, park, sleep, spawn, yield_now, Thread, ThreadId};
 
 use crate::instruction::getstatic;

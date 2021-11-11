@@ -7,11 +7,12 @@ use jni::sys::{jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
 use std::fmt::{Debug, Formatter};
 
 pub use handle::*;
-use hashbrown::HashSet;
 pub use raw::*;
 pub use schema::*;
+use std::collections::HashSet;
 pub use types::*;
 
+mod gc;
 mod handle;
 mod raw;
 mod schema;

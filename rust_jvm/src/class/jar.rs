@@ -1,4 +1,5 @@
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::fs::{create_dir_all, read_dir, File};
 use std::hash::{Hash, Hasher};
 use std::io;
@@ -7,7 +8,6 @@ use std::mem::replace;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use hashbrown::HashMap;
 use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
 use zip::ZipArchive;

@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use crate::jvm::mem::{ObjectHandle, ObjectReference};
 use std::ops::{Deref, DerefMut};
-use std::ptr::NonNull;
 
 #[repr(transparent)]
 pub struct ClassHandle(ObjectHandle);

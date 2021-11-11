@@ -1,12 +1,12 @@
 use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
 
+use crate::jvm::mem::gc::Trace;
 use crate::jvm::mem::{
     ClassSchema, JavaPrimitive, JavaValue, NonCircularDebug, ObjectHandle, ObjectType,
 };
-use gc::{Finalize, Trace};
-use hashbrown::HashSet;
 use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
+use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem::size_of;
@@ -121,7 +121,7 @@ impl IntoGcIter for RawObject<Vec<Option<ObjectHandle>>> {
     }
 }
 
-impl<T> Finalize for RawObject<T> {}
+// impl<T> Finalize for RawObject<T> {}
 
 unsafe impl<T> Trace for RawObject<T>
 where
@@ -134,32 +134,32 @@ where
         }
     }
 
-    unsafe fn root(&self) {
-        for obj in self.gc_iter() {
-            obj.root();
-        }
-    }
-
-    unsafe fn unroot(&self) {
-        for obj in self.gc_iter() {
-            obj.unroot();
-        }
-    }
-
-    fn finalize_glue(&self) {
-        for obj in self.gc_iter() {
-            obj.finalize_glue();
-        }
-    }
+    // unsafe fn root(&self) {
+    //     for obj in self.gc_iter() {
+    //         obj.root();
+    //     }
+    // }
+    //
+    // unsafe fn unroot(&self) {
+    //     for obj in self.gc_iter() {
+    //         obj.unroot();
+    //     }
+    // }
+    //
+    // fn finalize_glue(&self) {
+    //     for obj in self.gc_iter() {
+    //         obj.finalize_glue();
+    //     }
+    // }
 }
 
 macro_rules! empty_trace {
     ($type:ty) => {
         unsafe impl Trace for $type {
             unsafe fn trace(&self) {}
-            unsafe fn root(&self) {}
-            unsafe fn unroot(&self) {}
-            fn finalize_glue(&self) {}
+            // unsafe fn root(&self) {}
+            // unsafe fn unroot(&self) {}
+            // fn finalize_glue(&self) {}
         }
     };
 }

@@ -7,8 +7,8 @@ use std::ops::RangeInclusive;
 use std::sync::Arc;
 
 use byteorder::ReadBytesExt;
-use hashbrown::HashMap;
 use parking_lot::RwLock;
+use std::collections::HashMap;
 
 pub use class::getstatic;
 

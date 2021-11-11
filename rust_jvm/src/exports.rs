@@ -1381,7 +1381,7 @@ pub unsafe extern "system" fn JVM_NewInstanceFromConstructor_impl(
 }
 
 /*
- *access:  Constant pool, currently used to implement reflective access to annotations _impl(JDK 1.5)
+ *access:  Constant pool, currently used to implement reflective access to annotations (JDK 1.5)
  */
 
 #[no_mangle]
@@ -1395,7 +1395,7 @@ pub unsafe extern "system" fn JVM_GetClassConstantPool_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetSize_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
 ) -> jint {
     unimplemented!()
@@ -1404,7 +1404,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetSize_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetClassAt_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jclass {
@@ -1414,7 +1414,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetClassAt_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetClassAtIfLoaded_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jclass {
@@ -1424,7 +1424,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetClassAtIfLoaded_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetMethodAt_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jobject {
@@ -1434,7 +1434,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetMethodAt_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetMethodAtIfLoaded_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jobject {
@@ -1444,7 +1444,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetMethodAtIfLoaded_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetFieldAt_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jobject {
@@ -1454,7 +1454,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetFieldAt_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetFieldAtIfLoaded_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jobject {
@@ -1464,7 +1464,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetFieldAtIfLoaded_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetMemberRefInfoAt_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jobjectArray {
@@ -1474,7 +1474,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetMemberRefInfoAt_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetIntAt_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jint {
@@ -1484,7 +1484,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetIntAt_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetLongAt_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jlong {
@@ -1494,7 +1494,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetLongAt_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetFloatAt_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jfloat {
@@ -1504,7 +1504,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetFloatAt_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetDoubleAt_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jdouble {
@@ -1514,7 +1514,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetDoubleAt_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetStringAt_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jstring {
@@ -1524,7 +1524,7 @@ pub unsafe extern "system" fn JVM_ConstantPoolGetStringAt_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_ConstantPoolGetUTF8At_impl(
     env: RawJNIEnv,
-    unused: jobject,
+    _unused: jobject,
     jcpool: jobject,
     index: jint,
 ) -> jstring {
@@ -1622,7 +1622,7 @@ pub unsafe extern "system" fn JVM_FindSignal_impl(name: *mut u8) -> jint {
 #[no_mangle]
 pub unsafe extern "system" fn JVM_DesiredAssertionStatus_impl(
     env: RawJNIEnv,
-    unused: jclass,
+    _unused: jclass,
     cls: jclass,
 ) -> jboolean {
     // TODO: Allow assertions on specific classes
@@ -1635,7 +1635,7 @@ pub unsafe extern "system" fn JVM_DesiredAssertionStatus_impl(
 #[no_mangle]
 pub unsafe extern "system" fn JVM_AssertionStatusDirectives_impl(
     env: RawJNIEnv,
-    unused: jclass,
+    _unused: jclass,
 ) -> jobject {
     unimplemented!()
 }

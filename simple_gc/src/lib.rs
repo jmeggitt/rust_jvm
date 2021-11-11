@@ -1,14 +1,15 @@
 mod jdk_fork;
 
-use std::cell::Cell;
+use parking_lot::{Condvar, Mutex};
+use slice_dst::SliceWithHeader;
 use std::any::Any;
+use std::cell::Cell;
 use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
 use std::ptr::NonNull;
-use std::thread::{ThreadId, current};
+use std::sync::atomic::AtomicU32;
+use std::thread::{current, ThreadId};
 use std::time::Duration;
-use parking_lot::{Condvar, Mutex};
-use slice_dst::SliceWithHeader;
 
 #[derive(Copy, Clone, Debug)]
 pub enum GcDesc {
@@ -24,7 +25,6 @@ pub enum GcDesc {
 pub struct Object<T> {
     ptr: NonNull<SliceWithHeader<GcHeader, T>>,
 }
-
 
 impl<T> ObjectUnknown<T> {
     fn get_mark(&self) -> GcDesc {
@@ -79,7 +79,6 @@ struct GcHeader {
     mark_desc: GcDesc,
 }
 
-
 #[derive(Eq, PartialEq, Debug)]
 enum BiasedLockState {
     Unclaimed,
@@ -100,11 +99,14 @@ unsafe impl<T> Sync for BiasedMutex<T> {}
 
 pub trait StickyLock {
     type Contents;
-    type Guard: Deref<Target=Self::Contents> + DerefMut;
+    type Guard: Deref<Target = Self::Contents> + DerefMut;
 
     /// Blocks on the current thread until the it can be explicitly biased towards the current
     /// thread.
     fn claim(&self);
+
+    /// Same as clain but may fail
+    fn try_claim(&self) -> bool;
 
     /// Releases an explicit lock held by the current thread
     fn release(&self);
@@ -142,10 +144,17 @@ impl<T: ?Sized> StickyLock for NonNull<SliceWithHeader<GcHeader, T>> {
                         *explicit += 1;
                         return;
                     }
-                    _ => inner.header.lock.wait_for(&mut guard, Duration::from_millis(50)),
+                    _ => inner
+                        .header
+                        .lock
+                        .wait_for(&mut guard, Duration::from_millis(50)),
                 };
             }
         }
+    }
+
+    fn try_claim(&self) -> bool {
+        todo!()
     }
 
     fn release(&self) {
@@ -202,7 +211,11 @@ impl<T> BiasedMutex<T> {
 
         match &mut *guard {
             BiasedLockState::Unclaimed => panic!("Attempted to release unclaimed biased mutex"),
-            BiasedLockState::Claimed { bias, implicit, explicit } => {
+            BiasedLockState::Claimed {
+                bias,
+                implicit,
+                explicit,
+            } => {
                 if *bias != id {
                     panic!("Attempted to release biased mutex claimed by another thread!");
                 }
@@ -261,14 +274,24 @@ impl<'a, T> Drop for BiasedMutexGuard<'a, T> {
         let id = current().id();
 
         match &mut *guard {
-            BiasedLockState::Unclaimed => unreachable!("Attempted to release unclaimed biased mutex"),
-            BiasedLockState::Claimed { bias, implicit, explicit } => {
+            BiasedLockState::Unclaimed => {
+                unreachable!("Attempted to release unclaimed biased mutex")
+            }
+            BiasedLockState::Claimed {
+                bias,
+                implicit,
+                explicit,
+            } => {
                 if *bias != id {
-                    unreachable!("Attempted implicit release of biased mutex claimed by another thread!");
+                    unreachable!(
+                        "Attempted implicit release of biased mutex claimed by another thread!"
+                    );
                 }
 
                 if *implicit == 0 {
-                    unreachable!("Attempted to implicitly release biased mutex with no implicit references");
+                    unreachable!(
+                        "Attempted to implicitly release biased mutex with no implicit references"
+                    );
                 }
 
                 *implicit -= 1;
@@ -294,11 +317,9 @@ impl<'a, T> DerefMut for BiasedMutexGuard<'a, T> {
     }
 }
 
-
 pub trait Trace: Any {
     fn trace(&self);
 }
-
 
 // pub struct GcHeader {
 //     mark: bool,
@@ -308,6 +329,3 @@ pub trait Trace: Any {
 //     header: Cell<GcHeader>,
 //     inner: T,
 // }
-
-
-

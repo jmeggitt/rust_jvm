@@ -2,11 +2,11 @@ use std::io;
 use std::option::Option::Some;
 use std::sync::Arc;
 
-use hashbrown::{HashMap, HashSet};
 use jni::sys::{
     jchar, jint, JNIInvokeInterface_, JavaVM, JNI_VERSION_1_1, JNI_VERSION_1_2, JNI_VERSION_1_4,
     JNI_VERSION_1_6, JNI_VERSION_1_8,
 };
+use std::collections::{HashMap, HashSet};
 use walkdir::WalkDir;
 
 // use crate::class::{Class, ClassLoader, MethodInfo};
