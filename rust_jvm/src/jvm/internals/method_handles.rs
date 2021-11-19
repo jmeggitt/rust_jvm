@@ -30,10 +30,11 @@ pub unsafe extern "system" fn method_handle_natives_resolve(
     caller: Option<ClassHandle>,
 ) -> Option<ObjectHandle> {
     let instance = member_name?.expect_instance();
+    let mut instance_lock = instance.lock();
 
-    let parent_class: Option<ObjectHandle> = instance.read_named_field("clazz");
-    let field_name: Option<ObjectHandle> = instance.read_named_field("name");
-    let type_name: Option<ObjectHandle> = instance.read_named_field("type");
+    let parent_class: Option<ObjectHandle> = instance_lock.read_named_field("clazz");
+    let field_name: Option<ObjectHandle> = instance_lock.read_named_field("name");
+    let type_name: Option<ObjectHandle> = instance_lock.read_named_field("type");
 
     let parent_class = parent_class?.unwrap_as_class();
     let field_name = field_name?.expect_string();
@@ -54,8 +55,8 @@ pub unsafe extern "system" fn method_handle_natives_resolve(
         method.access
     };
 
-    let flags: i32 = instance.read_named_field("flags");
-    instance.write_named_field("flags", flags | (access.bits() as i32));
+    let flags: i32 = instance_lock.read_named_field("flags");
+    instance_lock.write_named_field("flags", flags | (access.bits() as i32));
     member_name
 }
 

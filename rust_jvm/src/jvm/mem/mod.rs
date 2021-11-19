@@ -12,11 +12,15 @@ pub use schema::*;
 use std::collections::HashSet;
 pub use types::*;
 
+mod ffi;
 mod gc;
 mod handle;
 mod raw;
 mod schema;
+mod string;
 mod types;
+
+pub use gc::*;
 
 // TODO: Define shortcuts based on types
 pub type ClassHandle = ObjectHandle;
@@ -65,8 +69,7 @@ impl JavaValue {
     pub fn as_int(&self) -> Option<i64> {
         Some(match self {
             JavaValue::Byte(x) => *x as i64,
-            // FIXME: I'm unsure if this is technically correct or not
-            JavaValue::Char(x) => unsafe { ::std::mem::transmute::<_, i16>(*x) as i64 },
+            JavaValue::Char(x) => *x as i64,
             JavaValue::Short(x) => *x as i64,
             JavaValue::Int(x) => *x as i64,
             JavaValue::Long(x) => *x as i64,
@@ -78,8 +81,7 @@ impl JavaValue {
     pub fn as_float(&self) -> Option<f64> {
         Some(match self {
             JavaValue::Byte(x) => *x as f64,
-            // FIXME: I'm unsure if this is technically correct or not
-            JavaValue::Char(x) => unsafe { ::std::mem::transmute::<_, i16>(*x) as f64 },
+            JavaValue::Char(x) => *x as f64,
             JavaValue::Short(x) => *x as f64,
             JavaValue::Int(x) => *x as f64,
             JavaValue::Long(x) => *x as f64,

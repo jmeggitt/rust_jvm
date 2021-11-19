@@ -19,9 +19,9 @@ use crate::jvm::mem::{
 };
 use crate::jvm::{JavaEnv, ObjectHandle};
 use parking_lot::RwLock;
+use std::ops::{Deref, DerefMut};
 use std::os::raw::c_char;
 use std::sync::Arc;
-
 // #[deprecated(note="Switch to storing JVM ptr in JNIEnv::reserved0")]
 // pub static mut GLOBAL_JVM: Option<Box<JavaEnv>> = None;
 
@@ -36,7 +36,7 @@ pub unsafe extern "system" fn register_natives(
 
     // debug!("Calling JNIEnv::RegisterNatives");
     let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
-    let name_obj: Option<ObjectHandle> = a.read_named_field("name");
+    let name_obj: Option<ObjectHandle> = a.lock().read_named_field("name");
     let class = name_obj.unwrap().expect_string().replace('.', "/");
     // let class_object = ObjectHandle::from_ptr(clazz).unwrap();
     // let class = class_object.expect_string();
@@ -81,7 +81,7 @@ unsafe extern "system" fn get_method_id(
     sig: *const c_char,
 ) -> jmethodID {
     let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
-    let name_obj: Option<ObjectHandle> = a.read_named_field("name");
+    let name_obj: Option<ObjectHandle> = a.lock().read_named_field("name");
 
     let name_string = CString::from_raw(name as *mut _);
     let desc_string = CString::from_raw(sig as *mut _);
@@ -655,7 +655,8 @@ pub unsafe extern "system" fn GetFieldID(
     let field_schema = env.write().class_schema("java/lang/reflect/Field");
     let field_obj = ObjectHandle::new(field_schema.clone());
     let instance = field_obj.expect_instance();
-    instance.write_named_field("clazz", Some(class));
+    let mut lock = instance.lock();
+    lock.write_named_field("clazz", Some(class));
 
     // let name = raw_field.name(&raw_class.constants).unwrap();
     let slot = match target_class_schema
@@ -665,9 +666,9 @@ pub unsafe extern "system" fn GetFieldID(
         Some(v) => v.offset as jint,
         None => -1,
     };
-    instance.write_named_field("slot", slot);
+    lock.write_named_field("slot", slot);
     let mut jvm = env.write();
-    instance.write_named_field("name", jvm.build_string(&name.to_string_lossy()));
+    lock.write_named_field("name", jvm.build_string(&name.to_string_lossy()));
 
     let type_class = match FieldDescriptor::read_str(&sig.to_string_lossy()).unwrap() {
         FieldDescriptor::Byte => jvm.class_instance("byte"),
@@ -682,8 +683,8 @@ pub unsafe extern "system" fn GetFieldID(
         FieldDescriptor::Array(x) => jvm.class_instance(&format!("[{:?}", x)),
         _ => panic!("Can't get classes for these types"),
     };
-    instance.write_named_field("type", Some(type_class));
-    instance.write_named_field("modifiers", raw_field.access.bits() as jint);
+    lock.write_named_field("type", Some(type_class));
+    lock.write_named_field("modifiers", raw_field.access.bits() as jint);
     field_obj.ptr() as jfieldID
 }
 
@@ -696,8 +697,10 @@ pub unsafe extern "system" fn GetObjectField(
     let env = RawJNIEnv::new(env);
     let obj = obj_expect!(env, obj, null_mut()).expect_instance();
     let field = obj_expect!(env, field_id as jobject, null_mut()).expect_instance();
-    let field_name: Option<ObjectHandle> = field.read_named_field("name");
-    let out: Option<ObjectHandle> = obj.read_named_field(field_name.unwrap().expect_string());
+    let field_name: Option<ObjectHandle> = field.lock().read_named_field("name");
+    let out: Option<ObjectHandle> = obj
+        .lock()
+        .read_named_field(field_name.unwrap().expect_string());
     out.pack().l
 }
 
@@ -711,8 +714,8 @@ pub unsafe extern "system" fn SetObjectField(
     let env = RawJNIEnv::new(env);
     let obj = obj_expect!(env, obj).expect_instance();
     let field = obj_expect!(env, field_id as jobject).expect_instance();
-    let field_name: Option<ObjectHandle> = field.read_named_field("name");
-    obj.write_named_field(
+    let field_name: Option<ObjectHandle> = field.lock().read_named_field("name");
+    obj.lock().write_named_field(
         field_name.unwrap().expect_string(),
         ObjectHandle::from_ptr(val),
     );
@@ -728,9 +731,10 @@ macro_rules! impl_obj_field {
         ) -> $type {
             let env = RawJNIEnv::new(env);
             let obj = obj_expect!(env, obj).expect_instance();
+            let obj_lock = obj.lock();
             let field = obj_expect!(env, field_id as jobject).expect_instance();
-            let field_name: Option<ObjectHandle> = field.read_named_field("name");
-            obj.read_named_field(field_name.unwrap().expect_string())
+            let field_name: Option<ObjectHandle> = field.lock().read_named_field("name");
+            obj_lock.read_named_field(field_name.unwrap().expect_string())
         }
 
         #[no_mangle]
@@ -742,9 +746,10 @@ macro_rules! impl_obj_field {
         ) {
             let env = RawJNIEnv::new(env);
             let obj = obj_expect!(env, obj).expect_instance();
+            let mut obj_lock = obj.lock();
             let field = obj_expect!(env, field_id as jobject).expect_instance();
-            let field_name: Option<ObjectHandle> = field.read_named_field("name");
-            obj.write_named_field(field_name.unwrap().expect_string(), val);
+            let field_name: Option<ObjectHandle> = field.lock().read_named_field("name");
+            obj_lock.write_named_field(field_name.unwrap().expect_string(), val);
         }
     };
 }
@@ -766,7 +771,7 @@ pub unsafe extern "system" fn GetStaticMethodID(
     sig: *const c_char,
 ) -> jmethodID {
     let a = ObjectHandle::from_ptr(clazz).unwrap().expect_instance();
-    let name_obj: Option<ObjectHandle> = a.read_named_field("name");
+    let name_obj: Option<ObjectHandle> = a.lock().read_named_field("name");
 
     let name_string = CStr::from_ptr(name);
     let desc_string = CStr::from_ptr(sig);
@@ -952,7 +957,7 @@ macro_rules! impl_static_field {
         ) -> $type {
             let env = RawJNIEnv::new(env);
             let field = obj_expect!(env, field_id as jobject, $default).expect_instance();
-            let field_name: Option<ObjectHandle> = field.read_named_field("name");
+            let field_name: Option<ObjectHandle> = field.lock().read_named_field("name");
             let class = obj_expect!(env, clazz, $default).unwrap_as_class();
 
             let jvm = env.read();
@@ -972,7 +977,7 @@ macro_rules! impl_static_field {
         ) {
             let env = RawJNIEnv::new(env);
             let field = obj_expect!(env, field_id as jobject).expect_instance();
-            let field_name: Option<ObjectHandle> = field.read_named_field("name");
+            let field_name: Option<ObjectHandle> = field.lock().read_named_field("name");
             let class = obj_expect!(env, clazz).unwrap_as_class();
 
             env.write().static_fields.set_static(&field_name.unwrap().expect_string(), &class, $y);
@@ -1003,7 +1008,9 @@ pub unsafe extern "system" fn NewString(
     let mut chars = vec![0; len as usize];
     unicode.copy_to(chars.as_mut_ptr(), len as usize);
 
-    object.write_named_field("value", Some(ObjectHandle::array_from_data(chars)));
+    object
+        .lock()
+        .write_named_field("value", Some(ObjectHandle::array_from_data(chars)));
     handle.ptr()
 }
 
@@ -1026,8 +1033,9 @@ pub unsafe extern "system" fn GetStringChars(
 
     let arr: Option<ObjectHandle> = obj_expect!(env, str, null_mut())
         .expect_instance()
+        .lock()
         .read_named_field("value");
-    let mut clone = arr.unwrap().expect_array::<jchar>().raw_fields().to_vec();
+    let mut clone = arr.unwrap().expect_array::<jchar>().lock().to_vec();
     let ret = clone.as_mut_ptr();
     forget(clone); // Forget it so it can be recovered later
     ret
@@ -1042,11 +1050,13 @@ pub unsafe extern "system" fn ReleaseStringChars(
     let env = RawJNIEnv::new(env);
     let obj: Option<ObjectHandle> = obj_expect!(env, str)
         .expect_instance()
+        .lock()
         .read_named_field("value");
     let arr = obj.unwrap().expect_array::<jchar>();
+    let arr_lock = arr.lock();
 
     // Reclaim elements so they get dropped at the end of the function
-    Vec::from_raw_parts(chars as *mut jchar, arr.len(), arr.len());
+    Vec::from_raw_parts(chars as *mut jchar, arr_lock.len(), arr_lock.len());
 }
 
 #[no_mangle]
@@ -1126,7 +1136,7 @@ macro_rules! impl_array {
             }
             let mut clone = obj_expect!(env, array, null_mut())
                 .expect_array::<$java_type>()
-                .raw_fields()
+                .lock()
                 .to_vec();
             let ret = clone.as_mut_ptr();
             forget(clone); // Forget it so it can be recovered later
@@ -1142,13 +1152,14 @@ macro_rules! impl_array {
         ) {
             let env = RawJNIEnv::new(env);
             let arr = obj_expect!(env, array).expect_array::<$java_type>();
+            let mut lock = arr.lock();
 
             // Reclaim elements
-            let elements = Vec::from_raw_parts(elems as *mut $java_type, arr.len(), arr.len());
+            let elements = Vec::from_raw_parts(elems as *mut $java_type, lock.len(), lock.len());
 
             // Copy back elements
             if mode & JNI_ABORT == 0 {
-                arr.raw_fields().copy_from_slice(&elements);
+                lock.copy_from_slice(&elements);
             }
 
             // Do not free the buffer
@@ -1167,8 +1178,9 @@ macro_rules! impl_array {
         ) {
             let env = RawJNIEnv::new(env);
             let arr = obj_expect!(env, array).expect_array::<$java_type>();
-            assert!(start >= 0 && len >= 0 && start + len <= arr.len() as jint);
-            (arr.raw_fields().as_ptr() as *const $type)
+            let lock = arr.lock();
+            assert!(start >= 0 && len >= 0 && start + len <= lock.len() as jint);
+            (lock.deref().as_ptr() as *const $type)
                 .offset(start as isize)
                 .copy_to(buf, len as usize);
         }
@@ -1183,9 +1195,10 @@ macro_rules! impl_array {
         ) {
             let env = RawJNIEnv::new(env);
             let arr = obj_expect!(env, array).expect_array::<$java_type>();
-            assert!(start >= 0 && len >= 0 && start + len <= arr.len() as jint);
+            let mut lock = arr.lock();
+            assert!(start >= 0 && len >= 0 && start + len <= lock.len() as jint);
             buf.copy_to(
-                (arr.raw_fields().as_mut_ptr() as *mut $type).offset(start as isize),
+                (lock.deref_mut().as_mut_ptr() as *mut $type).offset(start as isize),
                 len as usize,
             );
         }
@@ -1274,7 +1287,9 @@ pub unsafe extern "system" fn GetObjectArrayElement(
     index: jsize,
 ) -> jobject {
     let env = RawJNIEnv::new(env);
-    obj_expect!(env, array, null_mut()).expect_array::<Option<ObjectHandle>>()[index as usize]
+    obj_expect!(env, array, null_mut())
+        .expect_array::<Option<ObjectHandle>>()
+        .lock()[index as usize]
         .pack()
         .l
 }
@@ -1289,6 +1304,7 @@ pub unsafe extern "system" fn SetObjectArrayElement(
     let env = RawJNIEnv::new(env);
     obj_expect!(env, array)
         .expect_array::<Option<ObjectHandle>>()
+        .lock()
         .write_array(index as usize, ObjectHandle::from_ptr(val));
 }
 
@@ -1333,10 +1349,12 @@ pub unsafe extern "system" fn GetStringRegion(
     let env = RawJNIEnv::new(env);
     let array: Option<ObjectHandle> = obj_expect!(env, str)
         .expect_instance()
+        .lock()
         .read_named_field("value");
     let arr = array.unwrap().expect_array::<jchar>();
-    assert!(start >= 0 && len >= 0 && start + len <= arr.len() as jint);
-    (arr.raw_fields().as_ptr() as *const jchar)
+    let arr_lock = arr.lock();
+    assert!(start >= 0 && len >= 0 && start + len <= arr_lock.len() as jint);
+    (arr_lock.deref().as_ptr() as *const jchar)
         .offset(start as isize)
         .copy_to(buf, len as usize);
 }

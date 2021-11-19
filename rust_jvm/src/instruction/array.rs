@@ -27,9 +27,10 @@ macro_rules! array_instruction {
         let index = $frame.stack.pop().unwrap().as_int().unwrap() as usize;
         if let JavaValue::Reference(Some(arr)) = $frame.stack.pop().unwrap() {
             let array = arr.expect_array::<$arr_type>();
+            let lock = array.lock();
             $($frame
                 .stack
-                .push(JavaValue::$local(array.read_array(index) as _));
+                .push(JavaValue::$local(lock.read_array(index) as _));
             let _ = $desc;)+ // to get previous statement to repeat
         } else {
             panic!("xaload expected reference")
@@ -43,7 +44,8 @@ macro_rules! array_instruction {
         if let JavaValue::Reference(Some(arr)) = $frame.stack.pop().unwrap() {
             if let Some(JavaValue::$local(x)) = _value {
                 let array = arr.expect_array::<$arr_type>();
-                array.write_array(index, x as _);
+                let mut lock = array.lock();
+                lock.write_array(index, x as _);
                 return Ok(());
             }
         }

@@ -489,7 +489,7 @@ impl InstructionAction for getfield {
         if let Some(JavaValue::Reference(Some(obj))) = frame.stack.pop() {
             let instance = obj.expect_instance();
 
-            let value = instance.read_named_field(&field_name);
+            let value = instance.lock().read_named_field(&field_name);
 
             if matches!(&value, JavaValue::Long(_) | JavaValue::Double(_)) {
                 frame.stack.push(value.to_owned());
@@ -562,7 +562,7 @@ impl InstructionAction for putfield {
                 "Putting field {}::{} {}",
                 &class_name, &field_name, &desc_name
             );
-            instance.write_named_field(&field_name, value);
+            instance.lock().write_named_field(&field_name, value);
             // if let Object::Instance { fields, .. } = unsafe { &mut *obj.get() } {
             //     fields.insert(field_name, value);
             // } else {

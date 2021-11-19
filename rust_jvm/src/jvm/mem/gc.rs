@@ -1,23 +1,16 @@
+use crate::jvm::mem::RawObject;
+use jni::sys::jobject;
 use parking_lot::{Condvar, Mutex};
 use std::alloc::{dealloc, Layout};
-use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use std::mem::ManuallyDrop;
 use std::ops::{Deref, DerefMut};
 use std::ptr::{drop_in_place, NonNull};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::Arc;
 use std::thread::{current, ThreadId};
 use std::time::Duration;
 
 pub unsafe trait Trace {
     unsafe fn trace(&self);
-
-    // unsafe fn root(&self);
-    //
-    // unsafe fn unroot(&self);
-    //
-    // fn finalize_glue(&self);
 }
 
 pub type Gc<T> = Box<T>;
@@ -37,7 +30,6 @@ bitflags! {
     pub struct MarkDesc: u32 {
         const MARK = 0x4000_0000;
         const NEW_GEN = 0x8000_0000;
-        // const STACK = 0b0000_0010;
         const SYSTEM = 0x2000_0000;
         const GLOBAL_REF = 0x1000_0000;
         const LOCAL_REF = !(Self::MARK.bits | Self::NEW_GEN.bits | Self::SYSTEM.bits | Self::GLOBAL_REF.bits);
@@ -52,7 +44,6 @@ pub struct GcMark {
     mark: AtomicU32,
 }
 
-// 0.75 for hw1 and 2.04 for quiz 1
 impl GcMark {
     pub fn new() -> Self {
         GcMark {
@@ -101,49 +92,77 @@ impl GcMark {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug)]
+#[repr(transparent)]
 pub struct GcBox<T: 'static> {
     raw: NonNull<GcBoxInner<T>>,
 }
 
+unsafe impl<T> Send for GcBox<T> {}
+unsafe impl<T> Sync for GcBox<T> {}
+
+impl<T> PartialEq for GcBox<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.raw == other.raw
+    }
+}
+
+impl<T: 'static> Clone for GcBox<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+// Explicitly declare copy instead of deriving due to cases where T does not implement Copy
+impl<T: 'static> Copy for GcBox<T> {}
+
 impl<T> GcBox<T> {
     pub fn new(val: T) -> Self {
-        GcBox {
-            raw: GcBoxInner::new(val),
-        }
+        let raw = GcBoxInner::new(val);
+        // warn!("Allocated box {:p}", raw.as_ptr());
+
+        GcBox { raw }
     }
 
-    pub fn into_raw(x: Self) -> *mut T {
-        memoffset::raw_field!(x.raw.as_ptr(), GcBoxInner<T>, data) as *const T as *mut T
-    }
-
-    pub unsafe fn from_raw(ptr: *mut T) -> Self {
-        let base =
-            (ptr as usize - memoffset::offset_of!(GcBoxInner<T>, data)) as *mut GcBoxInner<T>;
-        GcBox {
-            raw: NonNull::new_unchecked(base),
-        }
-    }
+    // pub fn into_raw(x: Self) -> *mut T {
+    //     memoffset::raw_field!(x.raw.as_ptr(), GcBoxInner<T>, data) as *const T as *mut T
+    // }
+    //
+    // pub unsafe fn from_raw(ptr: *mut T) -> Self {
+    //     let base =
+    //         (ptr as usize - memoffset::offset_of!(GcBoxInner<T>, data)) as *mut GcBoxInner<T>;
+    //     GcBox {
+    //         raw: NonNull::new_unchecked(base),
+    //     }
+    // }
 
     pub fn add_local_ref(&self) {}
+
+    pub fn as_ptr(&self) -> jobject {
+        self.raw.as_ptr() as jobject
+    }
 }
+
+/// Allow direct conversion from a pointer to ObjectUnknown types
+impl GcBox<RawObject<()>> {
+    pub fn from_ptr(ptr: jobject) -> Option<Self> {
+        // warn!("Converting ptr {:p}", ptr);
+        Some(Self {
+            raw: NonNull::new(ptr as _)?,
+        })
+    }
+}
+
+// impl<T> From<GcBox<RawObject<T>>> for GcBox<RawObject<()>> {
+//     fn from(x: GcBox<RawObject<T>>) -> Self {
+//         unsafe { transmute(x) }
+//     }
+// }
 
 unsafe impl<T: Trace> Trace for GcBox<T> {
     unsafe fn trace(&self) {
         todo!()
     }
-
-    // unsafe fn root(&self) {
-    //     todo!()
-    // }
-    //
-    // unsafe fn unroot(&self) {
-    //     todo!()
-    // }
-    //
-    // fn finalize_glue(&self) {
-    //     todo!()
-    // }
 }
 
 /// Enforce member ordering with repr(C) so mark and locks can be manipulated freely on half-types
@@ -230,6 +249,7 @@ impl<T> GcBox<T> {
                     *explicit -= 1;
                     if *implicit == 0 && *explicit == 0 {
                         *guard = BiasedLockState::Unclaimed;
+                        inner.lock.notify_one();
                     }
                 }
             };
@@ -239,8 +259,18 @@ impl<T> GcBox<T> {
     pub fn lock(&self) -> BiasedMutexGuard<T> {
         unsafe {
             let inner = self.raw.as_ref();
+
+            // warn!("Claiming lock: {:p}", self.raw.as_ptr());
             let mut guard = inner.owner.lock();
+            // let mut guard = match inner.owner.try_lock() {
+            //     Some(v) => v,
+            //     None => panic!("Failed to get lock!"),
+            // };
+            // warn!("Claimed lock {:p}", self.raw);
+
             let id = current().id();
+
+            let mut timeout = 0;
 
             loop {
                 match &mut *guard {
@@ -250,17 +280,33 @@ impl<T> GcBox<T> {
                             explicit: 0,
                             implicit: 1,
                         };
+                        // warn!("Obtained lock {:p}", self.raw);
+
+                        // drop(guard);
                         return BiasedMutexGuard {
                             parent: &mut *self.raw.as_ptr(),
                         };
                     }
                     BiasedLockState::Claimed { bias, implicit, .. } if *bias == id => {
                         *implicit += 1;
+                        // warn!("Obtained lock {:p}", self.raw);
+                        // drop(guard);
                         return BiasedMutexGuard {
                             parent: &mut *self.raw.as_ptr(),
                         };
                     }
-                    _ => inner.lock.wait_for(&mut guard, Duration::from_millis(50)),
+                    _ => {
+                        timeout += 1;
+                        if timeout == 10 {
+                            panic!(
+                                "Timed out while waiting for lock. Possible double lock in use!"
+                            );
+                        }
+
+                        // warn!("Lock rejected: {:?} (for {:?})", &*guard, id);
+                        // inner.lock.wait_for(&mut guard, Duration::from_millis(50))
+                        inner.lock.wait(&mut guard);
+                    }
                 };
             }
         }
@@ -309,10 +355,14 @@ impl<'a, T> Drop for BiasedMutexGuard<'a, T> {
 
                 *implicit -= 1;
                 if *implicit == 0 && *explicit == 0 {
+                    // warn!("Released lock {:p}", self.parent);
                     *guard = BiasedLockState::Unclaimed;
+                    self.parent.lock.notify_one();
                 }
             }
         };
+
+        // drop(guard);
     }
 }
 

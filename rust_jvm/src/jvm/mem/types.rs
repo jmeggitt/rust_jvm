@@ -96,12 +96,14 @@ impl FieldDescriptor {
 
         assert_eq!(class.get_class(), "java/lang/invoke/MethodType");
         let instance = class.expect_instance();
-        let ptype: Option<ObjectHandle> = instance.read_named_field("ptype");
+        let instance_lock = instance.lock();
+        let ptype: Option<ObjectHandle> = instance_lock.read_named_field("ptype");
         let ptype = ptype.unwrap().expect_array::<Option<ObjectHandle>>();
-        let rtype: Option<ObjectHandle> = instance.read_named_field("rtype");
+        let ptype_lock = ptype.lock();
+        let rtype: Option<ObjectHandle> = instance_lock.read_named_field("rtype");
 
         FieldDescriptor::Method {
-            args: ptype
+            args: ptype_lock
                 .to_vec()
                 .into_iter()
                 .map(Option::unwrap)

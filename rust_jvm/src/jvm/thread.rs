@@ -397,15 +397,16 @@ pub fn first_time_sys_thread_init(env: &mut Arc<RwLock<JavaEnv>>) {
             .set_static("java/lang/Thread", "threadSeqNumber", tid);
 
         let instance = obj.expect_instance();
-        instance.write_named_field("tid", tid);
-        instance.write_named_field("priority", JavaValue::Int(5));
-        instance.write_named_field("group", jvm.thread_manager.system_thread_group);
+        let mut instance_lock = instance.lock();
+        instance_lock.write_named_field("tid", tid);
+        instance_lock.write_named_field("priority", JavaValue::Int(5));
+        instance_lock.write_named_field("group", jvm.thread_manager.system_thread_group);
 
         if let JavaValue::Long(thread_id) = tid {
             if thread_id == 0 {
-                instance.write_named_field("name", jvm.build_string("main"));
+                instance_lock.write_named_field("name", jvm.build_string("main"));
             } else {
-                instance.write_named_field(
+                instance_lock.write_named_field(
                     "name",
                     jvm.build_string(&format!("Sys-Thread-{}", thread_id)),
                 );
@@ -420,9 +421,10 @@ pub fn first_time_sys_thread_init(env: &mut Arc<RwLock<JavaEnv>>) {
     // Hard code the operation of java/lang/ThreadGroup::add(Ljava/lang/Thread;)V to avoid an infinite loop
     env.lock(group);
     let group_instance = group.expect_instance();
+    let mut group_instance_lock = group_instance.lock();
 
-    let group_threads: Option<ObjectHandle> = group_instance.read_named_field("threads");
-    let n_threads: jint = group_instance.read_named_field("nthreads");
+    let group_threads: Option<ObjectHandle> = group_instance_lock.read_named_field("threads");
+    let n_threads: jint = group_instance_lock.read_named_field("nthreads");
 
     if let Some(group_threads_obj) = group_threads {
         if n_threads as usize == group_threads_obj.unknown_array_length().unwrap() {
@@ -430,26 +432,28 @@ pub fn first_time_sys_thread_init(env: &mut Arc<RwLock<JavaEnv>>) {
             let new_array = ObjectHandle::array_from_data(new_array);
             group_threads_obj
                 .expect_array::<Option<ObjectHandle>>()
+                .lock()
                 .array_copy(new_array, 0, 0, n_threads as usize);
-            group_instance.write_named_field("threads", Some(new_array));
+            group_instance_lock.write_named_field("threads", Some(new_array));
         }
     } else {
         let mut new_threads = vec![None; 4];
         new_threads[0] = Some(obj);
-        group_instance
+        group_instance_lock
             .write_named_field("threads", Some(ObjectHandle::array_from_data(new_threads)));
     }
 
-    let group_threads: Option<ObjectHandle> = group_instance.read_named_field("threads");
+    let group_threads: Option<ObjectHandle> = group_instance_lock.read_named_field("threads");
     group_threads
         .unwrap()
         .expect_array()
+        .lock()
         .write_array(n_threads as usize, Some(obj));
     // group_threads.unwrap().expect_array()[n_threads as usize] = Some(obj);
-    group_instance.write_named_field("nthreads", n_threads + 1);
+    group_instance_lock.write_named_field("nthreads", n_threads + 1);
 
-    let unstarted: jint = group_instance.read_named_field("nUnstartedThreads");
-    group_instance.write_named_field("nUnstartedThreads", unstarted - 1);
+    let unstarted: jint = group_instance_lock.read_named_field("nUnstartedThreads");
+    group_instance_lock.write_named_field("nUnstartedThreads", unstarted - 1);
     env.unlock(group);
 
     let thread_handle = current().id();

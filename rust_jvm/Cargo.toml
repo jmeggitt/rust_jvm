@@ -8,6 +8,7 @@ edition = "2018"
 name = "jvm"
 crate-type = ["cdylib", "rlib"]
 
+
 [features]
 default = []
 profile = ["thread_profiler"]
@@ -39,6 +40,7 @@ num_cpus = "1.13.0"
 page_size = "0.4.2"
 slice-dst = "1.5.1"
 memoffset = "0.6.4"
+cesu8 = "1.1.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["psapi", "winsock2"] }
@@ -61,7 +63,7 @@ optional = true
 
 [dependencies.log]
 version = "0.4"
-features = ["max_level_debug", "release_max_level_debug", "std", "serde"]
+features = ["max_level_debug", "release_max_level_trace", "std", "serde"]
 
 [build-dependencies]
 walkdir = "2.3.2"

@@ -70,6 +70,22 @@ pub struct ClassSchema {
 }
 
 impl ClassSchema {
+    /// Performs instanceof on this class. This excludes interfaces when searching to avoid
+    /// additional lookup.
+    ///
+    /// Note: I wonder if Rust is able to perform tail recursion with this code? I think I saw
+    /// something about it in one of the more recent release notes.
+    pub fn direct_instanceof(&self, of: &str) -> bool {
+        if self.name == of {
+            return true;
+        }
+
+        match self.super_class.as_ref() {
+            Some(v) => v.direct_instanceof(of),
+            None => false,
+        }
+    }
+
     pub fn build(class: &Class, jvm: &mut JavaEnv) -> Self {
         let name = class.name();
         debug!("Building new schema for {}", &name);

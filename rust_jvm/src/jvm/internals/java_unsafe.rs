@@ -563,12 +563,16 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_staticFieldOffset(
 ) -> jlong {
     let field = obj_expect!(env, field, 0);
     let instance = field.expect_instance();
+    let instance_lock = instance.lock();
 
-    let class: Option<ObjectHandle> = instance.read_named_field("clazz");
-    let class_name: Option<ObjectHandle> =
-        class.unwrap().expect_instance().read_named_field("name");
+    let class: Option<ObjectHandle> = instance_lock.read_named_field("clazz");
+    let class_name: Option<ObjectHandle> = class
+        .unwrap()
+        .expect_instance()
+        .lock()
+        .read_named_field("name");
     let class_name = class_name.unwrap().expect_string().replace('.', "/");
-    let field_name: Option<ObjectHandle> = instance.read_named_field("name");
+    let field_name: Option<ObjectHandle> = instance_lock.read_named_field("name");
     let field_name = field_name.unwrap().expect_string();
 
     // TODO: Should we allocate a slot if none exists?
@@ -593,12 +597,16 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_objectFieldOffset(
 ) -> jlong {
     let field = obj_expect!(env, field, 0);
     let instance = field.expect_instance();
+    let instance_lock = instance.lock();
 
-    let class: Option<ObjectHandle> = instance.read_named_field("clazz");
-    let class_name: Option<ObjectHandle> =
-        class.unwrap().expect_instance().read_named_field("name");
+    let class: Option<ObjectHandle> = instance_lock.read_named_field("clazz");
+    let class_name: Option<ObjectHandle> = class
+        .unwrap()
+        .expect_instance()
+        .lock()
+        .read_named_field("name");
     let class_name = class_name.unwrap().expect_string().replace('.', "/");
-    let field_name: Option<ObjectHandle> = instance.read_named_field("name");
+    let field_name: Option<ObjectHandle> = instance_lock.read_named_field("name");
 
     let mut lock = env.write();
     let schema = lock.class_schema(&class_name);
@@ -672,7 +680,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_arrayIndexScale(
     target: jclass,
 ) -> jint {
     let a = ObjectHandle::from_ptr(target).unwrap().expect_instance();
-    let name_obj: Option<ObjectHandle> = a.read_named_field("name");
+    let name_obj: Option<ObjectHandle> = a.lock().read_named_field("name");
     let name = name_obj.unwrap().expect_string().replace('.', "/");
     if let Ok(FieldDescriptor::Array(arr)) = FieldDescriptor::read_str(&name) {
         match &*arr {
@@ -825,28 +833,30 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapObject(
     match obj.memory_layout() {
         ObjectType::Instance => {
             let instance = obj.expect_instance();
+            let mut instance_lock = instance.lock();
             assert_eq!(offset as usize % size_of::<jvalue>(), 0);
             let index = offset as usize / size_of::<jvalue>();
 
-            let fields = instance.raw_fields();
-            assert!(index < fields.len());
+            // let fields = instance.raw_fields();
+            assert!(index < instance_lock.len());
 
-            let ptr = &mut fields[index] as *mut jvalue as *const AtomicPtr<_>;
+            let ptr = &mut instance_lock[index] as *mut jvalue as *const AtomicPtr<_>;
 
             let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
             res.is_ok() as jboolean
         }
         ObjectType::Array(JavaTypeEnum::Reference) => {
             let instance = obj.expect_array::<Option<ObjectHandle>>();
+            let mut instance_lock = instance.lock();
             assert_eq!(offset as usize % size_of::<Option<ObjectHandle>>(), 0);
             let index = offset as usize / size_of::<Option<ObjectHandle>>();
 
-            let fields = instance.raw_fields();
-            assert!(index < fields.len());
+            // let fields = instance.raw_fields();
+            assert!(index < instance_lock.len());
 
             // TODO: I feel like this could lead to a segfault, check pointer size just to be safe
             assert_eq!(size_of::<Option<ObjectHandle>>(), size_of::<jobject>());
-            let ptr = &mut fields[index] as *mut Option<ObjectHandle> as *const AtomicPtr<_>;
+            let ptr = &mut instance_lock[index] as *mut Option<ObjectHandle> as *const AtomicPtr<_>;
 
             let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
             res.is_ok() as jboolean
@@ -869,13 +879,14 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapInt(
 ) -> jboolean {
     let obj = obj_expect!(env, obj, JNI_FALSE);
     let instance = obj.expect_instance();
+    let mut instance_lock = instance.lock();
     assert_eq!(offset as usize % size_of::<jvalue>(), 0);
     let index = offset as usize / size_of::<jvalue>();
 
-    let fields = instance.raw_fields();
-    assert!(index < fields.len());
+    // let fields = instance.raw_fields();
+    assert!(index < instance_lock.len());
 
-    let ptr = &mut fields[index] as *mut jvalue as *const AtomicI32;
+    let ptr = &mut instance_lock[index] as *mut jvalue as *const AtomicI32;
 
     let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
     res.is_ok() as jboolean
@@ -895,13 +906,14 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapLong(
 ) -> jboolean {
     let obj = obj_expect!(env, obj, JNI_FALSE);
     let instance = obj.expect_instance();
+    let mut instance_lock = instance.lock();
     assert_eq!(offset as usize % size_of::<jvalue>(), 0);
     let index = offset as usize / size_of::<jvalue>();
 
-    let fields = instance.raw_fields();
-    assert!(index < fields.len());
+    // let fields = instance.raw_fields();
+    assert!(index < instance_lock.len());
 
-    let ptr = &mut fields[index] as *mut jvalue as *const AtomicI64;
+    let ptr = &mut instance_lock[index] as *mut jvalue as *const AtomicI64;
 
     let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
     res.is_ok() as jboolean
@@ -932,13 +944,15 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getObjectVolatile(
 
     match object.memory_layout() {
         ObjectType::Instance => {
-            let ret: Option<ObjectHandle> = object.expect_instance().read_field(offset as usize);
+            let ret: Option<ObjectHandle> =
+                object.expect_instance().lock().read_field(offset as usize);
             ret.pack().l
         }
         ObjectType::Array(JavaTypeEnum::Reference) => {
             // let scale = Java_sun_misc_Unsafe_arrayIndexScale(env, _this, obj);
             let ret: Option<ObjectHandle> = object
                 .expect_array::<Option<ObjectHandle>>()
+                .lock()
                 .read_array(offset as usize / size_of::<Option<ObjectHandle>>());
             ret.pack().l
         }
@@ -983,7 +997,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getIntVolatile(
         }
     }
 
-    object.expect_instance().read_field(offset as usize)
+    object.expect_instance().lock().read_field(offset as usize)
 }
 
 /// Class:     sun_misc_Unsafe

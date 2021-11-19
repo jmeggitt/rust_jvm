@@ -11,6 +11,8 @@ members = [
 
 [profile.release]
 rpath = true
+debug = true
 
 [profile.dev]
 rpath = true
+debug = true

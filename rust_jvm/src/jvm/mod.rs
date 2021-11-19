@@ -188,10 +188,14 @@ impl JavaEnv {
         let schema = self.class_schema("java/lang/Class");
         let class = ObjectHandle::new(schema);
         let instance = class.expect_instance();
+        // warn!("Class ptr:       {:p}", class.ptr());
+        // warn!("Class as_ptr:    {:p}", class.as_ptr());
+        // warn!("Instance as_ptr: {:p}", instance.as_ptr());
+        let mut lock = instance.lock();
 
         self.class_loader.attempt_load(name).unwrap();
 
-        instance.write_named_field("name", self.build_string(&name.replace('/', ".")));
+        lock.write_named_field("name", self.build_string(&name.replace('/', ".")));
 
         self.registered_classes.insert(name.to_string(), class);
         class
@@ -362,13 +366,14 @@ impl JavaEnv {
 
         let handle = ObjectHandle::new(self.class_schema("java/lang/String"));
         let object = handle.expect_instance();
+        let mut lock = object.lock();
 
         let char_array = string
             .chars()
             .map(|x| x as u32 as jchar)
             .collect::<Vec<jchar>>();
 
-        object.write_named_field("value", Some(ObjectHandle::array_from_data(char_array)));
+        lock.write_named_field("value", Some(ObjectHandle::array_from_data(char_array)));
         self.interned_strings.insert(string.to_string(), handle);
         JavaValue::Reference(Some(handle))
     }

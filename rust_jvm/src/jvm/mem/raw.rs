@@ -1,4 +1,3 @@
-use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
 
 use crate::jvm::mem::gc::Trace;
@@ -12,43 +11,42 @@ use std::hash::{Hash, Hasher};
 use std::mem::size_of;
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct RawObject<T: ?Sized> {
     pub schema: Arc<ClassSchema>,
-    fields: UnsafeCell<T>,
+    fields: T,
 }
 
-impl<T: Clone> Clone for RawObject<T> {
-    fn clone(&self) -> Self {
-        RawObject {
-            schema: self.schema.clone(),
-            fields: unsafe { UnsafeCell::new((&*self.fields.get()).clone()) },
-        }
-    }
-}
+// impl<T: Clone> Clone for RawObject<T> {
+//     fn clone(&self) -> Self {
+//         RawObject {
+//             schema: self.schema.clone(),
+//             fields: unsafe { UnsafeCell::new((&*self.fields.get()).clone()) },
+//         }
+//     }
+// }
 
 impl<T> RawObject<T> {
     pub fn build_raw(schema: Arc<ClassSchema>, fields: T) -> Self {
-        RawObject {
-            schema,
-            fields: UnsafeCell::new(fields),
-        }
+        RawObject { schema, fields }
     }
 
-    /// # Safety
-    /// For correct usage, the type of the object might be check before attempting to read the raw
-    /// fields. If this is not done, it will give incorrect values.
-    #[allow(clippy::mut_from_ref)]
-    pub unsafe fn raw_fields(&self) -> &mut T {
-        &mut *self.fields.get()
-    }
+    // /// # Safety
+    // /// For correct usage, the type of the object might be check before attempting to read the raw
+    // /// fields. If this is not done, it will give incorrect values.
+    // #[allow(clippy::mut_from_ref)]
+    // pub unsafe fn raw_fields(&self) -> &mut T {
+    //     &mut *self.fields.get()
+    // }
 }
 
 impl<T> RawObject<Vec<T>> {
     pub fn base_ptr(&self) -> *mut () {
-        unsafe {
-            let fields = &*self.fields.get();
-            fields.as_ptr() as *mut ()
-        }
+        self.fields.as_ptr() as *mut ()
+        // unsafe {
+        //     let fields = &*self.fields.get();
+        //     fields.as_ptr() as *mut ()
+        // }
     }
 }
 
@@ -133,33 +131,12 @@ where
             obj.trace();
         }
     }
-
-    // unsafe fn root(&self) {
-    //     for obj in self.gc_iter() {
-    //         obj.root();
-    //     }
-    // }
-    //
-    // unsafe fn unroot(&self) {
-    //     for obj in self.gc_iter() {
-    //         obj.unroot();
-    //     }
-    // }
-    //
-    // fn finalize_glue(&self) {
-    //     for obj in self.gc_iter() {
-    //         obj.finalize_glue();
-    //     }
-    // }
 }
 
 macro_rules! empty_trace {
     ($type:ty) => {
         unsafe impl Trace for $type {
             unsafe fn trace(&self) {}
-            // unsafe fn root(&self) {}
-            // unsafe fn unroot(&self) {}
-            // fn finalize_glue(&self) {}
         }
     };
 }
@@ -184,10 +161,11 @@ impl NonCircularDebug for RawObject<Vec<jvalue>> {
         if self.get_class() == "java/lang/String" {
             let data: Option<ObjectHandle> = self.read_named_field("value");
             if let Some(arr) = data.map(|x| x.expect_array::<jchar>()) {
-                let len = arr.array_length();
+                let lock = arr.lock();
+                let len = lock.array_length();
                 let mut out = String::new();
                 for idx in 0..len {
-                    out.push(std::char::from_u32(arr.read_array(idx) as u32).unwrap());
+                    out.push(std::char::from_u32(lock.read_array(idx) as u32).unwrap());
                 }
                 write!(f, "{:?}", out)
             } else {
@@ -239,7 +217,7 @@ where
 
         unsafe {
             write!(f, "[")?;
-            (&*self.fields.get()).non_cyclical_fmt(f, touched)?;
+            self.fields.non_cyclical_fmt(f, touched)?;
             // write!(f, "[{:?}]", &*self.fields.get())
             write!(f, "]")
         }
@@ -274,7 +252,8 @@ impl RawObject<Vec<jvalue>> {
     pub fn new(schema: Arc<ClassSchema>) -> Self {
         assert_eq!(schema.data_form, ObjectType::Instance);
         RawObject {
-            fields: UnsafeCell::new(vec![jvalue { j: 0 }; schema.field_offsets.len()]),
+            fields: vec![jvalue { j: 0 }; schema.field_offsets.len()],
+            // fields: UnsafeCell::new(vec![jvalue { j: 0 }; schema.field_offsets.len()]),
             schema,
         }
     }
@@ -300,10 +279,11 @@ where
     Self: ArrayReference<T>,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        unsafe {
-            let fields = &*self.fields.get();
-            fields.hash(state);
-        }
+        self.fields.hash(state);
+        // unsafe {
+        //     let fields = &*self.fields.get();
+        //     fields.hash(state);
+        // }
     }
 }
 
@@ -326,36 +306,35 @@ impl<T: ?Sized> ObjectReference for RawObject<T> {
 }
 
 pub trait InstanceReference<T>: ObjectReference {
-    fn write_field(&self, offset: usize, val: T);
+    fn write_field(&mut self, offset: usize, val: T);
     fn read_field(&self, offset: usize) -> T;
 }
 
 impl InstanceReference<jvalue> for RawObject<Vec<jvalue>> {
-    fn write_field(&self, offset: usize, val: jvalue) {
+    fn write_field(&mut self, offset: usize, val: jvalue) {
         assert_eq!(offset % size_of::<jvalue>(), 0);
-        let index = offset / size_of::<jvalue>();
-
-        unsafe {
-            let fields = &mut *self.fields.get();
-            assert!(index < fields.len());
-            fields[index] = val;
-        }
+        self.fields[offset / size_of::<jvalue>()] = val;
+        // unsafe {
+        //     let fields = &mut *self.fields.get();
+        //     assert!(index < fields.len());
+        //     fields[index] = val;
+        // }
     }
 
     fn read_field(&self, offset: usize) -> jvalue {
         assert_eq!(offset % size_of::<jvalue>(), 0);
-        let index = offset / size_of::<jvalue>();
+        self.fields[offset / size_of::<jvalue>()]
 
-        unsafe {
-            let fields = &*self.fields.get();
-            assert!(index < fields.len());
-            fields[index]
-        }
+        // unsafe {
+        //     let fields = &*self.fields.get();
+        //     assert!(index < fields.len());
+        //     fields[index]
+        // }
     }
 }
 
 impl InstanceReference<JavaValue> for RawObject<Vec<jvalue>> {
-    fn write_field(&self, offset: usize, val: JavaValue) {
+    fn write_field(&mut self, offset: usize, val: JavaValue) {
         let field = self.schema.get_field_from_offset(offset);
         if let Some(v) = field.desc.assign_from(val) {
             <Self as InstanceReference<jvalue>>::write_field(self, offset, v.into());
@@ -374,7 +353,7 @@ impl InstanceReference<JavaValue> for RawObject<Vec<jvalue>> {
 }
 
 impl<T: JavaPrimitive> InstanceReference<T> for RawObject<Vec<jvalue>> {
-    fn write_field(&self, offset: usize, val: T) {
+    fn write_field(&mut self, offset: usize, val: T) {
         self.write_field(offset, val.pack())
     }
 
@@ -386,12 +365,12 @@ impl<T: JavaPrimitive> InstanceReference<T> for RawObject<Vec<jvalue>> {
 /// Convenience trait to manually reading and writing fields by name without first getting the
 /// offsets.
 pub trait ManualInstanceReference<T>: InstanceReference<T> {
-    fn write_named_field<S: AsRef<str>>(&self, field: S, val: T);
+    fn write_named_field<S: AsRef<str>>(&mut self, field: S, val: T);
     fn read_named_field<S: AsRef<str>>(&self, field: S) -> T;
 }
 
 impl<P, T: InstanceReference<P>> ManualInstanceReference<P> for T {
-    fn write_named_field<S: AsRef<str>>(&self, field: S, val: P) {
+    fn write_named_field<S: AsRef<str>>(&mut self, field: S, val: P) {
         let offset = self.get_class_schema().field_offset(field);
         self.write_field(offset, val);
     }
@@ -403,33 +382,37 @@ impl<P, T: InstanceReference<P>> ManualInstanceReference<P> for T {
 }
 
 pub trait ArrayReference<T: JavaPrimitive>: ObjectReference {
-    fn write_array(&self, index: usize, val: T);
+    fn write_array(&mut self, index: usize, val: T);
     fn read_array(&self, index: usize) -> T;
     fn array_length(&self) -> usize;
 }
 
 impl<T: JavaPrimitive> ArrayReference<T> for RawObject<Vec<T>> {
-    fn write_array(&self, index: usize, val: T) {
-        unsafe {
-            let array = &mut *self.fields.get();
-            assert!(index < array.len());
-            array[index] = val;
-        }
+    fn write_array(&mut self, index: usize, val: T) {
+        self.fields[index] = val;
+
+        // unsafe {
+        //     let array = &mut *self.fields.get();
+        //     assert!(index < array.len());
+        //     array[index] = val;
+        // }
     }
 
     fn read_array(&self, index: usize) -> T {
-        unsafe {
-            let array = &*self.fields.get();
-            assert!(index < array.len());
-            array[index]
-        }
+        self.fields[index]
+        // unsafe {
+        //     let array = &*self.fields.get();
+        //     assert!(index < array.len());
+        //     array[index]
+        // }
     }
 
     fn array_length(&self) -> usize {
-        unsafe {
-            let array = &*self.fields.get();
-            array.len()
-        }
+        self.fields.len()
+        // unsafe {
+        //     let array = &*self.fields.get();
+        //     array.len()
+        // }
     }
 }
 
@@ -438,38 +421,34 @@ where
     Self: Trace,
 {
     pub fn array_copy(&self, dst: ObjectHandle, src_pos: usize, dst_pos: usize, len: usize) {
-        let dst_array = dst.expect_array::<T>();
+        let mut dst_array = dst.expect_array::<T>();
+        let mut dst_lock = dst_array.lock();
+        // let src_vec = &*self.fields.get();
+        // let dst_vec = &mut *dst_array.deref().fields.get();
+        dst_lock.fields[dst_pos..dst_pos + len]
+            .copy_from_slice(&self.fields[src_pos..src_pos + len]);
 
-        unsafe {
-            let src_vec = &*self.fields.get();
-            let dst_vec = &mut *dst_array.deref().fields.get();
-            dst_vec[dst_pos..dst_pos + len].copy_from_slice(&src_vec[src_pos..src_pos + len]);
-        }
-
-        //
-        // for offset in 0..length as usize {
-        //     dst_vec[dst_pos as usize + offset] = src_vec[src_pos as usize + offset].clone();
+        // unsafe {
+        //     let src_vec = &*self.fields.get();
+        //     let dst_vec = &mut *dst_array.deref().fields.get();
+        //     dst_vec[dst_pos..dst_pos + len].copy_from_slice(&src_vec[src_pos..src_pos + len]);
         // }
     }
 }
 
-impl<T: JavaPrimitive> Deref for RawObject<Vec<T>>
-where
-    RawObject<Vec<T>>: ArrayReference<T>,
-{
+impl<T> Deref for RawObject<Vec<T>> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.fields.get() }
+        &self.fields
+        // unsafe { &*self.fields.get() }
     }
 }
 
-impl<T: JavaPrimitive> DerefMut for RawObject<Vec<T>>
-where
-    RawObject<Vec<T>>: ArrayReference<T>,
-{
+impl<T> DerefMut for RawObject<Vec<T>> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.fields.get() }
+        &mut self.fields
+        // unsafe { &mut *self.fields.get() }
     }
 }
 
@@ -495,27 +474,35 @@ pub trait ConstTypeId {
 impl ConstTypeId for jboolean {
     const ID: JavaTypeEnum = JavaTypeEnum::Boolean;
 }
+
 impl ConstTypeId for jbyte {
     const ID: JavaTypeEnum = JavaTypeEnum::Byte;
 }
+
 impl ConstTypeId for jshort {
     const ID: JavaTypeEnum = JavaTypeEnum::Short;
 }
+
 impl ConstTypeId for jchar {
     const ID: JavaTypeEnum = JavaTypeEnum::Char;
 }
+
 impl ConstTypeId for jint {
     const ID: JavaTypeEnum = JavaTypeEnum::Int;
 }
+
 impl ConstTypeId for jlong {
     const ID: JavaTypeEnum = JavaTypeEnum::Long;
 }
+
 impl ConstTypeId for jfloat {
     const ID: JavaTypeEnum = JavaTypeEnum::Float;
 }
+
 impl ConstTypeId for jdouble {
     const ID: JavaTypeEnum = JavaTypeEnum::Double;
 }
+
 impl ConstTypeId for Option<ObjectHandle> {
     const ID: JavaTypeEnum = JavaTypeEnum::Reference;
 }
