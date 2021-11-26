@@ -16,6 +16,9 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ptr::null_mut;
 use std::sync::Arc;
 
+#[cfg(feature = "inkwell")]
+use inkwell::{context::Context, types::PointerType};
+
 pub trait JavaPrimitive: 'static + Sized + Copy + ConstTypeId {
     fn pack(self) -> jvalue;
     fn unpack(val: jvalue) -> Self;
@@ -393,6 +396,24 @@ impl BufferedRead for FieldDescriptor {
 }
 
 impl FieldDescriptor {
+    // #[cfg(feature = "llvm")]
+    // pub fn llvm_type(&self, context: &Context) {
+    //     match self {
+    //         FieldDescriptor::Byte => context.i8_type(),
+    //         FieldDescriptor::Char => context.i16_type(),
+    //         FieldDescriptor::Double => context.f64_type(),
+    //         FieldDescriptor::Float => context.f32_type(),
+    //         FieldDescriptor::Int => context.i32_type(),
+    //         FieldDescriptor::Long => context.i64_type(),
+    //         FieldDescriptor::Short => context.i16_type(),
+    //         FieldDescriptor::Boolean => context.bool_type(),
+    //         FieldDescriptor::Object(_) => PointerType::, None),
+    //         FieldDescriptor::Array(_) => {}
+    //         FieldDescriptor::Void => {}
+    //         FieldDescriptor::Method { .. } => {}
+    //     };
+    // }
+
     pub fn ffi_arg_type(&self) -> Type {
         match self {
             FieldDescriptor::Byte => Type::i8(),

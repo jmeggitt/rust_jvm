@@ -215,12 +215,10 @@ where
             <Option<ObjectHandle>>::ID => write!(f, "Object"),
         }?;
 
-        unsafe {
-            write!(f, "[")?;
-            self.fields.non_cyclical_fmt(f, touched)?;
-            // write!(f, "[{:?}]", &*self.fields.get())
-            write!(f, "]")
-        }
+        write!(f, "[")?;
+        self.fields.non_cyclical_fmt(f, touched)?;
+        // write!(f, "[{:?}]", &*self.fields.get())
+        write!(f, "]")
     }
 }
 
@@ -421,7 +419,7 @@ where
     Self: Trace,
 {
     pub fn array_copy(&self, dst: ObjectHandle, src_pos: usize, dst_pos: usize, len: usize) {
-        let mut dst_array = dst.expect_array::<T>();
+        let dst_array = dst.expect_array::<T>();
         let mut dst_lock = dst_array.lock();
         // let src_vec = &*self.fields.get();
         // let dst_vec = &mut *dst_array.deref().fields.get();

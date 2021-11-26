@@ -11,7 +11,6 @@ use walkdir::WalkDir;
 
 // use crate::class::{Class, ClassLoader, MethodInfo};
 // use crate::constant_pool::Constant;
-use crate::class::constant::Constant;
 use crate::class::{Class, ClassLoader, MethodInfo};
 use crate::jvm::call::{build_interface, clean_str, NativeManager, VirtualMachine};
 use crate::jvm::hooks::register_hooks;
@@ -237,7 +236,7 @@ impl JavaEnv {
         class: &str,
         method: &str,
         desc: &str,
-    ) -> Option<(String, MethodInfo, Vec<Constant>)> {
+    ) -> Option<(String, MethodInfo)> {
         // For arrays, defer to java/lang/Object
         if class.starts_with('[') {
             return self.find_instance_method("java/lang/Object", method, desc);
@@ -249,7 +248,7 @@ impl JavaEnv {
             return Some((
                 class.to_string(),
                 main_method.clone(),
-                entry_class.constants.to_owned(),
+                // entry_class.constants.to_owned(),
             ));
         }
 

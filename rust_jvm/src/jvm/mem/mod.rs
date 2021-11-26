@@ -2,14 +2,17 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::mem::transmute_copy;
 
-use jni::sys::{jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
+use jni::sys::{jboolean, jbyte, jchar, jdouble, jfloat, jint, jlong, jshort, jvalue};
 
 use std::fmt::{Debug, Formatter};
 
+use byteorder::{BigEndian, ByteOrder};
+use cesu8::from_java_cesu8;
 pub use handle::*;
 pub use raw::*;
 pub use schema::*;
 use std::collections::HashSet;
+use std::convert::TryFrom;
 pub use types::*;
 
 mod ffi;
@@ -20,6 +23,7 @@ mod schema;
 mod string;
 mod types;
 
+use crate::jvm::call::FlowControl;
 pub use gc::*;
 
 // TODO: Define shortcuts based on types
@@ -38,6 +42,313 @@ pub enum JavaValue {
     Long(jlong),
     Double(jdouble),
     Reference(Option<ObjectHandle>),
+}
+
+pub enum ComputationalType {
+    Category1,
+    Category2,
+}
+
+pub trait StackValue: TryFrom<JavaValue, Error = FlowControl> + Into<JavaValue> {
+    const CATEGORY: ComputationalType;
+}
+
+impl TryFrom<JavaValue> for jboolean {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Byte(x) => Ok(x as jboolean),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for bool {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Byte(x) => Ok(x != 0),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for jbyte {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Byte(x) => Ok(x),
+            JavaValue::Char(x) => Ok(x as jbyte),
+            JavaValue::Short(x) => Ok(x as jbyte),
+            JavaValue::Int(x) => Ok(x as jbyte),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for jchar {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Char(x) => Ok(x),
+            JavaValue::Byte(x) => Ok(x as jchar),
+            JavaValue::Short(x) => Ok(x as jchar),
+            JavaValue::Int(x) => Ok(x as jchar),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+/// This version is dangerous since it does not preserve the value of the jchar and may produce an
+/// exception if not in valid modified ceus8.
+impl TryFrom<JavaValue> for char {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        let character = match value {
+            JavaValue::Char(x) => x,
+            JavaValue::Byte(x) => x as jchar,
+            JavaValue::Short(x) => x as jchar,
+            JavaValue::Int(x) => x as jchar,
+            _ => {
+                return Err(FlowControl::throw(
+                    "java/lang/UnsupportedOperationException",
+                ))
+            }
+        };
+
+        let mut buffer = [0u8; 2];
+        BigEndian::write_u16(&mut buffer, character);
+
+        match from_java_cesu8(&buffer) {
+            Ok(string) => Ok(string.chars().next().unwrap()),
+            Err(_) => Err(FlowControl::throw("java/lang/InternalError")),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for jshort {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Byte(x) => Ok(x as jshort),
+            JavaValue::Char(x) => Ok(x as jshort),
+            JavaValue::Short(x) => Ok(x),
+            JavaValue::Int(x) => Ok(x as jshort),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for jint {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Byte(x) => Ok(x as jint),
+            JavaValue::Char(x) => Ok(x as jint),
+            JavaValue::Short(x) => Ok(x as jint),
+            JavaValue::Int(x) => Ok(x),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for jfloat {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Float(x) => Ok(x),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for jlong {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Long(x) => Ok(x),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for jdouble {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Double(x) => Ok(x),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for Option<ObjectHandle> {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Reference(x) => Ok(x),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl TryFrom<JavaValue> for ObjectHandle {
+    type Error = FlowControl;
+
+    fn try_from(value: JavaValue) -> Result<Self, Self::Error> {
+        match value {
+            JavaValue::Reference(Some(x)) => Ok(x),
+            JavaValue::Reference(None) => Err(FlowControl::throw("java/lang/NullPointerException")),
+            _ => Err(FlowControl::throw(
+                "java/lang/UnsupportedOperationException",
+            )),
+        }
+    }
+}
+
+impl From<jboolean> for JavaValue {
+    fn from(x: jboolean) -> Self {
+        JavaValue::Byte(x as jbyte)
+    }
+}
+
+impl From<bool> for JavaValue {
+    fn from(x: bool) -> Self {
+        JavaValue::Byte(x as jbyte)
+    }
+}
+
+impl From<jbyte> for JavaValue {
+    fn from(x: jbyte) -> Self {
+        JavaValue::Byte(x)
+    }
+}
+
+impl From<jchar> for JavaValue {
+    fn from(x: jchar) -> Self {
+        JavaValue::Char(x)
+    }
+}
+
+impl From<char> for JavaValue {
+    fn from(x: char) -> Self {
+        JavaValue::Char(x as jchar)
+    }
+}
+
+impl From<jshort> for JavaValue {
+    fn from(x: jshort) -> Self {
+        JavaValue::Short(x)
+    }
+}
+
+impl From<jint> for JavaValue {
+    fn from(x: jint) -> Self {
+        JavaValue::Int(x)
+    }
+}
+
+impl From<jfloat> for JavaValue {
+    fn from(x: jfloat) -> Self {
+        JavaValue::Float(x)
+    }
+}
+
+impl From<jlong> for JavaValue {
+    fn from(x: jlong) -> Self {
+        JavaValue::Long(x)
+    }
+}
+
+impl From<jdouble> for JavaValue {
+    fn from(x: jdouble) -> Self {
+        JavaValue::Double(x)
+    }
+}
+
+impl From<Option<ObjectHandle>> for JavaValue {
+    fn from(x: Option<ObjectHandle>) -> Self {
+        JavaValue::Reference(x)
+    }
+}
+
+impl StackValue for jboolean {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for bool {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for jbyte {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for jchar {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for char {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for jshort {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for jint {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for jfloat {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for Option<ObjectHandle> {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for ObjectHandle {
+    const CATEGORY: ComputationalType = ComputationalType::Category1;
+}
+
+impl StackValue for jlong {
+    const CATEGORY: ComputationalType = ComputationalType::Category2;
+}
+
+impl StackValue for jdouble {
+    const CATEGORY: ComputationalType = ComputationalType::Category2;
 }
 
 impl Hash for JavaValue {

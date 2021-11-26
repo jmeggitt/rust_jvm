@@ -1,3 +1,4 @@
+use crate::jvm::call::FlowControl;
 use crate::jvm::mem::ffi::ClassCastError;
 use crate::jvm::mem::{ManualInstanceReference, ObjectHandle, ObjectReference, RawInstanceObject};
 use byteorder::{BigEndian, ByteOrder};

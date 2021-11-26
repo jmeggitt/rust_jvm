@@ -12,13 +12,11 @@ use crate::jvm::JavaEnv;
 use jni::sys::*;
 use log::LevelFilter;
 use simplelog::{
-    ColorChoice, CombinedLogger, Config, ConfigBuilder, TermLogger, TerminalMode, ThreadLogMode,
-    WriteLogger,
+    ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode, ThreadLogMode, WriteLogger,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::env::var;
 use std::ffi::{c_void, CStr};
-use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::os::raw::c_char;
 use std::path::PathBuf;

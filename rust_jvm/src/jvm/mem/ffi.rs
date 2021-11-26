@@ -1,18 +1,27 @@
 //! Convenience types that can be used in FFI which make it easier to access data when the type is
 //! known.
 
-use crate::jvm::mem::{
-    GcBox, ManualInstanceReference, ObjectHandle, ObjectReference, RawInstanceObject, RawObject,
-};
-use byteorder::{BigEndian, ByteOrder};
-use jni::sys::{jchar, jvalue};
-use std::convert::TryFrom;
-use std::ops::{Deref, DerefMut};
+// use crate::jvm::mem::{
+//     GcBox, ManualInstanceReference, ObjectHandle, ObjectReference, RawInstanceObject, RawObject,
+// };
+// use byteorder::{BigEndian, ByteOrder};
+// use jni::sys::{jchar, jvalue};
+// use std::convert::TryFrom;
+// use std::ops::{Deref, DerefMut};
+
+use crate::jvm::call::FlowControl;
 
 #[derive(Debug, Clone)]
 pub struct ClassCastError {
     pub received: String,
     pub expected: String,
+}
+
+impl From<ClassCastError> for FlowControl {
+    fn from(_err: ClassCastError) -> Self {
+        // TODO: Fill in fields of ClassCastException
+        FlowControl::throw("java/lang/ClassCastException")
+    }
 }
 
 // #[derive(Copy, Clone)]

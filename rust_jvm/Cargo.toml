@@ -16,6 +16,7 @@ priority = ["thread-priority", "crossbeam-channel"]
 callstack = ["serde_json"]
 quiet = []
 debug = []
+llvm = ["inkwell"]
 
 [dependencies]
 byteorder = "1.4.3"
@@ -68,3 +69,11 @@ features = ["max_level_debug", "release_max_level_trace", "std", "serde"]
 [build-dependencies]
 walkdir = "2.3.2"
 cc = "1.0"
+
+
+[dependencies.inkwell]
+version = "0.1.0-beta.4"
+features = ["llvm12-0"]
+optional = true
+
+

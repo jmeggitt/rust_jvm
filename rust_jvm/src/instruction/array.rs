@@ -1,5 +1,4 @@
 // use crate::constant_pool::{Constant, ConstantClass};
-use crate::class::constant::{Constant, ConstantClass};
 use crate::instruction::InstructionAction;
 use crate::jvm::call::{FlowControl, StackFrame};
 use crate::jvm::mem::ArrayReference;
@@ -80,13 +79,15 @@ impl InstructionAction for anewarray {
     ) -> Result<(), FlowControl> {
         let anewarray(index) = *self;
 
-        let class_name = match &frame.constants[index as usize - 1] {
-            Constant::Class(ConstantClass { name_index }) => frame.constants
-                [*name_index as usize - 1]
-                .expect_utf8()
-                .unwrap(),
-            x => panic!("anewarray not implemented for {:?}", x),
-        };
+        // let class_name = match &frame.constants[index] {
+        //     Constant::Class(ConstantClass { name_index }) => frame.constants.text(*name_index),
+        //         // frame.constants
+        //         // [*name_index as usize - 1]
+        //         // .expect_utf8()
+        //         // .unwrap(),
+        //     x => panic!("anewarray not implemented for {:?}", x),
+        // };
+        let class_name = frame.constants.class_name(index);
 
         debug!("Creating array for {}", &class_name);
 

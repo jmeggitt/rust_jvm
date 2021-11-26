@@ -23,7 +23,7 @@ mod stack;
 pub mod callstack_trace;
 mod ffi;
 
-use crate::class::constant::ClassElement;
+use crate::class::constant::{ClassElement, ConstantPool};
 use crate::class::AccessFlags;
 use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::thread::{handle_thread_updates, SynchronousMonitor};
@@ -263,7 +263,7 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             }
             panic!("Failed local verification");
         }
-        let (class_name, method, constants) =
+        let (class_name, method) =
             match self
                 .read()
                 .find_instance_method(&element.class, &element.element, &element.desc)
@@ -271,6 +271,15 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
                 Some(v) => v,
                 _ => panic!("Unable to find {:?}", element),
             };
+
+        let class_constants = self
+            .read()
+            .class_loader
+            .class(&class_name)
+            .unwrap()
+            .constants
+            .to_owned();
+        let constants = ConstantPool::from(&class_constants[..]);
 
         {
             let mut jvm = self.write();

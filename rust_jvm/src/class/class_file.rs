@@ -478,12 +478,10 @@ impl MethodInfo {
         pool[self.descriptor_index as usize - 1].expect_utf8()
     }
 
-    pub fn code(&self, pool: &[Constant]) -> CodeAttribute {
+    pub fn code(&self, pool: &ConstantPool) -> CodeAttribute {
         for attr in &self.attributes {
-            if let Some(v) = pool[attr.name_index as usize - 1].expect_utf8() {
-                if &v != "Code" {
-                    continue;
-                }
+            if pool.text(attr.name_index) != "Code" {
+                continue;
             }
 
             let mut buffer = Cursor::new(attr.info.clone());

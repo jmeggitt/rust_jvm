@@ -230,10 +230,11 @@ impl InstructionAction for checkcast {
         jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let checkcast(index) = *self;
-        let class_index = frame.constants[index as usize - 1].expect_class().unwrap();
-        let class_name = frame.constants[class_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
+        // let class_index = frame.constants[index as usize - 1].expect_class().unwrap();
+        // let class_name = frame.constants[class_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
+        let class_name = frame.constants.class_name(index);
 
         if let JavaValue::Reference(Some(v)) = &frame.stack[frame.stack.len() - 1] {
             if matches!(
@@ -293,26 +294,30 @@ impl InstructionAction for ldc {
     ) -> Result<(), FlowControl> {
         let ldc(index) = *self;
 
-        frame
-            .stack
-            .push(match &frame.constants[index as usize - 1] {
-                Constant::Int(ConstantInteger { value }) => JavaValue::Int(*value),
-                Constant::Float(ConstantFloat { value }) => JavaValue::Float(*value),
-                Constant::String(ConstantString { string_index }) => {
-                    let text = frame.constants[*string_index as usize - 1]
-                        .expect_utf8()
-                        .unwrap();
-                    jvm.write().build_string(&text)
-                }
-                Constant::Class(ConstantClass { name_index }) => {
-                    let name = frame.constants[*name_index as usize - 1]
-                        .expect_utf8()
-                        .unwrap();
-                    JavaValue::Reference(Some(jvm.write().class_instance(&name)))
-                    // JavaValue::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
-                }
-                x => panic!("Attempted to push {:?} to the stack", x),
-            });
+        frame.stack.push(match &frame.constants[index as u16] {
+            Constant::Int(ConstantInteger { value }) => JavaValue::Int(*value),
+            Constant::Float(ConstantFloat { value }) => JavaValue::Float(*value),
+            Constant::String(ConstantString { string_index }) => {
+                // let text = frame.constants[*string_index as usize - 1]
+                //     .expect_utf8()
+                //     .unwrap();
+                // jvm.write().build_string(&text)
+                jvm.write()
+                    .build_string(frame.constants.text(*string_index))
+            }
+            Constant::Class(ConstantClass { name_index }) => {
+                // let name = frame.constants[*name_index as usize - 1]
+                //     .expect_utf8()
+                //     .unwrap();
+                // JavaValue::Reference(Some(jvm.write().class_instance(&name)))
+                JavaValue::Reference(Some(
+                    jvm.write()
+                        .class_instance(frame.constants.text(*name_index)),
+                ))
+                // JavaValue::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
+            }
+            x => panic!("Attempted to push {:?} to the stack", x),
+        });
         Ok(())
     }
 }
@@ -327,26 +332,30 @@ impl InstructionAction for ldc_w {
     ) -> Result<(), FlowControl> {
         let ldc_w(index) = *self;
 
-        frame
-            .stack
-            .push(match &frame.constants[index as usize - 1] {
-                Constant::Int(ConstantInteger { value }) => JavaValue::Int(*value),
-                Constant::Float(ConstantFloat { value }) => JavaValue::Float(*value),
-                Constant::String(ConstantString { string_index }) => {
-                    let text = frame.constants[*string_index as usize - 1]
-                        .expect_utf8()
-                        .unwrap();
-                    jvm.write().build_string(&text)
-                }
-                Constant::Class(ConstantClass { name_index }) => {
-                    let name = frame.constants[*name_index as usize - 1]
-                        .expect_utf8()
-                        .unwrap();
-                    JavaValue::Reference(Some(jvm.write().class_instance(&name)))
-                    // JavaValue::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
-                }
-                x => panic!("Attempted to push {:?} to the stack", x),
-            });
+        frame.stack.push(match &frame.constants[index] {
+            Constant::Int(ConstantInteger { value }) => JavaValue::Int(*value),
+            Constant::Float(ConstantFloat { value }) => JavaValue::Float(*value),
+            Constant::String(ConstantString { string_index }) => {
+                // let text = frame.constants[*string_index as usize - 1]
+                //     .expect_utf8()
+                //     .unwrap();
+                // jvm.write().build_string(&text)
+                jvm.write()
+                    .build_string(frame.constants.text(*string_index))
+            }
+            Constant::Class(ConstantClass { name_index }) => {
+                // let name = frame.constants[*name_index as usize - 1]
+                //     .expect_utf8()
+                //     .unwrap();
+                // JavaValue::Reference(Some(jvm.write().class_instance(&name)))
+                JavaValue::Reference(Some(
+                    jvm.write()
+                        .class_instance(frame.constants.text(*name_index)),
+                ))
+                // JavaValue::Reference(Some(Rc::new(RefCell::new(Object::Class(name)))))
+            }
+            x => panic!("Attempted to push {:?} to the stack", x),
+        });
         Ok(())
     }
 }
@@ -361,7 +370,7 @@ impl InstructionAction for ldc2_w {
     ) -> Result<(), FlowControl> {
         let ldc2_w(index) = *self;
 
-        let value = match &frame.constants[index as usize - 1] {
+        let value = match &frame.constants[index] {
             Constant::Double(ConstantDouble { value }) => JavaValue::Double(*value),
             Constant::Long(ConstantLong { value }) => JavaValue::Long(*value),
             x => panic!("Attempted to push {:?} to the stack", x),

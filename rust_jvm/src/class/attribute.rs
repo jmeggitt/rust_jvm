@@ -4,7 +4,7 @@ use std::io::{Cursor, Read, Seek, Write};
 use byteorder::{BigEndian, ReadBytesExt};
 
 use crate::class::class_file::AttributeInfo;
-use crate::class::constant::{Constant, ConstantPool};
+use crate::class::constant::ConstantPool;
 use crate::class::{AccessFlags, BufferedRead, DebugWithConst};
 use crate::instruction::Instruction;
 use crate::instruction::InstructionReader;
@@ -59,7 +59,7 @@ impl CodeAttribute {
         &self,
         pos: u64,
         class: &str,
-        pool: &[Constant],
+        pool: &ConstantPool,
         jvm: &mut JavaEnv,
     ) -> Option<u64> {
         // I assume that the first one that fits is the one to use?
@@ -68,10 +68,11 @@ impl CodeAttribute {
                 continue;
             }
 
-            let index = pool[range.catch_type as usize - 1].expect_class().unwrap();
-            let catch_target = pool[index as usize - 1].expect_utf8().unwrap();
+            let catch_target = pool.class_name(range.catch_type);
+            // let index = pool[range.catch_type as usize - 1].expect_class().unwrap();
+            // let catch_target = pool[index as usize - 1].expect_utf8().unwrap();
 
-            if jvm.instanceof(class, &catch_target) == Some(true) {
+            if jvm.instanceof(class, catch_target) == Some(true) {
                 return Some(range.catch_start as u64);
             }
         }

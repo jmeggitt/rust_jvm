@@ -5,8 +5,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::class::constant::{
     ClassElement, Constant, ConstantClass, ConstantDouble, ConstantFloat, ConstantInteger,
-    ConstantLong, ConstantMethodHandle, ConstantMethodType, ConstantPool, ConstantString,
-    ReferenceKind,
+    ConstantLong, ConstantMethodHandle, ConstantMethodType, ConstantString, ReferenceKind,
 };
 use crate::class::{AccessFlags, BufferedRead};
 use crate::instruction::{Instruction, InstructionAction, StaticInstruct};
@@ -49,22 +48,25 @@ impl InstructionAction for getstatic {
     ) -> Result<(), FlowControl> {
         let getstatic(field) = *self;
 
-        if let Constant::FieldRef(reference) = &frame.constants[field as usize - 1] {
-            let class = frame.constants[reference.class_index as usize - 1]
-                .expect_class()
-                .unwrap();
-            let mut class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+        if let Constant::FieldRef(reference) = &frame.constants[field] {
+            // let class = frame.constants[reference.class_index as usize - 1]
+            //     .expect_class()
+            //     .unwrap();
+            // let mut class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+            let mut class_name = frame.constants.class_name(reference.class_index).to_owned();
             jvm.init_class(&class_name);
 
-            let field = frame.constants[reference.name_and_type_index as usize - 1]
-                .expect_name_and_type()
-                .unwrap();
-            let field_name = frame.constants[field.name_index as usize - 1]
-                .expect_utf8()
-                .unwrap();
-            let descriptor = frame.constants[field.descriptor_index as usize - 1]
-                .expect_utf8()
-                .unwrap();
+            // let field = frame.constants[reference.name_and_type_index as usize - 1]
+            //     .expect_name_and_type()
+            //     .unwrap();
+            // let field_name = frame.constants[field.name_index as usize - 1]
+            //     .expect_utf8()
+            //     .unwrap();
+            // let descriptor = frame.constants[field.descriptor_index as usize - 1]
+            //     .expect_utf8()
+            //     .unwrap();
+            let (field_name, descriptor) =
+                frame.constants.name_and_type(reference.name_and_type_index);
 
             #[cfg(feature = "profile")]
             let mut profile_scope = thread_profiler::ProfileScope::new("acquire-write-lock".into());
@@ -135,28 +137,29 @@ impl InstructionAction for invokestatic {
     ) -> Result<(), FlowControl> {
         let invokestatic(field) = *self;
 
-        let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
-            Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),
-            Constant::InterfaceMethodRef(v) => (v.class_index, v.name_and_type_index),
-            _ => panic!(),
-        };
-
-        let class = frame.constants[class_index as usize - 1]
-            .expect_class()
-            .unwrap();
-        let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+        let (class_name, field_name, descriptor) = frame.constants.class_element_ref(field);
+        // let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
+        //     Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),
+        //     Constant::InterfaceMethodRef(v) => (v.class_index, v.name_and_type_index),
+        //     _ => panic!(),
+        // };
+        //
+        // let class = frame.constants[class_index as usize - 1]
+        //     .expect_class()
+        //     .unwrap();
+        // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
         jvm.init_class(&class_name);
         jvm.write().class_loader.attempt_load(&class_name).unwrap();
 
-        let field = frame.constants[desc_index as usize - 1]
-            .expect_name_and_type()
-            .unwrap();
-        let field_name = frame.constants[field.name_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
-        let descriptor = frame.constants[field.descriptor_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
+        // let field = frame.constants[desc_index as usize - 1]
+        //     .expect_name_and_type()
+        //     .unwrap();
+        // let field_name = frame.constants[field.name_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
+        // let descriptor = frame.constants[field.descriptor_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
 
         if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
             let stack_args =
@@ -200,26 +203,30 @@ impl InstructionAction for putstatic {
     ) -> Result<(), FlowControl> {
         let putstatic(field) = *self;
 
-        let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
-            Constant::FieldRef(v) => (v.class_index, v.name_and_type_index),
-            x => panic!("Unexpected constant in putstatic: {:?}", x),
-        };
+        let (class_name, field_name, descriptor) = frame.constants.class_element_ref(field);
 
-        let class = frame.constants[class_index as usize - 1]
-            .expect_class()
-            .unwrap();
-        let mut class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+        // TODO: This probably is not required by specification
+        let mut class_name = class_name.to_owned();
+        // let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
+        //     Constant::FieldRef(v) => (v.class_index, v.name_and_type_index),
+        //     x => panic!("Unexpected constant in putstatic: {:?}", x),
+        // };
+        //
+        // let class = frame.constants[class_index as usize - 1]
+        //     .expect_class()
+        //     .unwrap();
+        // let mut class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
         jvm.init_class(&class_name);
 
-        let field = frame.constants[desc_index as usize - 1]
-            .expect_name_and_type()
-            .unwrap();
-        let field_name = frame.constants[field.name_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
-        let descriptor = frame.constants[field.descriptor_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
+        // let field = frame.constants[desc_index as usize - 1]
+        //     .expect_name_and_type()
+        //     .unwrap();
+        // let field_name = frame.constants[field.name_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
+        // let descriptor = frame.constants[field.descriptor_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
 
         loop {
             let lock = jvm.read();
@@ -264,27 +271,29 @@ impl InstructionAction for invokevirtual {
     ) -> Result<(), FlowControl> {
         let invokevirtual(field) = *self;
 
-        let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
-            Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),
-            Constant::InterfaceMethodRef(v) => (v.class_index, v.name_and_type_index),
-            x => panic!("Unexpected constant in putstatic: {:?}", x),
-        };
+        let (class_name, field_name, descriptor) = frame.constants.class_element_ref(field);
 
-        let class = frame.constants[class_index as usize - 1]
-            .expect_class()
-            .unwrap();
-        let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+        // let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
+        //     Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),
+        //     Constant::InterfaceMethodRef(v) => (v.class_index, v.name_and_type_index),
+        //     x => panic!("Unexpected constant in putstatic: {:?}", x),
+        // };
+        //
+        // let class = frame.constants[class_index as usize - 1]
+        //     .expect_class()
+        //     .unwrap();
+        // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
         // jvm.init_class(&class_name);
 
-        let field = frame.constants[desc_index as usize - 1]
-            .expect_name_and_type()
-            .unwrap();
-        let field_name = frame.constants[field.name_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
-        let descriptor = frame.constants[field.descriptor_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
+        // let field = frame.constants[desc_index as usize - 1]
+        //     .expect_name_and_type()
+        //     .unwrap();
+        // let field_name = frame.constants[field.name_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
+        // let descriptor = frame.constants[field.descriptor_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
 
         if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
             let stack_args =
@@ -341,10 +350,12 @@ impl InstructionAction for new {
         jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
         let new(field) = *self;
-        let class = frame.constants[field as usize - 1]
-            .expect_class()
-            .expect("Expected class from constant pool");
-        let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+
+        let class_name = frame.constants.class_name(field);
+        // let class = frame.constants[field as usize - 1]
+        //     .expect_class()
+        //     .expect("Expected class from constant pool");
+        // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
 
         if class_name.ends_with("Exception") || class_name.ends_with("Error") {
             #[cfg(feature = "callstack")]
@@ -373,29 +384,31 @@ impl InstructionAction for invokespecial {
         let invokespecial(field) = *self;
         // frame.debug_print();
 
-        let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
-            Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),
-            Constant::InterfaceMethodRef(v) => (v.class_index, v.name_and_type_index),
-            x => panic!("Unexpected constant in putstatic: {:?}", x),
-        };
+        let (class_name, field_name, descriptor) = frame.constants.class_element_ref(field);
 
-        let class = frame.constants[class_index as usize - 1]
-            .expect_class()
-            .unwrap();
-        let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+        // let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
+        //     Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),
+        //     Constant::InterfaceMethodRef(v) => (v.class_index, v.name_and_type_index),
+        //     x => panic!("Unexpected constant in putstatic: {:?}", x),
+        // };
+        //
+        // let class = frame.constants[class_index as usize - 1]
+        //     .expect_class()
+        //     .unwrap();
+        // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
         // jvm.init_class(&class_name);
 
-        let field = frame.constants[desc_index as usize - 1]
-            .expect_name_and_type()
-            .unwrap();
-        let field_name = frame.constants[field.name_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
-        let descriptor = frame.constants[field.descriptor_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
+        // let field = frame.constants[desc_index as usize - 1]
+        //     .expect_name_and_type()
+        //     .unwrap();
+        // let field_name = frame.constants[field.name_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
+        // let descriptor = frame.constants[field.descriptor_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
 
-        let (method_class, _main_method, _constants) =
+        let (method_class, _main_method) =
             match jvm
                 .read()
                 .find_instance_method(&class_name, &field_name, &descriptor)
@@ -439,7 +452,7 @@ impl InstructionAction for invokespecial {
             // info!("Got target: {}", target.get_class());
 
             // stack_args.insert(0, JavaValue::Reference(Some(target.clone())));
-            let method = ClassElement::new(method_class, field_name, descriptor);
+            let method = ClassElement::new(method_class.as_str(), field_name, descriptor);
             match jvm.invoke_special(method, target, stack_args) {
                 // match jvm.exec(target, &method_class, main_method, constants, stack_args) {
                 Ok(Some(JavaValue::Long(v))) => {
@@ -474,17 +487,19 @@ impl InstructionAction for getfield {
     ) -> Result<(), FlowControl> {
         let getfield(field) = *self;
 
-        let (_, desc_index) = match &frame.constants[field as usize - 1] {
-            Constant::FieldRef(v) => (v.class_index, v.name_and_type_index),
-            x => panic!("Unexpected constant in getfield: {:?}", x),
-        };
+        let (_class_name, field_name, _descriptor) = frame.constants.class_element_ref(field);
 
-        let field = frame.constants[desc_index as usize - 1]
-            .expect_name_and_type()
-            .unwrap();
-        let field_name = frame.constants[field.name_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
+        // let (_, desc_index) = match &frame.constants[field as usize - 1] {
+        //     Constant::FieldRef(v) => (v.class_index, v.name_and_type_index),
+        //     x => panic!("Unexpected constant in getfield: {:?}", x),
+        // };
+        //
+        // let field = frame.constants[desc_index as usize - 1]
+        //     .expect_name_and_type()
+        //     .unwrap();
+        // let field_name = frame.constants[field.name_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
 
         if let Some(JavaValue::Reference(Some(obj))) = frame.stack.pop() {
             let instance = obj.expect_instance();
@@ -527,26 +542,28 @@ impl InstructionAction for putfield {
     ) -> Result<(), FlowControl> {
         let putfield(field) = *self;
 
-        let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
-            Constant::FieldRef(v) => (v.class_index, v.name_and_type_index),
-            x => panic!("Unexpected constant in putfield: {:?}", x),
-        };
+        let (class_name, field_name, desc_name) = frame.constants.class_element_ref(field);
 
-        let class_index = frame.constants[class_index as usize - 1]
-            .expect_class()
-            .unwrap();
-        let class_name = frame.constants[class_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
-        let field = frame.constants[desc_index as usize - 1]
-            .expect_name_and_type()
-            .unwrap();
-        let field_name = frame.constants[field.name_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
-        let desc_name = frame.constants[field.descriptor_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
+        // let (class_index, desc_index) = match &frame.constants[field as usize - 1] {
+        //     Constant::FieldRef(v) => (v.class_index, v.name_and_type_index),
+        //     x => panic!("Unexpected constant in putfield: {:?}", x),
+        // };
+        //
+        // let class_index = frame.constants[class_index as usize - 1]
+        //     .expect_class()
+        //     .unwrap();
+        // let class_name = frame.constants[class_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
+        // let field = frame.constants[desc_index as usize - 1]
+        //     .expect_name_and_type()
+        //     .unwrap();
+        // let field_name = frame.constants[field.name_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
+        // let desc_name = frame.constants[field.descriptor_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
 
         // jvm.debug_print_call_stack();
         // frame.debug_print();
@@ -619,27 +636,29 @@ impl InstructionAction for invokeinterface {
     ) -> Result<(), FlowControl> {
         let invokeinterface { index, .. } = *self;
 
-        let (class_index, desc_index) = match &frame.constants[index as usize - 1] {
-            Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),
-            Constant::InterfaceMethodRef(v) => (v.class_index, v.name_and_type_index),
-            x => panic!("Unexpected constant in putstatic: {:?}", x),
-        };
+        let (class_name, field_name, descriptor) = frame.constants.class_element_ref(index);
 
-        let class = frame.constants[class_index as usize - 1]
-            .expect_class()
-            .unwrap();
-        let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
-        // jvm.init_class(&class_name);
-
-        let field = frame.constants[desc_index as usize - 1]
-            .expect_name_and_type()
-            .unwrap();
-        let field_name = frame.constants[field.name_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
-        let descriptor = frame.constants[field.descriptor_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
+        // let (class_index, desc_index) = match &frame.constants[index as usize - 1] {
+        //     Constant::MethodRef(v) => (v.class_index, v.name_and_type_index),
+        //     Constant::InterfaceMethodRef(v) => (v.class_index, v.name_and_type_index),
+        //     x => panic!("Unexpected constant in putstatic: {:?}", x),
+        // };
+        //
+        // let class = frame.constants[class_index as usize - 1]
+        //     .expect_class()
+        //     .unwrap();
+        // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+        // // jvm.init_class(&class_name);
+        //
+        // let field = frame.constants[desc_index as usize - 1]
+        //     .expect_name_and_type()
+        //     .unwrap();
+        // let field_name = frame.constants[field.name_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
+        // let descriptor = frame.constants[field.descriptor_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
 
         if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
             let stack_args =
@@ -696,10 +715,11 @@ impl InstructionAction for instanceof {
     ) -> Result<(), FlowControl> {
         let instanceof(class_index) = *self;
 
-        let class = frame.constants[class_index as usize - 1]
-            .expect_class()
-            .unwrap();
-        let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
+        let class_name = frame.constants.class_name(class_index);
+        // let class = frame.constants[class_index as usize - 1]
+        //     .expect_class()
+        //     .unwrap();
+        // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
 
         let target = match frame.stack.pop() {
             // Some(JavaValue::Reference(Some(v))) => unsafe { (&*v.get()).expect_class() },
@@ -771,22 +791,23 @@ impl InstructionAction for invokedynamic {
     ) -> Result<(), FlowControl> {
         let invokedynamic(field) = *self;
 
-        let constants = ConstantPool::from(&frame.constants[..]);
+        // let constants = ConstantPool::from(&frame.constants[..]);
 
-        let (bootstrap_idx, desc_index) = match &frame.constants[field as usize - 1] {
+        let (bootstrap_idx, desc_index) = match &frame.constants[field] {
             Constant::InvokeDynamic(v) => (v.bootstrap_method_attr_index, v.name_and_type_index),
             x => panic!("Unexpected constant in invokedynamic: {:?}", x),
         };
 
-        let field = frame.constants[desc_index as usize - 1]
-            .expect_name_and_type()
-            .unwrap();
-        let field_name = frame.constants[field.name_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
-        let descriptor = frame.constants[field.descriptor_index as usize - 1]
-            .expect_utf8()
-            .unwrap();
+        let (field_name, descriptor) = frame.constants.name_and_type(desc_index);
+        // let field = frame.constants[desc_index as usize - 1]
+        //     .expect_name_and_type()
+        //     .unwrap();
+        // let field_name = frame.constants[field.name_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
+        // let descriptor = frame.constants[field.descriptor_index as usize - 1]
+        //     .expect_utf8()
+        //     .unwrap();
 
         info!("Dynamic: {} {}", &field_name, &descriptor);
 
@@ -846,20 +867,22 @@ impl InstructionAction for invokedynamic {
         dyn_args.push(JavaValue::Reference(Some(desc)));
 
         for arg in bootstrap_method.bootstrap_arguments {
-            match &frame.constants[arg as usize - 1] {
+            match &frame.constants[arg] {
                 Constant::Class(ConstantClass { name_index }) => {
-                    let name = frame.constants[*name_index as usize - 1]
-                        .expect_utf8()
-                        .unwrap();
+                    let name = frame.constants.text(*name_index);
+                    // let name = frame.constants[*name_index as usize - 1]
+                    //     .expect_utf8()
+                    //     .unwrap();
                     info!("\tClass {}", &name);
                     dyn_args.push(JavaValue::Reference(Some(
                         jvm.write().class_instance(&name),
                     )));
                 }
                 Constant::String(ConstantString { string_index }) => {
-                    let name = frame.constants[*string_index as usize - 1]
-                        .expect_utf8()
-                        .unwrap();
+                    let name = frame.constants.text(*string_index);
+                    // let name = frame.constants[*string_index as usize - 1]
+                    //     .expect_utf8()
+                    //     .unwrap();
                     info!("\tString {}", &name);
                     dyn_args.push(jvm.write().build_string(&name));
                 }
@@ -882,9 +905,10 @@ impl InstructionAction for invokedynamic {
                     dyn_args.push(JavaValue::Double(*value));
                 }
                 Constant::MethodType(ConstantMethodType { descriptor_index }) => {
-                    let desc = frame.constants[*descriptor_index as usize - 1]
-                        .expect_utf8()
-                        .unwrap();
+                    let desc = frame.constants.text(*descriptor_index);
+                    // let desc = frame.constants[*descriptor_index as usize - 1]
+                    //     .expect_utf8()
+                    //     .unwrap();
                     info!("\tMethod Type {}", &desc);
                     let desc = FieldDescriptor::read_str(&desc).unwrap().to_class(jvm);
                     dyn_args.push(JavaValue::Reference(Some(desc)));
@@ -893,7 +917,7 @@ impl InstructionAction for invokedynamic {
                     reference_kind,
                     index,
                 }) => {
-                    let (class, field, desc) = constants.class_element_ref(*index);
+                    let (class, field, desc) = frame.constants.class_element_ref(*index);
                     let class_instance =
                         JavaValue::Reference(Some(jvm.write().class_instance(class)));
                     let field_name = jvm.write().build_string(field);
@@ -996,8 +1020,9 @@ impl InstructionAction for invokedynamic {
         // let class_name = frame.constants[class as usize - 1].expect_utf8().unwrap();
         // jvm.init_class(&class_name);
 
-        let (class_name, field_name, descriptor) =
-            constants.class_element_ref(bootstrap_method.bootstrap_method_ref);
+        let (class_name, field_name, descriptor) = frame
+            .constants
+            .class_element_ref(bootstrap_method.bootstrap_method_ref);
 
         // if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
         // let stack_args =
