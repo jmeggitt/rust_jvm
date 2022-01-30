@@ -2,7 +2,7 @@
 
 use std::any::Any;
 use std::fmt::Debug;
-use std::io::{self, Cursor, Error, ErrorKind};
+use std::io::{self, Cursor, Error, ErrorKind, Read};
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 
@@ -63,40 +63,11 @@ use crate::class::attribute::CodeAttribute;
 use crate::class::constant::ConstantPool;
 use crate::class::MethodInfo;
 use crate::jvm::mem::FieldDescriptor;
-// #[cfg(feature = "inkwell")]
-// use inkwell::{builder::Builder, context::Context, module::Module, values::InstructionValue};
-//
-// #[cfg(feature = "llvm")]
-// pub struct LLVMFnBuilder<'a> {
-//     pub context: &'a Context,
-//     pub module: Module<'a>,
-//     pub builder: Builder<'a>,
-//     pub locals: Vec<InstructionValue<'a>>,
-//     pub stack: Vec<InstructionValue<'a>>,
-// }
 
-// #[cfg(feature = "llvm")]
-// impl<'a> LLVMFnBuilder<'a> {
-//     pub fn new<'b>(
-//         context: &'a Context,
-//         module: Module<'b>,
-//         name: &str,
-//         desc: FieldDescriptor,
-//         pool: ConstantPool,
-//     ) -> Self where 'a: 'b {
-//         let mut new = LLVMFnBuilder {
-//             context,
-//             module,
-//             builder: context.create_builder(),
-//             locals: Vec::new(),
-//             stack: Vec::new(),
-//         };
-//
-//         new
-//     }
-// }
+
 #[cfg(feature = "llvm")]
 use llvm_sys::prelude::LLVMBuilderRef;
+use class_format::read::Readable;
 
 #[cfg(feature = "llvm")]
 use crate::class::llvm::FunctionContext;
@@ -139,6 +110,7 @@ pub trait StaticInstruct: Instruction {
 
     fn read(form: u8, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>>;
 }
+
 
 pub trait InstructionAction: Any {
     fn exec(
@@ -360,5 +332,6 @@ impl InstructionReader {
         self.register::<lookupswitch>();
         self.register::<tableswitch>();
         self.register::<invokedynamic>();
+        self.register::<goto_w>();
     }
 }

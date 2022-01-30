@@ -8,12 +8,12 @@ use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-instruction! {@partial dup, 0x59}
-instruction! {@partial dup_x1, 0x5a}
-instruction! {@partial dup_x2, 0x5b}
-instruction! {@partial dup2, 0x5c}
-instruction! {@partial dup2_x1, 0x5d}
-instruction! {@partial dup2_x2, 0x5e}
+instruction! {dup, 0x59}
+instruction! {dup_x1, 0x5a}
+instruction! {dup_x2, 0x5b}
+instruction! {dup2, 0x5c}
+instruction! {dup2_x1, 0x5d}
+instruction! {dup2_x2, 0x5e}
 
 impl InstructionAction for dup {
     fn exec(
@@ -166,10 +166,10 @@ impl InstructionAction for dup2_x2 {
     }
 }
 
-instruction! {@partial nop, 0x0}
-instruction! {@partial pop, 0x57}
-instruction! {@partial pop2, 0x58}
-instruction! {@partial swap, 0x5f}
+instruction! {nop, 0x0}
+instruction! {pop, 0x57}
+instruction! {pop2, 0x58}
+instruction! {swap, 0x5f}
 
 impl InstructionAction for nop {
     fn exec(

@@ -18,15 +18,27 @@ use parking_lot::RwLock;
 use std::cmp::Ordering;
 use std::sync::Arc;
 
-// TODO: goto_w
-// TODO: invokedynamic
-instruction! {jsr, 0xa8, u16}
-// TODO: jsr_w
 // TODO: multianewarray
-// TODO: tableswitch
 // TODO: wide
+// TODO: jsr_w
 
-instruction! {@partial ret, 0xa9, u8}
+
+
+instruction! {jsr, 0xa8, u16}
+
+impl InstructionAction for jsr {
+    fn exec(
+        &self,
+        _frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        unimplemented!(
+            "Jump to subroutine is unsupported in this implementation of the jvm"
+        )
+    }
+}
+
+instruction! {ret, 0xa9, u8}
 
 impl InstructionAction for ret {
     fn exec(
@@ -205,7 +217,7 @@ impl InstructionAction for tableswitch {
     }
 }
 
-instruction! {@partial athrow, 0xbf}
+instruction! {athrow, 0xbf}
 
 // TODO: I just guessed on how this one works so check if this is actually right
 impl InstructionAction for athrow {
@@ -221,7 +233,7 @@ impl InstructionAction for athrow {
     }
 }
 
-instruction! {@partial checkcast, 0xc0, u16}
+instruction! {checkcast, 0xc0, u16}
 
 impl InstructionAction for checkcast {
     fn exec(
@@ -251,7 +263,7 @@ impl InstructionAction for checkcast {
     }
 }
 
-instruction! {@partial bipush, 0x10, u8}
+instruction! {bipush, 0x10, u8}
 
 impl InstructionAction for bipush {
     fn exec(
@@ -269,7 +281,7 @@ impl InstructionAction for bipush {
     }
 }
 
-instruction! {@partial sipush, 0x11, i16}
+instruction! {sipush, 0x11, i16}
 
 impl InstructionAction for sipush {
     fn exec(
@@ -284,7 +296,7 @@ impl InstructionAction for sipush {
     }
 }
 
-instruction! {@partial ldc, 0x12, u8}
+instruction! {ldc, 0x12, u8}
 
 impl InstructionAction for ldc {
     fn exec(
@@ -322,7 +334,7 @@ impl InstructionAction for ldc {
     }
 }
 
-instruction! {@partial ldc_w, 0x13, u16}
+instruction! {ldc_w, 0x13, u16}
 
 impl InstructionAction for ldc_w {
     fn exec(
@@ -360,7 +372,7 @@ impl InstructionAction for ldc_w {
     }
 }
 
-instruction! {@partial ldc2_w, 0x14, u16}
+instruction! {ldc2_w, 0x14, u16}
 
 impl InstructionAction for ldc2_w {
     fn exec(
@@ -382,7 +394,9 @@ impl InstructionAction for ldc2_w {
     }
 }
 
-instruction! {@partial goto, 0xa7, i16}
+
+
+instruction! {goto, 0xa7, i16}
 
 impl InstructionAction for goto {
     fn exec(
@@ -396,11 +410,49 @@ impl InstructionAction for goto {
     }
 }
 
-instruction! {@partial ireturn, 0xac}
-instruction! {@partial lreturn, 0xad}
-instruction! {@partial freturn, 0xae}
-instruction! {@partial dreturn, 0xaf}
-instruction! {@partial areturn, 0xb0}
+#[derive(Debug, Copy, Clone)]
+pub struct goto_w(pub i32);
+
+
+impl InstructionAction for goto_w {
+    fn exec(
+        &self,
+        _frame: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        let goto_w(offset) = *self;
+        // frame.branch_offset += offset as i64;
+        Err(FlowControl::Branch(offset as i64))
+    }
+}
+
+impl crate::instruction::Instruction for goto_w {
+    fn write(&self, buffer: &mut std::io::Cursor<Vec<u8>>) -> std::io::Result<()> {
+        {
+            use byteorder::WriteBytesExt;
+            buffer.write_u8(<Self as crate::instruction::StaticInstruct>::FORM)?;
+            buffer.write_i32::<byteorder::BigEndian>(self.0)
+        }
+    }
+    fn exec(&self, stack: &mut crate::jvm::call::StackFrame, jvm: &mut std::sync::Arc<parking_lot::RwLock<crate::jvm::JavaEnv>>) -> Result<(), crate::jvm::call::FlowControl> {
+        <Self as crate::instruction::InstructionAction>::exec(self, stack, jvm)
+    }
+}
+
+impl crate::instruction::StaticInstruct for goto_w {
+    const FORM: u8 = 0xc8;
+
+    fn read(_: u8, buffer: &mut std::io::Cursor<Vec<u8>>) -> std::io::Result<Box<dyn crate::instruction::Instruction>> {
+        use byteorder::ReadBytesExt;
+        Ok(Box::new(goto_w(buffer.read_i32::<byteorder::BigEndian>()?)))
+    }
+}
+
+instruction! {ireturn, 0xac}
+instruction! {lreturn, 0xad}
+instruction! {freturn, 0xae}
+instruction! {dreturn, 0xaf}
+instruction! {areturn, 0xb0}
 
 impl InstructionAction for ireturn {
     fn exec(
@@ -452,7 +504,7 @@ impl InstructionAction for areturn {
     }
 }
 
-instruction! {@partial r#return, 0xb1}
+instruction! {r#return, 0xb1}
 
 impl InstructionAction for r#return {
     fn exec(
@@ -529,8 +581,8 @@ impl InstructionAction for iinc {
     }
 }
 
-instruction! {@partial monitorenter, 0xc2}
-instruction! {@partial monitorexit, 0xc3}
+instruction! {monitorenter, 0xc2}
+instruction! {monitorexit, 0xc3}
 
 impl InstructionAction for monitorenter {
     fn exec(

@@ -10,7 +10,7 @@ use crate::jvm::JavaEnv;
 
 macro_rules! cmp_instruction {
     ($name:ident, $inst:literal, i16, $cond:expr) => {
-        instruction! {@partial $name, $inst, i16}
+        instruction! {$name, $inst, i16}
 
         impl InstructionAction for $name {
             fn exec(
@@ -51,7 +51,7 @@ macro_rules! cmp_instruction {
 
 macro_rules! cmp_zero_instruction {
     ($name:ident, $inst:literal, i16, $cond:expr) => {
-        instruction! {@partial $name, $inst, i16}
+        instruction! {$name, $inst, i16}
 
         impl InstructionAction for $name {
             fn exec(
@@ -98,8 +98,8 @@ cmp_zero_instruction! {ifge, 0x9c, i16, |x| x >= 0}
 cmp_zero_instruction! {ifgt, 0x9d, i16, |x| x == 1}
 cmp_zero_instruction! {ifle, 0x9e, i16, |x| x <= 0}
 
-instruction! {@partial ifnonnull, 0xc7, i16}
-instruction! {@partial ifnull, 0xc6, i16}
+instruction! {ifnonnull, 0xc7, i16}
+instruction! {ifnull, 0xc6, i16}
 
 impl InstructionAction for ifnonnull {
     fn exec(
@@ -139,8 +139,8 @@ impl InstructionAction for ifnull {
     }
 }
 
-instruction! {@partial fcmpg, 0x96}
-instruction! {@partial fcmpl, 0x95}
+instruction! {fcmpg, 0x96}
+instruction! {fcmpl, 0x95}
 
 impl InstructionAction for fcmpg {
     fn exec(
@@ -190,8 +190,8 @@ impl InstructionAction for fcmpl {
     }
 }
 
-instruction! {@partial dcmpg, 0x98}
-instruction! {@partial dcmpl, 0x97}
+instruction! {dcmpg, 0x98}
+instruction! {dcmpl, 0x97}
 
 impl InstructionAction for dcmpg {
     fn exec(
@@ -245,7 +245,7 @@ impl InstructionAction for dcmpl {
     }
 }
 
-instruction! {@partial lcmp, 0x94}
+instruction! {lcmp, 0x94}
 
 impl InstructionAction for lcmp {
     fn exec(

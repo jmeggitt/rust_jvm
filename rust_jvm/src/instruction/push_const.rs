@@ -2,7 +2,7 @@ use crate::jvm::mem::JavaValue;
 
 macro_rules! const_instruction {
     ($name:ident, $inst:literal, $($value:expr),+) => {
-        instruction! {@partial $name, $inst}
+        instruction! {$name, $inst}
 
         impl crate::instruction::InstructionAction for $name {
             fn exec(

@@ -16,7 +16,7 @@ use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-instruction! {@partial getstatic, 0xb2, u16}
+instruction! {getstatic, 0xb2, u16}
 
 impl getstatic {
     pub fn check_static_init(
@@ -98,7 +98,7 @@ impl InstructionAction for getstatic {
     }
 }
 
-instruction! {@partial invokestatic, 0xb8, u16}
+instruction! {invokestatic, 0xb8, u16}
 
 impl InstructionAction for invokestatic {
     fn exec(
@@ -144,7 +144,7 @@ impl InstructionAction for invokestatic {
     }
 }
 
-instruction! {@partial putstatic, 0xb3, u16}
+instruction! {putstatic, 0xb3, u16}
 
 impl InstructionAction for putstatic {
     fn exec(
@@ -194,7 +194,7 @@ impl InstructionAction for putstatic {
     }
 }
 
-instruction! {@partial invokevirtual, 0xb6, u16}
+instruction! {invokevirtual, 0xb6, u16}
 
 impl InstructionAction for invokevirtual {
     fn exec(
@@ -259,7 +259,7 @@ impl InstructionAction for invokevirtual {
     }
 }
 
-instruction! {@partial new, 0xbb, u16}
+instruction! {new, 0xbb, u16}
 
 impl InstructionAction for new {
     fn exec(
@@ -286,7 +286,7 @@ impl InstructionAction for new {
     }
 }
 
-instruction! {@partial invokespecial, 0xb7, u16}
+instruction! {invokespecial, 0xb7, u16}
 
 impl InstructionAction for invokespecial {
     fn exec(
@@ -357,7 +357,7 @@ impl InstructionAction for invokespecial {
     }
 }
 
-instruction! {@partial getfield, 0xb4, u16}
+instruction! {getfield, 0xb4, u16}
 
 impl InstructionAction for getfield {
     fn exec(
@@ -387,7 +387,7 @@ impl InstructionAction for getfield {
     }
 }
 
-instruction! {@partial putfield, 0xb5, u16}
+instruction! {putfield, 0xb5, u16}
 
 impl InstructionAction for putfield {
     fn exec(
@@ -507,7 +507,7 @@ impl InstructionAction for invokeinterface {
     }
 }
 
-instruction! {@partial instanceof, 0xc1, u16}
+instruction! {instanceof, 0xc1, u16}
 
 impl InstructionAction for instanceof {
     fn exec(

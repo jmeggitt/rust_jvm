@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 macro_rules! convert_instruction {
     ($name:ident, $inst:literal, $from:ident -> $to:ident) => {
-        instruction! {@partial $name, $inst}
+        instruction! {$name, $inst}
 
         impl InstructionAction for $name {
             fn exec(
@@ -58,7 +58,7 @@ convert_instruction! {l2d, 0x8a, Long -> Double}
 convert_instruction! {l2f, 0x89, Long -> Float}
 convert_instruction! {l2i, 0x88, Long -> Int}
 
-// instruction! {@partial i2d, 0x87}
+// instruction! {i2d, 0x87}
 //
 // impl InstructionAction for i2d {
 // fn exec(
