@@ -5,7 +5,7 @@ macro_rules! instruction {
     };
     ($name:ident, $arg:ty) => {
         #[derive(Debug, Copy, Clone)]
-        pub struct $name($arg);
+        pub struct $name(pub $arg);
     };
     ($name:ident, $inst:literal) => {
         instruction!($name);

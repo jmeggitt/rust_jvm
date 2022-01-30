@@ -51,11 +51,13 @@ pub enum FlowControl {
 }
 
 impl FlowControl {
+    #[track_caller]
     pub fn error<S: AsRef<str>>(class: S) -> Self {
         debug!("Attempted to build error: {}", class.as_ref());
         unimplemented!("Attempted to build error: {}", class.as_ref())
     }
 
+    #[track_caller]
     pub fn throw<S: AsRef<str>>(class: S) -> Self {
         debug!("Attempted to build exception: {}", class.as_ref());
         unimplemented!("Attempted to build exception: {}", class.as_ref())
@@ -238,6 +240,12 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             // }
         }
         self.unlock(class_instance);
+
+        // FIXME: This is a bad approach that won't be able to find classes with additional nesting.
+        // It would be better to check for an InnerClass attribute
+        if let Some(x) = class.find('$') {
+            self.init_class(&class[..x])
+        }
 
         #[cfg(feature = "profile")]
         std::mem::drop(profile_scope);

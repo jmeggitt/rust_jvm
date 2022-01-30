@@ -6,6 +6,7 @@ authors = ["Jasper Meggitt <jasper.meggitt@gmail.com>"]
 
 [features]
 default = ["rust_jvm/quiet"]
+llvm = ["rust_jvm/quiet", "rust_jvm/llvm"]
 
 [dependencies]
 rust_jvm = {path = "../rust_jvm"}

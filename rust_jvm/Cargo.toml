@@ -16,7 +16,7 @@ priority = ["thread-priority", "crossbeam-channel"]
 callstack = ["serde_json"]
 quiet = []
 debug = []
-llvm = ["inkwell"]
+llvm = ["inkwell", "llvm-sys"]
 
 [dependencies]
 byteorder = "1.4.3"
@@ -42,6 +42,8 @@ page_size = "0.4.2"
 slice-dst = "1.5.1"
 memoffset = "0.6.4"
 cesu8 = "1.1.0"
+
+class_format = { path = "../class_format" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["psapi", "winsock2"] }
@@ -74,6 +76,10 @@ cc = "1.0"
 [dependencies.inkwell]
 version = "0.1.0-beta.4"
 features = ["llvm12-0"]
+optional = true
+
+[dependencies.llvm-sys]
+version = "120.2.1"
 optional = true
 
 

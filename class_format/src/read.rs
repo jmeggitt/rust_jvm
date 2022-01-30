@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use byteorder::{BigEndian, ReadBytesExt};
 use std::io::{self, Cursor, Read};
 use std::ops::Deref;
@@ -8,24 +9,30 @@ use std::ops::Deref;
 /// explicitly implemented otherwise for a given type.
 pub trait Readable: Sized {
     fn read<T: Read>(buffer: &mut T) -> io::Result<Self>;
+
+    // TODO: Is this helpful or is it just clutter?
+    fn from_slice<T: AsRef<[u8]>>(slice: T) -> io::Result<Self> {
+        let mut buffer = Cursor::new(slice.as_ref());
+        Self::read(&mut buffer)
+    }
 }
 
 #[macro_export]
 macro_rules! simple_grammar {
-    ($($(#[$($macros:tt)+])* $pub:vis struct $name:ident { $($(#[$($field_macros:tt)+])* $field:ident: $type:ty),* $(,)? })+) => {
+    ($($(#[$($macros:tt)+])* $pub:vis struct $name:ident { $($(#[$($field_macros:tt)+])* $field_vis:vis $field:ident: $type:ty),* $(,)? })+) => {
         $(simple_grammar!{
             @impl $(#[$($macros)+])*
             $pub struct $name {
                 $($(#[$($field_macros)+])*
-                $field: $type),*
+                $field_vis $field: $type),*
             }
         })+
     };
-    (@impl $(#[$($macros:tt)+])* $pub:vis struct $name:ident { $($(#[$($field_macros:tt)+])* $field:ident: $type:ty),* $(,)? }) => {
+    (@impl $(#[$($macros:tt)+])* $pub:vis struct $name:ident { $($(#[$($field_macros:tt)+])* $field_vis:vis $field:ident: $type:ty),* $(,)? }) => {
         $(#[$($macros)+])*
         $pub struct $name {
                 $($(#[$($field_macros)+])*
-                $field: $type),*
+                $field_vis $field: $type),*
         }
 
         impl Readable for $name {
@@ -65,7 +72,7 @@ pub struct BinarySection {
 
 impl BinarySection {
     pub fn read_as<T: Readable>(&self) -> io::Result<T> {
-        // TODO: Should not reading until the end of the buffer trigger a panic?
+        // TODO: Should not reading until the end of the buffer trigger a panic or error?
         let mut buffer = Cursor::new(&self.section);
         T::read(&mut buffer)
     }
@@ -86,6 +93,26 @@ impl Deref for BinarySection {
 
     fn deref(&self) -> &Self::Target {
         &self.section
+    }
+}
+
+// TODO: Also provide character view similar to hexdump
+impl Display for BinarySection {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut idx = 0;
+
+        for byte in &self.section {
+            if idx % 8 == 0 {
+                write!(f, "{:06}", idx)?;
+            }
+            write!(f, " {:02X}", byte)?;
+
+            idx += 1;
+            if idx % 8 == 0 && idx != 0 && idx + 1 < self.section.len() {
+                writeln!(f)?;
+            }
+        }
+        Ok(())
     }
 }
 

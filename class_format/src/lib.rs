@@ -4,3 +4,6 @@
 pub mod attributes;
 pub mod constant;
 pub mod read;
+pub mod class;
+pub mod path;
+pub mod loader;

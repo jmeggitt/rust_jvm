@@ -12,11 +12,13 @@ use crate::jvm::JavaEnv;
 use jni::sys::*;
 use log::LevelFilter;
 use simplelog::{
-    ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode, ThreadLogMode, WriteLogger,
+    ColorChoice, CombinedLogger, Config, ConfigBuilder, TermLogger, TerminalMode, ThreadLogMode,
+    WriteLogger,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::env::var;
 use std::ffi::{c_void, CStr};
+use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::os::raw::c_char;
 use std::path::PathBuf;
@@ -62,19 +64,19 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
     let _init_args = *(args as *mut JavaVMInitArgs);
 
     CombinedLogger::init(vec![
-        TermLogger::new(
-            LevelFilter::Info,
-            Config::default(),
-            TerminalMode::Mixed,
-            ColorChoice::Always,
-        ),
-        // WriteLogger::new(
+        // TermLogger::new(
         //     LevelFilter::Debug,
-        //     ConfigBuilder::new()
-        //         .set_thread_mode(ThreadLogMode::IDs)
-        //         .build(),
-        //     File::create("execution.log").unwrap(),
+        //     Config::default(),
+        //     TerminalMode::Mixed,
+        //     ColorChoice::Always,
         // ),
+        WriteLogger::new(
+            LevelFilter::Debug,
+            ConfigBuilder::new()
+                .set_thread_mode(ThreadLogMode::IDs)
+                .build(),
+            File::create("execution.log").unwrap(),
+        ),
     ])
     .unwrap();
 
@@ -1670,7 +1672,7 @@ pub unsafe extern "system" fn JVM_DesiredAssertionStatus_impl(
     cls: jclass,
 ) -> jboolean {
     // TODO: Allow assertions on specific classes
-    JNI_FALSE
+    JNI_TRUE
 }
 
 /*

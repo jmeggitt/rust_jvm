@@ -2,7 +2,7 @@
 use crate::jvm::call::RawJNIEnv;
 use crate::jvm::mem::{
     ClassHandle, FieldDescriptor, ManualInstanceReference, ObjArrayHandle, ObjectHandle,
-    ObjectReference, StringHandle,
+    ObjectReference, RawArrayObject, StringHandle,
 };
 use jni::sys::{jint, jlong, jobject};
 
@@ -136,9 +136,43 @@ pub unsafe extern "system" fn method_handle_natives_get_named_con(
     env: RawJNIEnv,
     _cls: Option<ClassHandle>,
     which: jint,
-    name: Option<ObjArrayHandle>,
+    name_box: Option<RawArrayObject<Option<ObjectHandle>>>,
 ) -> jint {
-    unimplemented!()
+    // TODO: This is supposed to check that these fields match the values used in the class files
+    let (res, name) = match which {
+        0 => (4, "GC_COUNT_GWT"),
+        1 => (5, "GC_LAMBDA_SUPPORT"),
+        2 => (0x00010000, "MN_IS_METHOD"),
+        3 => (0x00020000, "MN_IS_CONSTRUCTOR"),
+        4 => (0x00040000, "MN_IS_FIELD"),
+        5 => (0x00080000, "MN_IS_TYPE"),
+        6 => (0x00100000, "MN_CALLER_SENSITIVE"),
+        7 => (24, "MN_REFERENCE_KIND_SHIFT"),
+        8 => (0xF, "MN_REFERENCE_KIND_MASK"),
+        9 => (0x00100000, "MN_SEARCH_SUPERCLASSES"),
+        10 => (0x00200000, "MN_SEARCH_INTERFACES"),
+        11 => (4, "T_BOOLEAN"),
+        12 => (5, "T_CHAR"),
+        13 => (6, "T_FLOAT"),
+        14 => (7, "T_DOUBLE"),
+        15 => (8, "T_BYTE"),
+        16 => (9, "T_SHORT"),
+        17 => (10, "T_INT"),
+        18 => (11, "T_LONG"),
+        19 => (12, "T_OBJECT"),
+        20 => (14, "T_VOID"),
+        21 => (99, "T_ILLEGAL"),
+        // TODO: May be expecting char and byte constants as well
+        _ => return 0,
+    };
+
+    if let Some(array) = name_box {
+        let name_string = env.write().build_string(name).expect_object();
+        let mut lock = array.lock();
+        lock[0] = Some(name_string);
+    }
+
+    res
 }
 
 pub unsafe extern "system" fn method_handle_invoke(

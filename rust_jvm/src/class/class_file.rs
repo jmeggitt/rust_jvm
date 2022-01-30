@@ -5,7 +5,8 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::class::attribute::{
     BootstrapMethod, BootstrapMethods, CodeAttribute, EnclosingMethod, Exceptions, InnerClasses,
-    LineNumberTable, LocalVariableTable, NestHost, SourceFile,
+    LineNumberTable, LocalVariableTable, NestHost, RuntimeVisibleAnnotations, Signature,
+    SourceFile, StackMapTable,
 };
 use crate::class::constant::{Constant, ConstantClass, ConstantPool};
 use crate::class::version::{check_magic_number, ClassVersion};
@@ -297,6 +298,18 @@ impl Class {
         None
     }
 
+    pub fn has_static_field(&self, name: &str) -> bool {
+        for field in &self.fields {
+            if let Some(a) = field.name(&self.constants) {
+                if a == name && field.access.contains(AccessFlags::STATIC) {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
     pub fn get_field(&self, name: &str, desc: &str) -> Option<&FieldInfo> {
         for field in &self.fields {
             if let (Some(a), Some(b)) = (
@@ -416,6 +429,11 @@ impl DebugWithConst for AttributeInfo {
             "InnerClasses" => InnerClasses::read(&mut buffer).unwrap().fmt(f, pool),
             "LocalVariableTable" => LocalVariableTable::read(&mut buffer).unwrap().fmt(f, pool),
             "Exceptions" => Exceptions::read(&mut buffer).unwrap().fmt(f, pool),
+            "RuntimeVisibleAnnotations" => RuntimeVisibleAnnotations::read(&mut buffer)
+                .unwrap()
+                .fmt(f, pool),
+            "Signature" => Signature::read(&mut buffer).unwrap().fmt(f, pool),
+            "StackMapTable" => StackMapTable::read(&mut buffer).unwrap().fmt(f, pool),
             x => panic!("Unable to decode attribute {} for DebugWithConst", x),
         }
     }

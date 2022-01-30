@@ -40,8 +40,16 @@ fn main() {
             Arg::with_name("attributes")
                 .long("list-attr")
                 .help("Lists the names of all attributes appearing on a class and its methods"),
-        )
-        .get_matches();
+        );
+
+    #[cfg(feature = "llvm")]
+    let app = app.arg(
+        Arg::with_name("llvm")
+            .long("llvm")
+            .help("Attempts to build llvm ir for a class"),
+    );
+
+    let app = app.get_matches();
 
     let class = app.value_of("class").unwrap();
 
@@ -57,6 +65,8 @@ fn main() {
 
     let raw_class = class_loader.class(class).unwrap();
     println!("Reading: {} extends {}", class, raw_class.super_class());
+
+
 
     if app.is_present("constants") {
         println!("Constant Table:");
@@ -86,6 +96,7 @@ fn main() {
             println!("{}", method.display(&raw_class.constants()));
         }
     }
+
     if app.is_present("class-attr") {
         for attr in &raw_class.attributes {
             println!("{}", attr.display(&raw_class.constants()));
@@ -125,4 +136,13 @@ fn main() {
             }
         }
     }
+
+    if app.is_present("llvm") {
+        println!("LLVM IR:");
+
+        unsafe {
+            jvm::class::llvm::build_for_class(class_loader, class);
+        }
+    }
+
 }

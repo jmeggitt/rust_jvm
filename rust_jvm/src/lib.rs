@@ -26,6 +26,13 @@ pub mod jvm;
 // pub mod version;
 
 #[macro_export]
+macro_rules! c_str {
+    ($s:expr) => (
+        concat!($s, "\0").as_ptr() as *const i8
+    );
+}
+
+#[macro_export]
 macro_rules! profile_scope_cfg {
     ($($arg:tt)*) => {
         #[cfg(feature = "thread_profiler")]

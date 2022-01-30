@@ -1108,7 +1108,7 @@ pub unsafe extern "system" fn ReleaseStringUTFChars(
     chars: *const c_char,
 ) {
     // Put the pointer back into CString struct so it will be dropped at the end of the function
-    CString::from_raw(chars as _);
+    drop(CString::from_raw(chars as _))
 }
 
 #[no_mangle]

@@ -42,7 +42,7 @@ macro_rules! readable_struct {
     (pub struct $name:ident { $($field:ident: $type:ty),* $(,)? }) => {
         #[derive(Debug, Copy, Clone)]
         pub struct $name {
-            $(pub $field: $type),+
+            $(pub $field: $type),*
         }
 
         readable_struct!{@impl $name {$($field: $type),* }}
@@ -50,7 +50,7 @@ macro_rules! readable_struct {
     (pub no_copy struct $name:ident { $($field:ident: $type:ty),* $(,)? }) => {
         #[derive(Debug, Clone)]
         pub struct $name {
-            $(pub $field: $type),+
+            $(pub $field: $type),*
         }
 
         readable_struct!{@impl $name {$($field: $type),* }}
@@ -58,11 +58,11 @@ macro_rules! readable_struct {
     (@impl $name:ident { $($field:ident: $type:ty),* }) => {
         impl BufferedRead for $name {
             fn read<T: Read + Seek>(buffer: &mut T) -> io::Result<Self> {
-                Ok($name { $($field: <$type as BufferedRead>::read(buffer)?),+ })
+                Ok($name { $($field: <$type as BufferedRead>::read(buffer)?),* })
             }
 
             fn write<T: Write + Seek>(&self, buffer: &mut T) -> io::Result<()> {
-                $(<$type as BufferedRead>::write(&self.$field, buffer)?;)+
+                $(<$type as BufferedRead>::write(&self.$field, buffer)?;)*
                 Ok(())
             }
         }
@@ -75,6 +75,9 @@ pub mod constant;
 mod jar;
 mod load;
 mod version;
+
+#[cfg(feature = "llvm")]
+pub mod llvm;
 
 use crate::class::constant::ConstantPool;
 pub use class_file::*;

@@ -368,11 +368,13 @@ pub trait ManualInstanceReference<T>: InstanceReference<T> {
 }
 
 impl<P, T: InstanceReference<P>> ManualInstanceReference<P> for T {
+    #[track_caller]
     fn write_named_field<S: AsRef<str>>(&mut self, field: S, val: P) {
         let offset = self.get_class_schema().field_offset(field);
         self.write_field(offset, val);
     }
 
+    #[track_caller]
     fn read_named_field<S: AsRef<str>>(&self, field: S) -> P {
         let offset = self.get_class_schema().field_offset(field);
         self.read_field(offset)
@@ -386,6 +388,7 @@ pub trait ArrayReference<T: JavaPrimitive>: ObjectReference {
 }
 
 impl<T: JavaPrimitive> ArrayReference<T> for RawObject<Vec<T>> {
+    #[track_caller]
     fn write_array(&mut self, index: usize, val: T) {
         self.fields[index] = val;
 
@@ -396,6 +399,7 @@ impl<T: JavaPrimitive> ArrayReference<T> for RawObject<Vec<T>> {
         // }
     }
 
+    #[track_caller]
     fn read_array(&self, index: usize) -> T {
         self.fields[index]
         // unsafe {

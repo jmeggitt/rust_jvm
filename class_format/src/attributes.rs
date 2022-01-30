@@ -4,8 +4,8 @@
 //!
 //! Implementation checklist:
 //! Critical Attributes:
-//! - [ ] ConstantValue
-//! - [ ] Code
+//! - [x] ConstantValue
+//! - [x] Code
 //! - [ ] StackMapTable
 //! - [ ] BootstrapMethods
 //! - [ ] NestHost

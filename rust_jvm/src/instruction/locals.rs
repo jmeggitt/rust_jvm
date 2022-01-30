@@ -1,9 +1,21 @@
 use crate::instruction::InstructionAction;
 use crate::jvm::call::{FlowControl, StackFrame};
-use crate::jvm::mem::JavaValue;
+use crate::jvm::mem::{FieldDescriptor, JavaValue};
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
 use std::sync::Arc;
+
+#[cfg(feature = "llvm")]
+use _llvm_imports::*;
+
+#[cfg(feature = "llvm")]
+mod _llvm_imports {
+    pub use crate::class::llvm::{FunctionContext, LLVMInstruction};
+
+    pub use llvm_sys::core::{LLVMBuildLoad, LLVMBuildStore};
+    pub use llvm_sys::prelude::LLVMBuilderRef;
+    pub use crate::c_str;
+}
 
 instruction! {@partial aload, 0x19, u8, 0x2a <-> 0x2d}
 instruction! {@partial astore, 0x3a, u8, 0x4b <-> 0x4e}
@@ -31,6 +43,21 @@ impl InstructionAction for aload {
         assert!(matches!(&value, JavaValue::Reference(_)));
         frame.stack.push(value);
         Ok(())
+    }
+}
+
+#[cfg(feature = "llvm")]
+impl LLVMInstruction for aload {
+    unsafe fn add_impl(&self, builder: LLVMBuilderRef, cxt: &mut FunctionContext) {
+        let aload(index) = *self;
+
+        let operand_type = FieldDescriptor::Object("java/lang/Object".to_string());
+        let local = cxt.get_operand_alloca(&operand_type, index as _);
+        let value = LLVMBuildLoad(builder, local, c_str!("aload"));
+
+        let destination = cxt.push_stack_alloca(&operand_type);
+
+        LLVMBuildStore(builder, value, destination);
     }
 }
 

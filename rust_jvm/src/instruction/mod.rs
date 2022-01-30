@@ -38,43 +38,89 @@ mod math;
 mod push_const;
 mod stack;
 
+pub mod instr {
+    #[doc(inline)]
+    pub use super::array::*;
+    #[doc(inline)]
+    pub use super::class::*;
+    #[doc(inline)]
+    pub use super::cmp::*;
+    #[doc(inline)]
+    pub use super::convert::*;
+    #[doc(inline)]
+    pub use super::general::*;
+    #[doc(inline)]
+    pub use super::locals::*;
+    #[doc(inline)]
+    pub use super::math::*;
+    #[doc(inline)]
+    pub use super::push_const::*;
+    #[doc(inline)]
+    pub use super::stack::*;
+}
+
 use crate::class::attribute::CodeAttribute;
 use crate::class::constant::ConstantPool;
 use crate::class::MethodInfo;
 use crate::jvm::mem::FieldDescriptor;
-#[cfg(feature = "inkwell")]
-use inkwell::{builder::Builder, context::Context, module::Module, values::InstructionValue};
+// #[cfg(feature = "inkwell")]
+// use inkwell::{builder::Builder, context::Context, module::Module, values::InstructionValue};
+//
+// #[cfg(feature = "llvm")]
+// pub struct LLVMFnBuilder<'a> {
+//     pub context: &'a Context,
+//     pub module: Module<'a>,
+//     pub builder: Builder<'a>,
+//     pub locals: Vec<InstructionValue<'a>>,
+//     pub stack: Vec<InstructionValue<'a>>,
+// }
+
+// #[cfg(feature = "llvm")]
+// impl<'a> LLVMFnBuilder<'a> {
+//     pub fn new<'b>(
+//         context: &'a Context,
+//         module: Module<'b>,
+//         name: &str,
+//         desc: FieldDescriptor,
+//         pool: ConstantPool,
+//     ) -> Self where 'a: 'b {
+//         let mut new = LLVMFnBuilder {
+//             context,
+//             module,
+//             builder: context.create_builder(),
+//             locals: Vec::new(),
+//             stack: Vec::new(),
+//         };
+//
+//         new
+//     }
+// }
+#[cfg(feature = "llvm")]
+use llvm_sys::prelude::LLVMBuilderRef;
 
 #[cfg(feature = "llvm")]
-pub struct LLVMFnBuilder<'a> {
-    pub context: &'a Context,
-    pub module: Module<'a>,
-    pub builder: Builder<'a>,
-    pub locals: Vec<InstructionValue<'a>>,
-    pub stack: Vec<InstructionValue<'a>>,
+use crate::class::llvm::FunctionContext;
+
+
+#[cfg(feature = "llvm")]
+pub trait LLVMInstruction {
+    unsafe fn add_impl(&self, _builder: LLVMBuilderRef, _cxt: &mut FunctionContext);
 }
 
 #[cfg(feature = "llvm")]
-impl<'a> LLVMFnBuilder<'a> {
-    pub fn new<'b: 'a>(
-        context: &'a Context,
-        module: Module<'b>,
-        name: &str,
-        desc: FieldDescriptor,
-        pool: ConstantPool,
-    ) -> Self {
-        let mut new = LLVMFnBuilder {
-            context,
-            module,
-            builder: context.create_builder(),
-            locals: Vec::new(),
-            stack: Vec::new(),
-        };
+pub trait Instruction: Any + Debug + LLVMInstruction {
+    fn write(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<()>;
 
-        new
+    fn exec(
+        &self,
+        _stack: &mut StackFrame,
+        _jvm: &mut Arc<RwLock<JavaEnv>>,
+    ) -> Result<(), FlowControl> {
+        panic!("Instruction not implemented for {:?}", self);
     }
 }
 
+#[cfg(not(feature = "llvm"))]
 pub trait Instruction: Any + Debug {
     fn write(&self, buffer: &mut Cursor<Vec<u8>>) -> io::Result<()>;
 

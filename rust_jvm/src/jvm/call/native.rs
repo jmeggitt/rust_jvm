@@ -240,7 +240,7 @@ impl NativeManager {
         Ok(())
     }
 
-    fn clean_desc(x: &str) -> Option<String> {
+    pub fn clean_desc(x: &str) -> Option<String> {
         Some(clean_str(&x[1..x.find(')')?]))
     }
 

@@ -557,7 +557,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_freeMemory(
 /// Signature: (Ljava/lang/reflect/Field{ unimplemented!() })J
 #[no_mangle]
 pub unsafe extern "system" fn Java_sun_misc_Unsafe_staticFieldOffset(
-    env: RawJNIEnv,
+    mut env: RawJNIEnv,
     _this: jobject,
     field: jobject,
 ) -> jlong {
@@ -575,14 +575,38 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_staticFieldOffset(
     let field_name: Option<ObjectHandle> = instance_lock.read_named_field("name");
     let field_name = field_name.unwrap().expect_string();
 
-    // TODO: Should we allocate a slot if none exists?
-    let lock = env.read();
-    match lock
+    let offset = env
+        .read()
         .static_fields
-        .get_field_offset(&class_name, &field_name)
-    {
+        .get_field_offset(&class_name, &field_name);
+    match offset {
         Some(v) => v as jlong,
-        None => -1,
+        None => {
+            error!("Attempted unsafe access of uninitialized static!");
+            match env.read().class_loader.class(&class_name) {
+                Some(v) => {
+                    if !v.has_static_field(&field_name) {
+                        panic!("Attempted to get static field that does not exist!");
+                    }
+                }
+                None => {
+                    panic!("Attempted unsafe access of static field for class that does not exist")
+                }
+            };
+
+            env.init_class(&class_name);
+            match env
+                .read()
+                .static_fields
+                .get_field_offset(&class_name, &field_name)
+            {
+                Some(v) => v as jlong,
+                None => panic!(
+                    "Static field uninitialized after class initialization {}::{}",
+                    &class_name, &field_name
+                ),
+            }
+        }
     }
 }
 

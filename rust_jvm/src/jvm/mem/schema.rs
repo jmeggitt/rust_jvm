@@ -148,6 +148,7 @@ impl ClassSchema {
         matches!(self.data_form, ObjectType::Instance)
     }
 
+    #[track_caller]
     pub fn field_offset<S: AsRef<str>>(&self, field: S) -> usize {
         // assert_eq!(self.data_form, ObjectType::Instance);
         // assert!(self.is_instance());

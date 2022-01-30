@@ -320,3 +320,35 @@ impl DebugWithConst for Exceptions {
         Ok(())
     }
 }
+
+readable_struct! {
+    pub struct RuntimeVisibleAnnotations {}
+}
+
+impl DebugWithConst for RuntimeVisibleAnnotations {
+    fn fmt(&self, f: &mut Formatter<'_>, _pool: &ConstantPool<'_>) -> std::fmt::Result {
+        write!(f, "RuntimeVisibleAnnotations: TODO")
+    }
+}
+
+readable_struct! {
+    pub struct Signature {
+        signature_index: u16,
+    }
+}
+
+impl DebugWithConst for Signature {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+        write!(f, "Signature ({:?})", pool.text(self.signature_index))
+    }
+}
+
+readable_struct! {
+    pub struct StackMapTable {}
+}
+
+impl DebugWithConst for StackMapTable {
+    fn fmt(&self, f: &mut Formatter<'_>, _pool: &ConstantPool<'_>) -> std::fmt::Result {
+        write!(f, "StackMapTable: TODO")
+    }
+}

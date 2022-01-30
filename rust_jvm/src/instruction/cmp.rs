@@ -39,7 +39,7 @@ macro_rules! cmp_instruction {
                 //  .expect("Unable to get ordering for branching");
 
                 if $cond(order) {
-                    debug!("Branching by {}", jmp);
+                    // debug!("Branching by {}", jmp);
                     return Err(FlowControl::Branch(jmp as i64));
                     // frame.branch_offset += jmp as i64;
                 }
@@ -72,7 +72,7 @@ macro_rules! cmp_zero_instruction {
                 let order = val.signum().expect("Unable to get ordering for branching");
 
                 if $cond(order) {
-                    debug!("Branching by {}", jmp);
+                    // debug!("Branching by {}", jmp);
                     // frame.branch_offset += jmp as i64;
                     return Err(FlowControl::Branch(jmp as i64));
                 }
