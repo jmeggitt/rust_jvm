@@ -23,6 +23,9 @@ use std::sync::Arc;
 // TODO: jsr_w
 
 
+llvm_instr_todo!{jsr, ret, lookupswitch, tableswitch, athrow, checkcast, bipush, sipush, ldc, ldc_w,
+    ldc2_w, goto, goto_w, ireturn, lreturn, freturn, dreturn, areturn, r#return, iinc, monitorenter,
+    monitorexit}
 
 instruction! {jsr, 0xa8, u16}
 

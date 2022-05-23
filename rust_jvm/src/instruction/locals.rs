@@ -10,7 +10,8 @@ use _llvm_imports::*;
 
 #[cfg(feature = "llvm")]
 mod _llvm_imports {
-    pub use crate::class::llvm::{FunctionContext, LLVMInstruction};
+    pub use crate::class::llvm::FunctionContext;
+    pub use crate::instruction::LLVMInstruction;
 
     pub use llvm_sys::core::{LLVMBuildLoad, LLVMBuildStore};
     pub use llvm_sys::prelude::LLVMBuilderRef;
@@ -32,6 +33,8 @@ instruction! {dstore, 0x39, u8, 0x47 <-> 0x4a}
 
 instruction! {lload, 0x16, u8, 0x1e <-> 0x21}
 instruction! {lstore, 0x37, u8, 0x3f <->0x42}
+
+llvm_instr_todo!(astore, fload, fstore, iload, istore, dload, dstore, lload, lstore);
 
 impl InstructionAction for aload {
     fn exec(

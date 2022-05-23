@@ -15,6 +15,7 @@ use crate::class::{AccessFlags, BufferedRead, ClassLoader};
 use crate::jvm::call::{clean_str, NativeManager};
 use crate::jvm::mem::FieldDescriptor;
 use crate::c_str;
+use crate::instruction::LLVMInstruction;
 
 
 
@@ -297,6 +298,7 @@ pub struct FunctionContext<'c> {
     str_arena: &'c mut CStringArena,
     alloca_fields: HashMap<String, LLVMValueRef>,
     stack_idx: u64,
+
 }
 
 impl<'c> FunctionContext<'c> {
@@ -357,24 +359,8 @@ impl<'c> FunctionContext<'c> {
     }
 }
 
-pub trait LLVMInstruction {
-    unsafe fn add_impl(&self, builder: LLVMBuilderRef, cxt: &mut FunctionContext);
-}
-
-// #[cfg(feature = "llvm")]
-// impl LLVMInstruction for crate::instruction::instr::aload {
-//     unsafe fn add_impl(&self, builder: LLVMBuilderRef, cxt: &mut FunctionContext) {
-//         let crate::instruction::instr::aload(index) = *self;
-//
-//         let operand_type = FieldDescriptor::Object("java/lang/Object".to_string());
-//         let local = cxt.get_operand_alloca(&operand_type, index as _);
-//         let value = LLVMBuildLoad(builder, local, c_str!("aload"));
-//
-//         let destination = cxt.push_stack_alloca(&operand_type);
-//
-//         LLVMBuildStore(builder, value, destination);
-//         // LLVMBuildLoad();
-//     }
+// pub trait LLVMInstruction {
+//     unsafe fn add_impl(&self, builder: LLVMBuilderRef, cxt: &mut FunctionContext);
 // }
 
 pub unsafe fn build_for_class(mut loader: ClassLoader, name: &str) {

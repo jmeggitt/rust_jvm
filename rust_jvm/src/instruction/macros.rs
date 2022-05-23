@@ -105,3 +105,14 @@ macro_rules! instruction {
         }
     };
 }
+
+macro_rules! llvm_instr_todo {
+    ($($self:ty),*) => {
+        $(#[cfg(feature = "llvm")]
+        impl crate::instruction::LLVMInstruction for $self {
+            unsafe fn add_impl(&self, _builder: llvm_sys::prelude::LLVMBuilderRef, _cxt: &mut crate::class::llvm::FunctionContext) {
+                unimplemented!("LLVM codegen is not implemented for {:?}", self)
+            }
+        })*
+    };
+}

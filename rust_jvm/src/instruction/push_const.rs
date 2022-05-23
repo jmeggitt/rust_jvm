@@ -3,6 +3,7 @@ use crate::jvm::mem::JavaValue;
 macro_rules! const_instruction {
     ($name:ident, $inst:literal, $($value:expr),+) => {
         instruction! {$name, $inst}
+        llvm_instr_todo! {$name}
 
         impl crate::instruction::InstructionAction for $name {
             fn exec(

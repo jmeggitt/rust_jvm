@@ -11,6 +11,7 @@ use crate::jvm::JavaEnv;
 macro_rules! cmp_instruction {
     ($name:ident, $inst:literal, i16, $cond:expr) => {
         instruction! {$name, $inst, i16}
+        llvm_instr_todo! {$name}
 
         impl InstructionAction for $name {
             fn exec(
@@ -52,6 +53,7 @@ macro_rules! cmp_instruction {
 macro_rules! cmp_zero_instruction {
     ($name:ident, $inst:literal, i16, $cond:expr) => {
         instruction! {$name, $inst, i16}
+        llvm_instr_todo! {$name}
 
         impl InstructionAction for $name {
             fn exec(
@@ -98,6 +100,8 @@ cmp_zero_instruction! {ifge, 0x9c, i16, |x| x >= 0}
 cmp_zero_instruction! {ifgt, 0x9d, i16, |x| x == 1}
 cmp_zero_instruction! {ifle, 0x9e, i16, |x| x <= 0}
 
+
+llvm_instr_todo!{ifnonnull, ifnull, fcmpg, fcmpl, dcmpg, dcmpl, lcmp}
 instruction! {ifnonnull, 0xc7, i16}
 instruction! {ifnull, 0xc6, i16}
 

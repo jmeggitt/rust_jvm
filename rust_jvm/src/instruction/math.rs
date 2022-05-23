@@ -10,6 +10,7 @@ use crate::jvm::JavaEnv;
 macro_rules! math_instruction {
     ($name:ident, $inst:literal, $type:ident ($a:ident $(,$x:ident)*) => $res:expr) => {
         instruction! {$name, $inst}
+        llvm_instr_todo! {$name}
 
         impl InstructionAction for $name {
             fn exec(&self, frame: &mut StackFrame, _jvm: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
@@ -111,6 +112,8 @@ math_instruction! {lrem, 0x71, Long (x, y) => x % y}
 math_instruction! {lsub, 0x65, Long (x, y) => x - y}
 // math_instruction! {lushr, 0x7d, Long (x, y) => x.unsigned_shr(y as _)}
 math_instruction! {lxor, 0x83, Long (x, y) => x ^ y}
+
+llvm_instr_todo! {lshl, lshr, lushr}
 
 instruction! {lshl, 0x79}
 instruction! {lshr, 0x7b}

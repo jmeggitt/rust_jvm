@@ -12,6 +12,7 @@ use std::sync::Arc;
 macro_rules! array_instruction {
     (@$type:ident $name:ident, $inst:literal, $arr_type:ty, $local:ident, $($desc:expr)+) => {
         instruction! {$name, $inst}
+        llvm_instr_todo!{$name}
         impl InstructionAction for $name {
             fn exec(
                 &self,
@@ -69,6 +70,7 @@ array_instruction! {@store lastore, 0x50, jlong, Long, FieldDescriptor::Long Fie
 array_instruction! {@load  saload, 0x35, jshort, Short, FieldDescriptor::Short}
 array_instruction! {@store sastore, 0x56, jshort, Short, FieldDescriptor::Short}
 
+llvm_instr_todo!(anewarray, newarray, arraylength);
 instruction! {anewarray, 0xbd, u16}
 
 impl InstructionAction for anewarray {

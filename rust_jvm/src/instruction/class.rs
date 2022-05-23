@@ -16,6 +16,10 @@ use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
+
+llvm_instr_todo! {getstatic, invokestatic, putstatic, invokevirtual, new, invokespecial, getfield,
+    putfield, invokeinterface, instanceof, invokedynamic}
+
 instruction! {getstatic, 0xb2, u16}
 
 impl getstatic {

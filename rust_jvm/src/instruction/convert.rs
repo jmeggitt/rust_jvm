@@ -9,6 +9,7 @@ use std::sync::Arc;
 macro_rules! convert_instruction {
     ($name:ident, $inst:literal, $from:ident -> $to:ident) => {
         instruction! {$name, $inst}
+        llvm_instr_todo! {$name}
 
         impl InstructionAction for $name {
             fn exec(

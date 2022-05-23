@@ -8,6 +8,8 @@ use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
+llvm_instr_todo! {dup, dup_x1, dup_x2, dup2, dup2_x1, dup2_x2, nop, pop, pop2, swap}
+
 instruction! {dup, 0x59}
 instruction! {dup_x1, 0x5a}
 instruction! {dup_x2, 0x5b}
