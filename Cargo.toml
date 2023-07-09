@@ -5,7 +5,6 @@ members = [
     "java",
     "class_inspect",
     "class_format",
-    "simple_gc"
 ]
 
 
