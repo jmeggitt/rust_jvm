@@ -1,16 +1,16 @@
+use crate::class::{Class, PeekedClass};
+use crate::loader::ClassLoader;
+use crate::read::Readable;
+use log::{debug, info, trace, warn};
 use std::collections::{HashMap, HashSet};
-use std::{env, io};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufReader, Cursor, Error, ErrorKind, Read, Seek};
 use std::path::{Path, PathBuf};
+use std::{env, io};
 use walkdir::WalkDir;
-use zip::ZipArchive;
-use log::{warn, info, trace, debug};
 use zip::result::{ZipError, ZipResult};
-use crate::loader::ClassLoader;
-use crate::class::{Class, PeekedClass};
-use crate::read::Readable;
+use zip::ZipArchive;
 
 pub struct DynamicClassPath {
     java_home: PathBuf,
@@ -31,14 +31,13 @@ enum ResolvedPath {
 }
 
 impl ResolvedPath {
-
     #[inline]
     fn try_read_class(&mut self, target: &str) -> io::Result<Option<Class>> {
         match self {
             ResolvedPath::ClassFile { name, path } => {
                 if target == name {
                     let mut file = BufReader::new(File::open(path)?);
-                    return Ok(Some(Class::read(&mut file)?))
+                    return Ok(Some(Class::read(&mut file)?));
                 }
 
                 Ok(None)
@@ -46,7 +45,7 @@ impl ResolvedPath {
             ResolvedPath::JarFile { packages, buffer } => {
                 if let Some(index) = target.find('/') {
                     if !packages.contains(&target[..index]) {
-                        return Ok(None)
+                        return Ok(None);
                     }
                 }
 
@@ -97,7 +96,7 @@ impl DynamicClassPath {
     pub fn resolve_class(&mut self, target: &str) -> io::Result<Class> {
         for resolved in &mut self.resolved_paths {
             if let Some(class) = resolved.try_read_class(target)? {
-                return Ok(class)
+                return Ok(class);
             }
         }
 
@@ -107,14 +106,13 @@ impl DynamicClassPath {
 
             for resolved in &mut self.resolved_paths[prev_idx..] {
                 if let Some(class) = resolved.try_read_class(target)? {
-                    return Ok(class)
+                    return Ok(class);
                 }
             }
         }
 
         Err(Error::new(ErrorKind::NotFound, target.to_string()))
     }
-
 
     fn resolve_next_search_location(&mut self) -> io::Result<()> {
         if self.search_progress >= self.search_path.len() {
@@ -125,7 +123,10 @@ impl DynamicClassPath {
         let root_path = self.search_path[self.search_progress - 1].to_path_buf();
 
         if !root_path.exists() {
-            return Err(Error::new(ErrorKind::NotFound, root_path.display().to_string()));
+            return Err(Error::new(
+                ErrorKind::NotFound,
+                root_path.display().to_string(),
+            ));
         }
 
         if root_path.is_file() {
@@ -133,7 +134,6 @@ impl DynamicClassPath {
         } else {
             for entry in WalkDir::new(&root_path) {
                 self.resolve_file(root_path.as_ref(), entry?.path())?;
-
             }
         }
 
@@ -143,15 +143,18 @@ impl DynamicClassPath {
     #[inline]
     fn resolve_file<P: AsRef<Path>>(&mut self, base: P, target: P) -> io::Result<()> {
         match target.as_ref().extension().and_then(OsStr::to_str) {
-            Some("jar") | Some("zip") => self.resolved_paths.push(ResolvedPath::for_jar(target.as_ref())?),
-            Some("class") => self.resolved_paths.push(ResolvedPath::for_class(base.as_ref(), target.as_ref())?),
+            Some("jar") | Some("zip") => self
+                .resolved_paths
+                .push(ResolvedPath::for_jar(target.as_ref())?),
+            Some("class") => self
+                .resolved_paths
+                .push(ResolvedPath::for_class(base.as_ref(), target.as_ref())?),
             _ => {}
         }
 
         Ok(())
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct ClassPath {
@@ -331,7 +334,8 @@ impl ClassPath {
         // let name = Class::peek_name(data)?;
 
         if !self.found_classes.contains_key(&peeked.this_class) {
-            self.found_classes.insert(peeked.this_class, file.to_path_buf());
+            self.found_classes
+                .insert(peeked.this_class, file.to_path_buf());
             return Ok(true);
         }
 

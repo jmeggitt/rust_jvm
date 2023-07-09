@@ -1,23 +1,44 @@
+use crate::c_str;
+use crate::class::{AccessFlags, BufferedRead, ClassLoader};
+use crate::jvm::call::{clean_str, NativeManager};
+use crate::jvm::mem::FieldDescriptor;
+use libc::{c_char, c_int};
+use llvm_sys::core::{
+    LLVMAddFunction, LLVMAppendBasicBlock, LLVMArrayType, LLVMBuildAlloca, LLVMBuildBr,
+    LLVMBuildFPExt, LLVMBuildLoad, LLVMBuildStore, LLVMCountParams, LLVMCreateBuilder,
+    LLVMCreatePassManager, LLVMDisposeMessage, LLVMDisposePassManager, LLVMDoubleType,
+    LLVMFloatType, LLVMFunctionType, LLVMGetArgOperand, LLVMGetModuleContext,
+    LLVMGetNumArgOperands, LLVMGetOrInsertNamedMetadata, LLVMGetParam, LLVMGetTarget,
+    LLVMInt16Type, LLVMInt32Type, LLVMInt64Type, LLVMInt8Type, LLVMIntType,
+    LLVMModuleCreateWithName, LLVMPointerType, LLVMPositionBuilderAtEnd, LLVMPrintModuleToString,
+    LLVMPrintValueToString, LLVMRunPassManager, LLVMSetTarget, LLVMStructCreateNamed,
+    LLVMStructSetBody, LLVMVoidType,
+};
+use llvm_sys::execution_engine::{
+    LLVMCreateGenericValueOfFloat, LLVMCreateGenericValueOfInt, LLVMCreateGenericValueOfPointer,
+    LLVMGenericValueRef,
+};
+use llvm_sys::prelude::{
+    LLVMBasicBlockRef, LLVMBool, LLVMBuilderRef, LLVMContextRef, LLVMTypeRef, LLVMValueRef,
+};
+use llvm_sys::target::{
+    LLVM_InitializeAllAsmParsers, LLVM_InitializeAllAsmPrinters, LLVM_InitializeAllTargetInfos,
+    LLVM_InitializeAllTargetMCs, LLVM_InitializeAllTargets,
+};
+use llvm_sys::target_machine::{
+    LLVMCodeGenOptLevel, LLVMCodeModel, LLVMCreateTargetMachine, LLVMDisposeTargetMachine,
+    LLVMGetDefaultTargetTriple, LLVMGetTargetFromTriple, LLVMRelocMode, LLVMTargetMachineRef,
+};
+use llvm_sys::transforms::pass_manager_builder::{
+    LLVMPassManagerBuilderCreate, LLVMPassManagerBuilderDispose,
+    LLVMPassManagerBuilderPopulateModulePassManager, LLVMPassManagerBuilderSetOptLevel,
+};
+use llvm_sys::{LLVMContext, LLVMModule};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::ptr::{null, null_mut};
-use libc::{c_char, c_int};
-use llvm_sys::core::{LLVMAddFunction, LLVMAppendBasicBlock, LLVMArrayType, LLVMBuildAlloca, LLVMBuildBr, LLVMBuildFPExt, LLVMBuildLoad, LLVMBuildStore, LLVMCountParams, LLVMCreateBuilder, LLVMCreatePassManager, LLVMDisposeMessage, LLVMDisposePassManager, LLVMDoubleType, LLVMFloatType, LLVMFunctionType, LLVMGetArgOperand, LLVMGetModuleContext, LLVMGetNumArgOperands, LLVMGetOrInsertNamedMetadata, LLVMGetParam, LLVMGetTarget, LLVMInt16Type, LLVMInt32Type, LLVMInt64Type, LLVMInt8Type, LLVMIntType, LLVMModuleCreateWithName, LLVMPointerType, LLVMPositionBuilderAtEnd, LLVMPrintModuleToString, LLVMPrintValueToString, LLVMRunPassManager, LLVMSetTarget, LLVMStructCreateNamed, LLVMStructSetBody, LLVMVoidType};
-use llvm_sys::{LLVMContext, LLVMModule};
-use llvm_sys::execution_engine::{LLVMCreateGenericValueOfFloat, LLVMCreateGenericValueOfInt, LLVMCreateGenericValueOfPointer, LLVMGenericValueRef};
-use llvm_sys::prelude::{LLVMBasicBlockRef, LLVMBool, LLVMBuilderRef, LLVMContextRef, LLVMTypeRef, LLVMValueRef};
-use llvm_sys::target::{LLVM_InitializeAllAsmParsers, LLVM_InitializeAllAsmPrinters, LLVM_InitializeAllTargetInfos, LLVM_InitializeAllTargetMCs, LLVM_InitializeAllTargets};
-use llvm_sys::target_machine::{LLVMCodeGenOptLevel, LLVMCodeModel, LLVMCreateTargetMachine, LLVMDisposeTargetMachine, LLVMGetDefaultTargetTriple, LLVMGetTargetFromTriple, LLVMRelocMode, LLVMTargetMachineRef};
-use llvm_sys::transforms::pass_manager_builder::{LLVMPassManagerBuilderCreate, LLVMPassManagerBuilderDispose, LLVMPassManagerBuilderPopulateModulePassManager, LLVMPassManagerBuilderSetOptLevel};
-use crate::class::{AccessFlags, BufferedRead, ClassLoader};
-use crate::jvm::call::{clean_str, NativeManager};
-use crate::jvm::mem::FieldDescriptor;
-use crate::c_str;
-
-
-
 
 pub unsafe fn llvm_target() -> CString {
     let target_ptr = LLVMGetDefaultTargetTriple();
@@ -70,7 +91,6 @@ impl CStringArena {
     }
 }
 
-
 #[repr(transparent)]
 pub struct TargetMachine(LLVMTargetMachineRef);
 
@@ -79,7 +99,6 @@ impl Drop for TargetMachine {
         unsafe { LLVMDisposeTargetMachine(self.0) }
     }
 }
-
 
 #[derive(Debug)]
 struct Module {
@@ -112,7 +131,6 @@ impl Module {
         let fn_type = LLVMFunctionType(ret, args.as_mut_ptr(), args.len() as _, 0);
         LLVMAddFunction(self.ptr, self.owned_strings.str_ptr(name), fn_type)
     }
-
 
     pub unsafe fn ir_str(&self) -> CString {
         let str_ptr = LLVMPrintModuleToString(self.ptr);
@@ -193,7 +211,13 @@ impl ObjectTypeBuilder {
         }
     }
 
-    pub unsafe fn type_for_array(&mut self, context: LLVMContextRef, str_arena: &mut CStringArena, loader: &mut ClassLoader, element: &FieldDescriptor) -> LLVMTypeRef {
+    pub unsafe fn type_for_array(
+        &mut self,
+        context: LLVMContextRef,
+        str_arena: &mut CStringArena,
+        loader: &mut ClassLoader,
+        element: &FieldDescriptor,
+    ) -> LLVMTypeRef {
         let name = format!("[{}", element);
 
         if let Some(type_ref) = self.types.get(&name) {
@@ -211,7 +235,13 @@ impl ObjectTypeBuilder {
         llvm_type
     }
 
-    pub unsafe fn type_for_desc(&mut self, context: LLVMContextRef, str_arena: &mut CStringArena, loader: &mut ClassLoader, desc: &FieldDescriptor) -> LLVMTypeRef {
+    pub unsafe fn type_for_desc(
+        &mut self,
+        context: LLVMContextRef,
+        str_arena: &mut CStringArena,
+        loader: &mut ClassLoader,
+        desc: &FieldDescriptor,
+    ) -> LLVMTypeRef {
         match desc {
             FieldDescriptor::Byte => LLVMInt8Type(),
             FieldDescriptor::Char => LLVMInt16Type(),
@@ -234,7 +264,13 @@ impl ObjectTypeBuilder {
         }
     }
 
-    pub unsafe fn type_for(&mut self, context: LLVMContextRef, str_arena: &mut CStringArena, loader: &mut ClassLoader, name: &str) -> LLVMTypeRef {
+    pub unsafe fn type_for(
+        &mut self,
+        context: LLVMContextRef,
+        str_arena: &mut CStringArena,
+        loader: &mut ClassLoader,
+        name: &str,
+    ) -> LLVMTypeRef {
         if let Some(type_ref) = self.types.get(name) {
             return *type_ref;
         }
@@ -283,11 +319,15 @@ impl ObjectTypeBuilder {
             // };
         }
 
-        LLVMStructSetBody(llvm_type, types.as_mut_ptr(), types.len() as _, false as LLVMBool);
+        LLVMStructSetBody(
+            llvm_type,
+            types.as_mut_ptr(),
+            types.len() as _,
+            false as LLVMBool,
+        );
         llvm_type
     }
 }
-
 
 pub struct FunctionContext<'c> {
     jmp_labels: HashMap<u64, LLVMBasicBlockRef>,
@@ -330,27 +370,39 @@ impl<'c> FunctionContext<'c> {
         self.get_alloca(alloc_type, idx, "stack")
     }
 
-    pub fn get_alloca(&mut self, alloc_type: &FieldDescriptor, idx: u64, prefix: &str) -> LLVMValueRef {
+    pub fn get_alloca(
+        &mut self,
+        alloc_type: &FieldDescriptor,
+        idx: u64,
+        prefix: &str,
+    ) -> LLVMValueRef {
         unsafe {
             let (llvm_type, name) = match alloc_type {
                 // FieldDescriptor::Byte => (LLVMIntType(8), format!("local{}b", idx)),
                 // FieldDescriptor::Char => (LLVMIntType(16), format!("local{}c", idx)),
                 FieldDescriptor::Double => (LLVMDoubleType(), format!("{}{}d", prefix, idx)),
                 FieldDescriptor::Float => (LLVMFloatType(), format!("{}{}f", prefix, idx)),
-                FieldDescriptor::Int | FieldDescriptor::Byte | FieldDescriptor::Char | FieldDescriptor::Short | FieldDescriptor::Boolean
-                => (LLVMIntType(32), format!("{}{}i", prefix, idx)),
+                FieldDescriptor::Int
+                | FieldDescriptor::Byte
+                | FieldDescriptor::Char
+                | FieldDescriptor::Short
+                | FieldDescriptor::Boolean => (LLVMIntType(32), format!("{}{}i", prefix, idx)),
                 FieldDescriptor::Long => (LLVMIntType(64), format!("{}{}j", prefix, idx)),
                 // FieldDescriptor::Short => (LLVMIntType(16), format!("local{}s", idx)),
                 // FieldDescriptor::Boolean => (LLVMIntType(8), format!("local{}z", idx)),
-                FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => (LLVMPointerType(LLVMVoidType(), 0), format!("{}{}a", prefix, idx)),
+                FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => (
+                    LLVMPointerType(LLVMVoidType(), 0),
+                    format!("{}{}a", prefix, idx),
+                ),
                 _ => panic!(),
             };
 
             if let Some(alloca) = self.alloca_fields.get(&name) {
-                return *alloca
+                return *alloca;
             }
 
-            let alloca = LLVMBuildAlloca(self.init_builder, llvm_type, self.str_arena.str_ptr(&name));
+            let alloca =
+                LLVMBuildAlloca(self.init_builder, llvm_type, self.str_arena.str_ptr(&name));
             self.alloca_fields.insert(name, alloca);
             alloca
         }
@@ -387,7 +439,12 @@ pub unsafe fn build_for_class(mut loader: ClassLoader, name: &str) {
 
     let mut type_builder = ObjectTypeBuilder::new();
 
-    let this_obj = type_builder.type_for(module.context(), &mut module.owned_strings, &mut loader, name);
+    let this_obj = type_builder.type_for(
+        module.context(),
+        &mut module.owned_strings,
+        &mut loader,
+        name,
+    );
     let this_obj_ptr = LLVMPointerType(this_obj, 0);
 
     // let jclass = type_builder.type_for(module.context(), &mut module.owned_strings, &mut loader, "java/lang/Class");
@@ -395,7 +452,6 @@ pub unsafe fn build_for_class(mut loader: ClassLoader, name: &str) {
 
     let jclass = LLVMStructCreateNamed(module.context(), c_str!("jclass"));
     let jclass_ptr = LLVMPointerType(jclass, 0);
-
 
     for method in &target.methods {
         let method_name = method.name(&target.constants).unwrap();
@@ -408,7 +464,6 @@ pub unsafe fn build_for_class(mut loader: ClassLoader, name: &str) {
         );
         // let short_name = format!("Java_{}_{}", clean_str(class), clean_str(name));
 
-
         let (function, args, ret) = match FieldDescriptor::read_str(&method_desc).unwrap() {
             FieldDescriptor::Method { args, returns } => {
                 let mut llvm_args = Vec::with_capacity(2 + args.len());
@@ -420,18 +475,31 @@ pub unsafe fn build_for_class(mut loader: ClassLoader, name: &str) {
                     llvm_args.push(this_obj_ptr);
                 }
                 for arg in &args {
-                    let llvm_ty = type_builder.type_for_desc(module.context(), &mut module.owned_strings, &mut loader, arg);
+                    let llvm_ty = type_builder.type_for_desc(
+                        module.context(),
+                        &mut module.owned_strings,
+                        &mut loader,
+                        arg,
+                    );
                     llvm_args.push(llvm_ty);
                 }
 
-                let ret_ty = type_builder.type_for_desc(module.context(), &mut module.owned_strings, &mut loader, &*returns);
+                let ret_ty = type_builder.type_for_desc(
+                    module.context(),
+                    &mut module.owned_strings,
+                    &mut loader,
+                    &*returns,
+                );
 
                 // llvm_args.extend(args.iter().cloned().map(|x|unsafe {type_from_descriptor(x)}));
-                (module.add_fn(&long_name, &mut llvm_args[..], ret_ty), args, returns)
+                (
+                    module.add_fn(&long_name, &mut llvm_args[..], ret_ty),
+                    args,
+                    returns,
+                )
             }
             _ => panic!("Unexpected method descriptor!"),
         };
-
 
         if method.access.contains(AccessFlags::NATIVE) {
             continue;
@@ -447,14 +515,22 @@ pub unsafe fn build_for_class(mut loader: ClassLoader, name: &str) {
 
         // Pre-generate labels so they can be jumped to for branching if needed (plus make debugging easier)
         for (instruction_idx, _) in &code.instructions {
-            let block = LLVMAppendBasicBlock(function, function_context.str_arena.str_ptr(format!("{}", instruction_idx)));
+            let block = LLVMAppendBasicBlock(
+                function,
+                function_context
+                    .str_arena
+                    .str_ptr(format!("{}", instruction_idx)),
+            );
             function_context.jmp_labels.insert(*instruction_idx, block);
         }
 
         let mut arg_idx = 0;
 
         if !method.access.contains(AccessFlags::STATIC) {
-            let local = function_context.get_operand_alloca(&FieldDescriptor::Object("java/lang/Object".to_string()), arg_idx as u64);
+            let local = function_context.get_operand_alloca(
+                &FieldDescriptor::Object("java/lang/Object".to_string()),
+                arg_idx as u64,
+            );
             let arg_value = LLVMGetParam(function, 1);
             LLVMBuildStore(function_context.init_builder, arg_value, local);
             arg_idx += 1;
@@ -518,8 +594,5 @@ pub unsafe fn build_for_class(mut loader: ClassLoader, name: &str) {
         }
     }
 
-
     println!("{}", module.ir_str().to_string_lossy());
 }
-
-

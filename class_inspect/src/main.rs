@@ -66,8 +66,6 @@ fn main() {
     let raw_class = class_loader.class(class).unwrap();
     println!("Reading: {} extends {}", class, raw_class.super_class());
 
-
-
     if app.is_present("constants") {
         println!("Constant Table:");
         let mut idx = 1;
@@ -144,5 +142,4 @@ fn main() {
             jvm::class::llvm::build_for_class(class_loader, class);
         }
     }
-
 }

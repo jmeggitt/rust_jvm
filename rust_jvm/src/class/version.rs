@@ -5,7 +5,6 @@ use crate::class::BufferedRead;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
-
 pub fn check_magic_number(buffer: &mut Cursor<Vec<u8>>) -> io::Result<bool> {
     let magic = buffer.read_u32::<BigEndian>()?;
     // println!("Magic Number: {:x}", magic);

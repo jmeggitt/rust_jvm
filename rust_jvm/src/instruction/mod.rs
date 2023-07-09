@@ -64,14 +64,12 @@ use crate::class::constant::ConstantPool;
 use crate::class::MethodInfo;
 use crate::jvm::mem::FieldDescriptor;
 
-
+use class_format::read::Readable;
 #[cfg(feature = "llvm")]
 use llvm_sys::prelude::LLVMBuilderRef;
-use class_format::read::Readable;
 
 #[cfg(feature = "llvm")]
 use crate::class::llvm::FunctionContext;
-
 
 #[cfg(feature = "llvm")]
 pub trait LLVMInstruction {
@@ -110,7 +108,6 @@ pub trait StaticInstruct: Instruction {
 
     fn read(form: u8, buffer: &mut Cursor<Vec<u8>>) -> io::Result<Box<dyn Instruction>>;
 }
-
 
 pub trait InstructionAction: Any {
     fn exec(

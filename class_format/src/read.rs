@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use byteorder::{BigEndian, ReadBytesExt};
+use std::fmt::{Display, Formatter};
 use std::io::{self, Cursor, Read};
 use std::ops::Deref;
 

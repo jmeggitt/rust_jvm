@@ -50,7 +50,7 @@ pub enum Constant {
         name_and_type_index: u16,
     },
     Module(u16),
-    Package(u16)
+    Package(u16),
 }
 
 impl Readable for Constant {
@@ -139,11 +139,10 @@ impl Readable for ReferenceKind {
     }
 }
 
-
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct RawConstantPool {
-    pool: Vec<Constant>
+    pool: Vec<Constant>,
 }
 
 impl Readable for RawConstantPool {
@@ -181,7 +180,6 @@ impl Index<u16> for RawConstantPool {
     }
 }
 
-
 // TODO: Maybe return results instead of panicking.
 pub trait ConstantPool {
     fn text(&self, index: u16) -> &str;
@@ -198,7 +196,7 @@ pub trait ConstantPool {
     }
 }
 
-impl<T: Index<u16, Output=Constant>> ConstantPool for T {
+impl<T: Index<u16, Output = Constant>> ConstantPool for T {
     fn text(&self, index: u16) -> &str {
         match &self[index] {
             Constant::Utf8(text) => text.as_ref(),

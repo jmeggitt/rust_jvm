@@ -12,11 +12,10 @@ use _llvm_imports::*;
 mod _llvm_imports {
     pub use crate::class::llvm::{FunctionContext, LLVMInstruction};
 
+    pub use crate::c_str;
     pub use llvm_sys::core::{LLVMBuildLoad, LLVMBuildStore};
     pub use llvm_sys::prelude::LLVMBuilderRef;
-    pub use crate::c_str;
 }
-
 
 instruction! {aload, 0x19, u8, 0x2a <-> 0x2d}
 instruction! {astore, 0x3a, u8, 0x4b <-> 0x4e}

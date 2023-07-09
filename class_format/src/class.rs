@@ -2,8 +2,8 @@ use std::cmp::Ordering;
 use std::io;
 use std::io::{Cursor, Error, ErrorKind, Read, Seek, Write};
 
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use bitflags::bitflags;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 // use crate::class::attribute::{
 //     BootstrapMethod, BootstrapMethods, CodeAttribute, EnclosingMethod, Exceptions, InnerClasses,
@@ -13,11 +13,11 @@ use bitflags::bitflags;
 // use crate::class::constant::{Constant, ConstantClass, ConstantPool};
 // use crate::class::version::{check_magic_number, ClassVersion};
 // use crate::class::{BufferedRead, DebugWithConst};
-use std::fmt::Formatter;
 use crate::attributes::AttributeInfo;
 use crate::constant::{Constant, ConstantPool, RawConstantPool};
 use crate::read::Readable;
 use crate::simple_grammar;
+use std::fmt::Formatter;
 
 bitflags! {
     pub struct ClassAccessFlags: u16 {
@@ -60,7 +60,6 @@ bitflags! {
         const SYNTHETIC = 0x1000;
     }
 }
-
 
 impl Readable for MethodAccessFlags {
     fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
@@ -107,7 +106,10 @@ struct ClassMagicBytes;
 impl Readable for ClassMagicBytes {
     fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
         if u32::read(buffer)? != 0xCAFEBABE {
-            return Err(Error::new(ErrorKind::InvalidInput, "Magic bytes do not match 0xCAFEBABE"))
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Magic bytes do not match 0xCAFEBABE",
+            ));
         }
         Ok(ClassMagicBytes)
     }
@@ -122,8 +124,8 @@ pub struct ClassVersion {
 impl Readable for ClassVersion {
     fn read<T: Read>(buffer: &mut T) -> io::Result<Self> {
         Ok(ClassVersion {
-            minor: buffer.read_u16:: < BigEndian>() ?,
-            major: buffer.read_u16:: < BigEndian>() ?,
+            minor: buffer.read_u16::<BigEndian>()?,
+            major: buffer.read_u16::<BigEndian>()?,
         })
     }
 }
@@ -217,7 +219,7 @@ impl Readable for PeekedClass {
 
         let super_class = match peeked.super_class {
             0 => None,
-            x => Some(peeked.constants.class_name(x).to_string())
+            x => Some(peeked.constants.class_name(x).to_string()),
         };
 
         Ok(PeekedClass {
@@ -227,7 +229,6 @@ impl Readable for PeekedClass {
         })
     }
 }
-
 
 simple_grammar! {
     #[derive(Debug, Clone)]
@@ -479,11 +480,10 @@ impl Class {
 
     pub fn super_class(&self) -> Option<&str> {
         if self.super_class == 0 {
-            return None
+            return None;
         }
 
         Some(self.constants.class_name(self.super_class))
-
     }
 
     // pub fn build_object(&self) -> Object {
@@ -605,7 +605,7 @@ simple_grammar! {
 //         buffer.write_all(&self.info)
 //     }
 // }
-simple_grammar!{
+simple_grammar! {
     #[derive(Debug, Clone)]
     pub struct MethodInfo {
         access: MethodAccessFlags,
@@ -716,4 +716,3 @@ simple_grammar!{
 //         self.attributes.write(buffer)
 //     }
 // }
-

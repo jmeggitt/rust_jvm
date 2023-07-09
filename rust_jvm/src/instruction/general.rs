@@ -22,8 +22,6 @@ use std::sync::Arc;
 // TODO: wide
 // TODO: jsr_w
 
-
-
 instruction! {jsr, 0xa8, u16}
 
 impl InstructionAction for jsr {
@@ -32,9 +30,7 @@ impl InstructionAction for jsr {
         _frame: &mut StackFrame,
         _jvm: &mut Arc<RwLock<JavaEnv>>,
     ) -> Result<(), FlowControl> {
-        unimplemented!(
-            "Jump to subroutine is unsupported in this implementation of the jvm"
-        )
+        unimplemented!("Jump to subroutine is unsupported in this implementation of the jvm")
     }
 }
 
@@ -394,8 +390,6 @@ impl InstructionAction for ldc2_w {
     }
 }
 
-
-
 instruction! {goto, 0xa7, i16}
 
 impl InstructionAction for goto {
@@ -412,7 +406,6 @@ impl InstructionAction for goto {
 
 #[derive(Debug, Copy, Clone)]
 pub struct goto_w(pub i32);
-
 
 impl InstructionAction for goto_w {
     fn exec(
@@ -434,7 +427,11 @@ impl crate::instruction::Instruction for goto_w {
             buffer.write_i32::<byteorder::BigEndian>(self.0)
         }
     }
-    fn exec(&self, stack: &mut crate::jvm::call::StackFrame, jvm: &mut std::sync::Arc<parking_lot::RwLock<crate::jvm::JavaEnv>>) -> Result<(), crate::jvm::call::FlowControl> {
+    fn exec(
+        &self,
+        stack: &mut crate::jvm::call::StackFrame,
+        jvm: &mut std::sync::Arc<parking_lot::RwLock<crate::jvm::JavaEnv>>,
+    ) -> Result<(), crate::jvm::call::FlowControl> {
         <Self as crate::instruction::InstructionAction>::exec(self, stack, jvm)
     }
 }
@@ -442,7 +439,10 @@ impl crate::instruction::Instruction for goto_w {
 impl crate::instruction::StaticInstruct for goto_w {
     const FORM: u8 = 0xc8;
 
-    fn read(_: u8, buffer: &mut std::io::Cursor<Vec<u8>>) -> std::io::Result<Box<dyn crate::instruction::Instruction>> {
+    fn read(
+        _: u8,
+        buffer: &mut std::io::Cursor<Vec<u8>>,
+    ) -> std::io::Result<Box<dyn crate::instruction::Instruction>> {
         use byteorder::ReadBytesExt;
         Ok(Box::new(goto_w(buffer.read_i32::<byteorder::BigEndian>()?)))
     }
