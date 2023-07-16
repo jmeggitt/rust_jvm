@@ -5,7 +5,7 @@ use std::ffi::c_void;
 use jni::sys::{jboolean, jclass, jint, jobject, jstring, JNIEnv};
 
 use crate::class::constant::ClassElement;
-use crate::jvm::call::{JavaEnvInvoke, NativeManager, RawJNIEnv};
+use crate::jvm::call::{JavaEnvInvoke, RawJNIEnv};
 use crate::jvm::internals::{register_method_handles_natives, unsafe_register_natives};
 use crate::jvm::mem::{JavaValue, ObjectHandle};
 use crate::jvm::JavaEnv;
@@ -319,7 +319,7 @@ pub unsafe extern "system" fn load_library(
     );
 
     let jvm = env.read();
-    let mut vm_ptr = &jvm.jni_vm as *const _;
+    let mut vm_ptr = &jvm.jni_vm as *const _ as *const _;
 
     let on_load = match jvm.linked_libraries.load_library(PathBuf::from(path)) {
         Ok(v) => v,

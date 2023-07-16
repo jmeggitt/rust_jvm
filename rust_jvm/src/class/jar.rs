@@ -341,7 +341,7 @@ impl Manifest {
 #[derive(Default, Debug, Clone)]
 pub struct JarEntry {
     name: String,
-    content_type: Option<String>,
+    _content_type: Option<String>,
     java_bean: Option<bool>,
     digest: Option<DigestInfo>,
     magic: Option<String>,

@@ -12,8 +12,9 @@ use std::ffi::c_void;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::io::Write;
+use std::mem::size_of;
 use std::path::PathBuf;
-use std::ptr::null_mut;
+use std::ptr::{null_mut, NonNull};
 use std::sync::Arc;
 
 #[cfg(unix)]
@@ -31,13 +32,13 @@ pub struct NativeCall {
 const NULL_BOX: *mut c_void = null_mut();
 
 impl NativeCall {
-    pub fn new(fn_ptr: *const c_void, desc: FieldDescriptor) -> Self {
+    pub fn new(fn_ptr: JniFnPtr, desc: FieldDescriptor) -> Self {
         assert!(matches!(&desc, FieldDescriptor::Method { .. }));
 
         let cif = desc.build_cif();
         NativeCall {
             cif,
-            fn_ptr: CodePtr::from_ptr(fn_ptr),
+            fn_ptr: CodePtr::from_ptr(fn_ptr.ptr.as_ptr() as *const c_void),
             desc,
         }
     }
@@ -185,7 +186,37 @@ pub fn clean_desc(x: &str) -> CleanStr {
 }
 
 pub type JniOnloadFn = unsafe extern "system" fn(*mut JavaVM, *const c_void) -> jint;
-pub type JniFn = unsafe extern "system" fn();
+
+#[repr(transparent)]
+#[derive(Copy, Clone)]
+pub struct JniFnPtr {
+    ptr: NonNull<()>,
+}
+
+/// # Safety:
+/// JniFnPtr represents a function pointer of unknown type so it can be sent between threads safely.
+unsafe impl Send for JniFnPtr {}
+
+/// # Safety:
+/// JniFnPtr represents a function pointer of unknown type so it can be accessed from other threads,
+/// but only so long as the binary which provided the function is loaded and the correct function
+/// signature is used.
+unsafe impl Sync for JniFnPtr {}
+
+impl JniFnPtr {
+    pub fn new(symbol: Symbol<unsafe extern "system" fn()>) -> Self {
+        assert_eq!(
+            size_of::<Symbol<unsafe extern "system" fn()>>(),
+            size_of::<*mut ()>()
+        );
+
+        let ptr = symbol.into_raw() as *mut ();
+        match NonNull::new(ptr) {
+            Some(ptr) => JniFnPtr { ptr },
+            None => unreachable!(),
+        }
+    }
+}
 
 struct LoadedLibrary {
     library: Library,
@@ -224,7 +255,7 @@ impl Display for JniSymbolName<'_> {
 #[derive(Default)]
 pub struct NativeManager {
     libraries: RwLock<Vec<LoadedLibrary>>,
-    loaded_fns: RwLock<HashMap<JniSymbolName<'static>, *const c_void>>,
+    loaded_fns: RwLock<HashMap<JniSymbolName<'static>, JniFnPtr>>,
 }
 
 impl NativeManager {
@@ -251,7 +282,21 @@ impl NativeManager {
             return Ok(None);
         }
 
-        let library = unsafe { Library::new(&path)? };
+        let library = match unsafe { Library::new(&path) } {
+            Ok(v) => v,
+            Err(e) => {
+                #[cfg(windows)]
+                unsafe {
+                    let err = winapi::um::errhandlingapi::GetLastError();
+                    error!("Failed to load library (error: {})", err);
+
+                    if err == 193 {
+                        panic!("Attempted to load 32bit dll on x64 system")
+                    }
+                }
+                return Err(e);
+            }
+        };
 
         let on_load_fn = unsafe {
             library
@@ -263,12 +308,14 @@ impl NativeManager {
         Ok(on_load_fn.ok())
     }
 
-    pub fn find_symbol(&self, symbol_name: &[u8]) -> Option<Symbol<JniFn>> {
+    pub fn find_symbol(&self, symbol_name: &[u8]) -> Option<Symbol<unsafe extern "system" fn()>> {
         self.libraries
             .read()
             .iter()
             .filter_map(|LoadedLibrary { library, path }| unsafe {
-                let symbol = library.get::<JniFn>(symbol_name).ok()?;
+                let symbol = library
+                    .get::<unsafe extern "system" fn()>(symbol_name)
+                    .ok()?;
                 debug!(
                     "Found native function {} in {}",
                     String::from_utf8_lossy(symbol_name),
@@ -279,7 +326,7 @@ impl NativeManager {
             .next()
     }
 
-    pub fn get_fn_ptr(&mut self, class: &str, name: &str, desc: &str) -> Option<*const c_void> {
+    pub fn get_fn_ptr(&mut self, class: &str, name: &str, desc: &str) -> Option<JniFnPtr> {
         let jni_symbol_name = JniSymbolName {
             class: Cow::Borrowed(class),
             name: Cow::Borrowed(name),
@@ -303,13 +350,13 @@ impl NativeManager {
         }
 
         let found_symbol = match self.find_symbol(&raw_symbol_name) {
-            Some(symbol) => symbol.into_raw() as *mut c_void,
+            Some(symbol) => JniFnPtr::new(symbol),
             None => {
                 if write!(&mut raw_symbol_name, "__{}", clean_desc(desc)).is_err() {
                     unreachable!()
                 }
 
-                self.find_symbol(&raw_symbol_name)?.into_raw() as *mut c_void
+                JniFnPtr::new(self.find_symbol(&raw_symbol_name)?)
             }
         };
 
@@ -347,8 +394,13 @@ impl NativeManager {
             return false;
         }
 
+        let jni_fn_ptr = JniFnPtr {
+            ptr: NonNull::new(fn_ptr as *mut ())
+                .expect("Can not register a function pointer as null"),
+        };
+
         loaded_fns
-            .insert(symbol_name.ensure_owned(), fn_ptr)
+            .insert(symbol_name.ensure_owned(), jni_fn_ptr)
             .is_none()
     }
 }

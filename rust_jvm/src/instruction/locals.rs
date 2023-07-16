@@ -1,6 +1,6 @@
 use crate::instruction::InstructionAction;
 use crate::jvm::call::{FlowControl, StackFrame};
-use crate::jvm::mem::{FieldDescriptor, JavaValue};
+use crate::jvm::mem::JavaValue;
 use crate::jvm::JavaEnv;
 use parking_lot::RwLock;
 use std::sync::Arc;

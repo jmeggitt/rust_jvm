@@ -61,12 +61,12 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
     let _init_args = *(args as *mut JavaVMInitArgs);
 
     CombinedLogger::init(vec![
-        // TermLogger::new(
-        //     LevelFilter::Debug,
-        //     Config::default(),
-        //     TerminalMode::Mixed,
-        //     ColorChoice::Always,
-        // ),
+        simplelog::TermLogger::new(
+            LevelFilter::Debug,
+            simplelog::Config::default(),
+            simplelog::TerminalMode::Mixed,
+            simplelog::ColorChoice::Always,
+        ),
         WriteLogger::new(
             LevelFilter::Debug,
             ConfigBuilder::new()

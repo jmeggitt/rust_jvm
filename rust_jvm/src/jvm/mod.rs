@@ -1,10 +1,10 @@
 use std::io;
 use std::option::Option::Some;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use jni::sys::{
-    jchar, jint, JNIInvokeInterface_, JavaVM, JNI_VERSION_1_1, JNI_VERSION_1_2, JNI_VERSION_1_4,
-    JNI_VERSION_1_6, JNI_VERSION_1_8,
+    jchar, jint, JNI_VERSION_1_1, JNI_VERSION_1_2, JNI_VERSION_1_4, JNI_VERSION_1_6,
+    JNI_VERSION_1_8,
 };
 use std::collections::{HashMap, HashSet};
 use walkdir::WalkDir;
@@ -20,8 +20,9 @@ use parking_lot::RwLock;
 use std::ffi::c_void;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::ops::{Index, IndexMut};
-use std::ptr::{null, null_mut};
+use std::mem::size_of;
+use std::ops::{Deref, Index, IndexMut};
+use std::ptr::null;
 
 pub mod call;
 pub mod mem;
@@ -33,7 +34,6 @@ pub mod thread;
 // TODO: Review section 5.5 of the docs
 pub struct JavaEnv {
     pub class_loader: ClassLoader,
-    // pub static_fields: HashMap<String, JavaValue>,
     pub static_fields: StaticFields,
     pub static_load: HashSet<String>,
     pub linked_libraries: NativeManager,
@@ -47,97 +47,112 @@ pub struct JavaEnv {
     pub interned_strings: HashMap<String, ObjectHandle>,
     schemas: HashMap<String, Arc<ClassSchema>>,
 
-    pub jni_vm: JNIInvokeInterface_,
+    pub jni_vm: InvokeInterface,
 }
 
-// :(
-unsafe impl Sync for JavaEnv {}
-
-unsafe impl Send for JavaEnv {}
-
-unsafe extern "system" fn get_env(vm: *mut JavaVM, penv: *mut *mut c_void, version: jint) -> jint {
-    match version {
-        JNI_VERSION_1_1 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_1"),
-        JNI_VERSION_1_2 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_2"),
-        JNI_VERSION_1_4 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_4"),
-        JNI_VERSION_1_6 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_6"),
-        JNI_VERSION_1_8 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_8"),
-        x => error!("Unknown JNIEnv interface version: {:X}", x),
-    };
-
-    let mut handle = (&*((&**vm).reserved0 as *mut Arc<RwLock<JavaEnv>>)).clone();
-    let interface = build_interface(&mut handle);
-    *penv = Box::leak(Box::new(Box::new(interface))) as *mut _ as *mut c_void;
-    version
+#[repr(C)]
+#[derive(Clone)]
+#[allow(non_snake_case)]
+pub struct InvokeInterface {
+    pub reserved0: Box<Weak<RwLock<JavaEnv>>>,
+    pub reserved1: &'static (),
+    pub reserved2: &'static (),
+    pub DestroyJavaVM: extern "system" fn(vm: &RealJavaVM) -> jint,
+    pub AttachCurrentThread:
+        extern "system" fn(vm: &RealJavaVM, penv: *mut *mut c_void, args: *mut c_void) -> jint,
+    pub DetachCurrentThread: extern "system" fn(vm: &RealJavaVM) -> jint,
+    pub GetEnv: extern "system" fn(vm: &RealJavaVM, penv: *mut *mut c_void, version: jint) -> jint,
+    pub AttachCurrentThreadAsDaemon:
+        extern "system" fn(vm: &RealJavaVM, penv: *mut *mut c_void, args: *mut c_void) -> jint,
 }
 
-unsafe extern "system" fn attach_thread_as_daemon(
-    _vm: *mut JavaVM,
-    _penv: *mut *mut c_void,
-    _args: *mut c_void,
-) -> jint {
-    unimplemented!()
+#[repr(C)]
+pub struct RealJavaVM {
+    inner: Box<InvokeInterface>,
 }
 
-unsafe extern "system" fn destroy_vm(_vm: *mut JavaVM) -> jint {
-    unimplemented!()
+impl Deref for RealJavaVM {
+    type Target = InvokeInterface;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
-unsafe extern "system" fn attach_thread(
-    _vm: *mut JavaVM,
-    _penv: *mut *mut c_void,
-    _args: *mut c_void,
-) -> jint {
-    unimplemented!()
-}
+impl RealJavaVM {
+    extern "system" fn destroy_java_vm(&self) -> jint {
+        unimplemented!()
+    }
 
-unsafe extern "system" fn detach_thread(_vm: *mut JavaVM) -> jint {
-    unimplemented!()
+    extern "system" fn attach_current_thread(
+        &self,
+        _penv: *mut *mut c_void,
+        _args: *mut c_void,
+    ) -> jint {
+        unimplemented!()
+    }
+
+    extern "system" fn detach_current_thread(&self) -> jint {
+        unimplemented!()
+    }
+
+    extern "system" fn attach_current_thread_as_daemon(
+        &self,
+        _penv: *mut *mut c_void,
+        _args: *mut c_void,
+    ) -> jint {
+        unimplemented!()
+    }
+
+    extern "system" fn get_env(&self, penv: *mut *mut c_void, version: jint) -> jint {
+        match version {
+            JNI_VERSION_1_1 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_1"),
+            JNI_VERSION_1_2 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_2"),
+            JNI_VERSION_1_4 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_4"),
+            JNI_VERSION_1_6 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_6"),
+            JNI_VERSION_1_8 => info!("Getting JNIEnv from JavaVM on JNI_VERSION_1_8"),
+            x => error!("Unknown JNIEnv interface version: {:X}", x),
+        };
+
+        // let mut handle = (&*(self.reserved0 as *mut Arc<RwLock<JavaEnv>>)).clone();
+        let handle = self.reserved0.clone();
+        let interface = build_interface(&mut handle.upgrade().unwrap());
+        unsafe {
+            *penv = Box::leak(Box::new(Box::new(interface))) as *mut _ as *mut c_void;
+        }
+        version
+    }
 }
 
 impl JavaEnv {
     pub fn new(class_loader: ClassLoader) -> Arc<RwLock<Self>> {
-        let jvm = JavaEnv {
-            class_loader,
-            static_fields: StaticFields::new(),
-            static_load: HashSet::new(),
-            linked_libraries: NativeManager::new(),
-            vm: VirtualMachine::default(),
-            registered_classes: HashMap::new(),
-            thread_manager: JavaThreadManager::default(),
-            interned_strings: HashMap::new(),
-            schemas: HashMap::new(),
-            jni_vm: JNIInvokeInterface_ {
-                reserved0: null_mut(),
-                reserved1: null_mut(),
-                reserved2: null_mut(),
-                DestroyJavaVM: Some(destroy_vm),
-                AttachCurrentThread: Some(attach_thread),
-                DetachCurrentThread: Some(detach_thread),
-                GetEnv: Some(get_env),
-                AttachCurrentThreadAsDaemon: Some(attach_thread_as_daemon),
-            },
-        };
-
         #[cfg(feature = "thread_profiler")]
         thread_profiler::register_thread_with_profiler();
+        assert_eq!(size_of::<Arc<RwLock<JavaEnv>>>(), size_of::<*mut c_void>());
 
-        let mut jvm = Arc::new(RwLock::new(jvm));
-        let self_box = Box::new(jvm.clone());
-        jvm.write().jni_vm.reserved0 = Box::leak(self_box) as *mut Arc<RwLock<JavaEnv>> as _;
-
-        // let interface = build_interface(&mut jvm);
-        //
-        // let vm = JNIInvokeInterface_ {
-        //     reserved0: Box::leak(jvm) as *mut Arc<RwLock<JavaEnv>> as _,
-        //     reserved1: null_mut(),
-        //     reserved2: null_mut(),
-        //     DestroyJavaVM: None,
-        //     AttachCurrentThread: None,
-        //     DetachCurrentThread: None,
-        //     GetEnv: None,
-        //     AttachCurrentThreadAsDaemon: None,
-        // };
+        let mut jvm = Arc::new_cyclic(|this| {
+            RwLock::new(JavaEnv {
+                class_loader,
+                static_fields: StaticFields::new(),
+                static_load: HashSet::new(),
+                linked_libraries: NativeManager::new(),
+                vm: VirtualMachine::default(),
+                registered_classes: HashMap::new(),
+                thread_manager: JavaThreadManager::default(),
+                interned_strings: HashMap::new(),
+                schemas: HashMap::new(),
+                jni_vm: InvokeInterface {
+                    reserved0: Box::new(this.clone()),
+                    reserved1: &(),
+                    reserved2: &(),
+                    DestroyJavaVM: RealJavaVM::destroy_java_vm,
+                    AttachCurrentThread: RealJavaVM::attach_current_thread,
+                    DetachCurrentThread: RealJavaVM::detach_current_thread,
+                    GetEnv: RealJavaVM::get_env,
+                    AttachCurrentThreadAsDaemon: RealJavaVM::attach_current_thread_as_daemon,
+                },
+            })
+        });
 
         first_time_sys_thread_init(&mut jvm);
 
@@ -274,9 +289,10 @@ impl JavaEnv {
                 let err = winapi::um::errhandlingapi::GetLastError();
                 panic!("Failed to set dll directory (error: {})", err);
             }
+            debug!("SetDllDirectoryA({:?})", path);
         }
 
-        let mut vm_ptr = &lock.jni_vm as *const _;
+        let mut vm_ptr = &lock.jni_vm as *const _ as *const _;
         // Explicitly drop read lock to prevent lock from persisting until end of function and
         // blocking library load
         std::mem::drop(lock);
@@ -296,7 +312,7 @@ impl JavaEnv {
             Ok(Some(on_load_fn)) => unsafe {
                 on_load_fn(&mut vm_ptr, null());
             },
-            Ok(None) => {}
+            Ok(None) => warn!("Library is already loaded"),
             Err(err) => error!("{}", err),
         }
         // if let Err(e) = NativeManager::load_library(jvm.clone(), target_lib, &mut vm_ptr) {
@@ -327,7 +343,7 @@ impl JavaEnv {
             }
         }
 
-        let mut vm_ptr = &lock.jni_vm as *const _;
+        let mut vm_ptr = &lock.jni_vm as *const _ as *const _;
         // Explicitly drop read lock to prevent lock from persisting until end of function and
         // blocking library load
         std::mem::drop(lock);

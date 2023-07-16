@@ -14,7 +14,7 @@ log_dump!(CLASS_LOADER);
 
 #[derive(Debug, Default)]
 pub struct UnpackedJar {
-    dir: PathBuf,
+    _dir: PathBuf,
     pub manifest: Manifest,
 }
 

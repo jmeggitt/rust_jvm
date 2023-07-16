@@ -2,7 +2,7 @@
 
 use std::any::Any;
 use std::fmt::Debug;
-use std::io::{self, Cursor, Error, ErrorKind, Read};
+use std::io::{self, Cursor, Error, ErrorKind};
 use std::ops::RangeInclusive;
 use std::sync::Arc;
 
@@ -59,12 +59,6 @@ pub mod instr {
     pub use super::stack::*;
 }
 
-use crate::class::attribute::CodeAttribute;
-use crate::class::constant::ConstantPool;
-use crate::class::MethodInfo;
-use crate::jvm::mem::FieldDescriptor;
-
-use class_format::read::Readable;
 #[cfg(feature = "llvm")]
 use llvm_sys::prelude::LLVMBuilderRef;
 

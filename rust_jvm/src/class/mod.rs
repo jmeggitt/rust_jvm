@@ -56,6 +56,7 @@ macro_rules! readable_struct {
         readable_struct!{@impl $name {$($field: $type),* }}
     };
     (@impl $name:ident { $($field:ident: $type:ty),* }) => {
+        #[allow(unused_variables)]
         impl BufferedRead for $name {
             fn read<T: Read + Seek>(buffer: &mut T) -> io::Result<Self> {
                 Ok($name { $($field: <$type as BufferedRead>::read(buffer)?),* })

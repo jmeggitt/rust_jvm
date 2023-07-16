@@ -440,7 +440,6 @@ impl crate::instruction::StaticInstruct for goto_w {
         _: u8,
         buffer: &mut std::io::Cursor<Vec<u8>>,
     ) -> std::io::Result<Box<dyn crate::instruction::Instruction>> {
-        use byteorder::ReadBytesExt;
         Ok(Box::new(goto_w(buffer.read_i32::<byteorder::BigEndian>()?)))
     }
 }

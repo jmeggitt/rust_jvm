@@ -3,7 +3,6 @@ use crate::class::constant::ConstantPool;
 use crate::jvm::call::FlowControl;
 use crate::jvm::mem::{ComputationalType, JavaValue, ObjectHandle, ObjectReference, StackValue};
 use crate::jvm::JavaEnv;
-use std::convert::TryFrom;
 
 use crate::jvm::thread::handle_thread_updates;
 use parking_lot::RwLock;
@@ -158,7 +157,7 @@ impl<'a> StackFrame<'a> {
                 handle_thread_updates(jvm)?;
             }
 
-            debug!("Executing instruction {:?}", &code.instructions[rip]);
+            // trace!("Executing instruction {:?}", &code.instructions[rip]);
             {
                 #[cfg(feature = "profile")]
                 let type_name = format!("{:?}", &code.instructions[rip].1);
