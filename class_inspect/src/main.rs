@@ -136,10 +136,15 @@ fn main() {
     }
 
     if app.is_present("llvm") {
-        println!("LLVM IR:");
+        if cfg!(feature = "llvm") {
+            println!("LLVM IR:");
 
-        unsafe {
-            jvm::class::llvm::build_for_class(class_loader, class);
+            #[cfg(feature = "llvm")]
+            unsafe {
+                jvm::class::llvm::build_for_class(class_loader, class);
+            }
+        } else {
+            println!("The \"llvm\" feature is not enabled.")
         }
     }
 }
