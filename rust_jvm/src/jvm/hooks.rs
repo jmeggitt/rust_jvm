@@ -13,6 +13,7 @@ use home::home_dir;
 use parking_lot::RwLock;
 use std::env::{current_dir, var};
 use std::path::PathBuf;
+use std::ptr::null;
 use std::sync::Arc;
 
 macro_rules! load_included_class {
@@ -319,11 +320,15 @@ pub unsafe extern "system" fn load_library(
 
     let jvm = env.read();
     let mut vm_ptr = &jvm.jni_vm as *const _;
-    std::mem::drop(jvm);
-    if let Err(e) = NativeManager::load_library(Arc::clone(&*env), PathBuf::from(path), &mut vm_ptr)
-    {
-        error!("{}", e);
+
+    let on_load = match jvm.linked_libraries.load_library(PathBuf::from(path)) {
+        Ok(v) => v,
+        Err(e) => return error!("{}", e),
     };
+    std::mem::drop(jvm);
+    if let Some(on_load_fn) = on_load {
+        on_load_fn(&mut vm_ptr, null());
+    }
 }
 
 // C:\Program Files (x86)\Java\jdk1.8.0_291\bin

@@ -421,11 +421,8 @@ impl InstructionAction for goto_w {
 
 impl crate::instruction::Instruction for goto_w {
     fn write(&self, buffer: &mut std::io::Cursor<Vec<u8>>) -> std::io::Result<()> {
-        {
-            use byteorder::WriteBytesExt;
-            buffer.write_u8(<Self as crate::instruction::StaticInstruct>::FORM)?;
-            buffer.write_i32::<byteorder::BigEndian>(self.0)
-        }
+        buffer.write_u8(<Self as crate::instruction::StaticInstruct>::FORM)?;
+        buffer.write_i32::<byteorder::BigEndian>(self.0)
     }
     fn exec(
         &self,

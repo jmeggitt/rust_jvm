@@ -6,14 +6,20 @@ use jni::sys::{jint, JNINativeInterface_, JavaVM};
 use libffi::middle::{Arg, Cif, CodePtr};
 use libloading::Library;
 use parking_lot::RwLock;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::c_void;
-use std::io;
-use std::io::{Error, ErrorKind};
-use std::mem::transmute;
+use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::io::Write;
 use std::path::PathBuf;
-use std::ptr::{null, null_mut};
+use std::ptr::null_mut;
 use std::sync::Arc;
+
+#[cfg(unix)]
+use libloading::os::unix::Symbol;
+#[cfg(windows)]
+use libloading::os::windows::Symbol;
 
 pub struct NativeCall {
     cif: Cif,
@@ -152,30 +158,74 @@ impl NativeCall {
     }
 }
 
-pub fn clean_str(str: &str) -> String {
-    let mut out = String::new();
-    for c in str.chars() {
-        match c {
-            '_' => out.push_str("_1"),
-            ';' => out.push_str("_2"),
-            '[' => out.push_str("_3"),
-            '/' => out.push('_'),
-            'a'..='z' | 'A'..='Z' | '0'..='9' => out.push(c),
-            x => out.push_str(&format!("_{:04x}", x as u32)),
+pub struct CleanStr<'a>(pub &'a str);
+
+impl Display for CleanStr<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for c in self.0.chars() {
+            match c {
+                '_' => write!(f, "_1")?,
+                ';' => write!(f, "_2")?,
+                '[' => write!(f, "_3")?,
+                '/' => write!(f, "_")?,
+                'a'..='z' | 'A'..='Z' | '0'..='9' => write!(f, "{}", c)?,
+                x => write!(f, "_{:04x}", x as u32)?,
+            }
+        }
+        Ok(())
+    }
+}
+
+pub fn clean_desc(x: &str) -> CleanStr {
+    assert!(x.starts_with('('));
+    match x.find(')') {
+        Some(end_pos) => CleanStr(&x[1..end_pos]),
+        None => unreachable!(),
+    }
+}
+
+pub type JniOnloadFn = unsafe extern "system" fn(*mut JavaVM, *const c_void) -> jint;
+pub type JniFn = unsafe extern "system" fn();
+
+struct LoadedLibrary {
+    library: Library,
+    path: PathBuf,
+}
+
+#[derive(Hash, Eq, PartialEq, Debug)]
+struct JniSymbolName<'a> {
+    class: Cow<'a, str>,
+    name: Cow<'a, str>,
+    desc: Cow<'a, str>,
+}
+
+impl<'a> JniSymbolName<'a> {
+    fn ensure_owned(self) -> JniSymbolName<'static> {
+        JniSymbolName {
+            class: Cow::Owned(self.class.into_owned()),
+            name: Cow::Owned(self.name.into_owned()),
+            desc: Cow::Owned(self.desc.into_owned()),
         }
     }
-    out
+}
+
+impl Display for JniSymbolName<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Java_{}_{}__{}",
+            CleanStr(&self.class),
+            CleanStr(&self.name),
+            clean_desc(&self.desc)
+        )
+    }
 }
 
 #[derive(Default)]
 pub struct NativeManager {
-    libs: HashMap<PathBuf, Library>,
-    load_order: Vec<PathBuf>,
-    loaded_fns: HashMap<String, *const c_void>,
+    libraries: RwLock<Vec<LoadedLibrary>>,
+    loaded_fns: RwLock<HashMap<JniSymbolName<'static>, *const c_void>>,
 }
-
-unsafe impl Send for NativeManager {}
-unsafe impl Sync for NativeManager {}
 
 impl NativeManager {
     pub fn new() -> Self {
@@ -186,62 +236,87 @@ impl NativeManager {
         for (key, value) in vars() {
             info!("\t{}: {}", key, value);
         }
-        // internals::register_natives(&mut manager);
         manager
     }
 
     pub fn load_library(
-        jvm: Arc<RwLock<JavaEnv>>,
+        &self,
         path: PathBuf,
-        vm: *mut JavaVM,
-    ) -> io::Result<()> {
+    ) -> Result<Option<Symbol<JniOnloadFn>>, libloading::Error> {
         info!("Loading dynamic library {}", path.display());
-        let lock = jvm.read();
-        let has_library = lock.linked_libraries.libs.contains_key(&path);
-        std::mem::drop(lock);
-        if !has_library {
-            unsafe {
-                match Library::new(&path) {
-                    Ok(v) => {
-                        let mut lock = jvm.write();
-                        lock.linked_libraries.load_order.push(path.clone());
-                        lock.linked_libraries.libs.insert(path.clone(), v)
-                    }
-                    Err(e) => {
-                        return Err(Error::new(
-                            ErrorKind::Other,
-                            format!(
-                                "{}: {} ({})",
-                                &e,
-                                std::error::Error::source(&e).unwrap(),
-                                path.display()
-                            ),
-                        ));
-                    }
-                };
 
-                let load_fn = jvm
-                    .read()
-                    .linked_libraries
-                    .libs
-                    .get(&path)
-                    .unwrap()
-                    .get::<unsafe extern "C" fn()>(b"JNI_OnLoad")
-                    .map(|x| x.into_raw().into_raw() as *mut c_void);
-                if let Ok(onload) = load_fn {
-                    info!("Running JNI_OnLoad for {}", path.display());
-                    let onload: unsafe extern "system" fn(*mut JavaVM, *const c_void) -> jint =
-                        transmute(onload);
-                    onload(vm, null());
-                }
-            }
+        let mut libraries = self.libraries.write();
+        if libraries.iter().any(|library| library.path == path) {
+            debug!("Library {} is already loaded", path.display());
+            return Ok(None);
         }
 
-        Ok(())
+        let library = unsafe { Library::new(&path)? };
+
+        let on_load_fn = unsafe {
+            library
+                .get::<JniOnloadFn>(b"JNI_OnLoad")
+                .map(|symbol| symbol.into_raw())
+        };
+
+        libraries.push(LoadedLibrary { library, path });
+        Ok(on_load_fn.ok())
     }
 
-    pub fn clean_desc(x: &str) -> Option<String> {
-        Some(clean_str(&x[1..x.find(')')?]))
+    pub fn find_symbol(&self, symbol_name: &[u8]) -> Option<Symbol<JniFn>> {
+        self.libraries
+            .read()
+            .iter()
+            .filter_map(|LoadedLibrary { library, path }| unsafe {
+                let symbol = library.get::<JniFn>(symbol_name).ok()?;
+                debug!(
+                    "Found native function {} in {}",
+                    String::from_utf8_lossy(symbol_name),
+                    path.display()
+                );
+                Some(symbol.into_raw())
+            })
+            .next()
+    }
+
+    pub fn get_fn_ptr(&mut self, class: &str, name: &str, desc: &str) -> Option<*const c_void> {
+        let jni_symbol_name = JniSymbolName {
+            class: Cow::Borrowed(class),
+            name: Cow::Borrowed(name),
+            desc: Cow::Borrowed(desc),
+        };
+
+        if let Some(symbol) = self.loaded_fns.read().get(&jni_symbol_name) {
+            return Some(*symbol);
+        }
+
+        let mut raw_symbol_name = Vec::new();
+        if write!(
+            &mut raw_symbol_name,
+            "Java_{}_{}",
+            CleanStr(class),
+            CleanStr(name)
+        )
+        .is_err()
+        {
+            unreachable!()
+        }
+
+        let found_symbol = match self.find_symbol(&raw_symbol_name) {
+            Some(symbol) => symbol.into_raw() as *mut c_void,
+            None => {
+                if write!(&mut raw_symbol_name, "__{}", clean_desc(desc)).is_err() {
+                    unreachable!()
+                }
+
+                self.find_symbol(&raw_symbol_name)?.into_raw() as *mut c_void
+            }
+        };
+
+        self.loaded_fns
+            .write()
+            .insert(jni_symbol_name.ensure_owned(), found_symbol);
+        Some(found_symbol)
     }
 
     pub fn register_fn(
@@ -255,69 +330,25 @@ impl NativeManager {
             "Registering native function for {}::{} {}",
             class, name, desc
         );
-        let long_name = format!(
-            "Java_{}_{}__{}",
-            clean_str(&class.replace('.', "/")),
-            clean_str(name),
-            Self::clean_desc(desc).unwrap()
-        );
 
-        if self.loaded_fns.contains_key(&long_name) {
+        assert!(!class.contains('.'));
+        let symbol_name = JniSymbolName {
+            class: Cow::Borrowed(class),
+            name: Cow::Borrowed(name),
+            desc: Cow::Borrowed(desc),
+        };
+
+        let mut loaded_fns = self.loaded_fns.write();
+        if loaded_fns.contains_key(&symbol_name) {
             error!(
                 "Failed to register native function! Already registered: {}",
-                long_name
+                &symbol_name
             );
             return false;
         }
 
-        self.loaded_fns.insert(long_name, fn_ptr).is_none()
-    }
-
-    pub fn get_fn_ptr(&mut self, class: &str, name: &str, desc: &str) -> Option<*const c_void> {
-        let long_name = format!(
-            "Java_{}_{}__{}",
-            clean_str(class),
-            clean_str(name),
-            Self::clean_desc(desc)?
-        );
-        let short_name = format!("Java_{}_{}", clean_str(class), clean_str(name));
-        debug!("Searching for function {}", &long_name);
-
-        if let Some(v) = self.loaded_fns.get(&long_name) {
-            return Some(*v);
-        }
-
-        if let Some(v) = self.loaded_fns.get(&short_name) {
-            return Some(*v);
-        }
-
-        for lib_path in &self.load_order {
-            let lib = self.libs.get(lib_path).unwrap();
-            unsafe {
-                if let Ok(value) = lib.get::<unsafe extern "C" fn()>(long_name.as_bytes()) {
-                    let ptr = value.into_raw().into_raw() as *const c_void;
-                    self.loaded_fns.insert(long_name.clone(), ptr);
-                    debug!(
-                        "Found native function {} in {}",
-                        &long_name,
-                        lib_path.display()
-                    );
-                    return Some(ptr);
-                }
-
-                if let Ok(value) = lib.get::<unsafe extern "C" fn()>(short_name.as_bytes()) {
-                    let ptr = value.into_raw().into_raw() as *const c_void;
-                    self.loaded_fns.insert(short_name.clone(), ptr);
-                    debug!(
-                        "Found native function {} in {}",
-                        &short_name,
-                        lib_path.display()
-                    );
-                    return Some(ptr);
-                }
-            }
-        }
-
-        None
+        loaded_fns
+            .insert(symbol_name.ensure_owned(), fn_ptr)
+            .is_none()
     }
 }

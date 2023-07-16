@@ -9,10 +9,8 @@ use jni::sys::{
 use std::collections::{HashMap, HashSet};
 use walkdir::WalkDir;
 
-// use crate::class::{Class, ClassLoader, MethodInfo};
-// use crate::constant_pool::Constant;
 use crate::class::{Class, ClassLoader, MethodInfo};
-use crate::jvm::call::{build_interface, clean_str, NativeManager, VirtualMachine};
+use crate::jvm::call::{build_interface, CleanStr, NativeManager, VirtualMachine};
 use crate::jvm::hooks::register_hooks;
 use crate::jvm::mem::{
     ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle, OBJECT_SCHEMA,
@@ -23,7 +21,7 @@ use std::ffi::c_void;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::{Index, IndexMut};
-use std::ptr::null_mut;
+use std::ptr::{null, null_mut};
 
 pub mod call;
 pub mod mem;
@@ -294,9 +292,17 @@ impl JavaEnv {
             return Ok(());
         }
 
-        if let Err(e) = NativeManager::load_library(jvm.clone(), target_lib, &mut vm_ptr) {
-            error!("{}", e);
-        };
+        match jvm.read().linked_libraries.load_library(target_lib) {
+            Ok(Some(on_load_fn)) => unsafe {
+                on_load_fn(&mut vm_ptr, null());
+            },
+            Ok(None) => {}
+            Err(err) => error!("{}", err),
+        }
+        // if let Err(e) = NativeManager::load_library(jvm.clone(), target_lib, &mut vm_ptr) {
+        // if let Err(e) = NativeManager::load_library(jvm.clone(), target_lib, &mut vm_ptr) {
+        //     error!("{}", e);
+        // };
 
         Ok(())
     }
@@ -340,18 +346,44 @@ impl JavaEnv {
 
             #[cfg(unix)]
             if entry.path().extension() == Some("so".as_ref()) {
-                NativeManager::load_library(jvm.clone(), entry.path().to_path_buf(), &mut vm_ptr)?;
+                let jvm = jvm.read();
+                let on_load = match jvm
+                    .linked_libraries
+                    .load_library(entry.path().to_path_buf())
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("{}", e);
+                        None
+                    }
+                };
+                std::mem::drop(jvm);
+                if let Some(on_load_fn) = on_load {
+                    unsafe {
+                        on_load_fn(&mut vm_ptr, null());
+                    }
+                }
             }
 
             #[cfg(windows)]
             if entry.path().extension() == Some("dll".as_ref()) {
-                if let Err(e) = NativeManager::load_library(
-                    jvm.clone(),
-                    entry.path().to_path_buf(),
-                    &mut vm_ptr,
-                ) {
-                    error!("{}", e);
+                let jvm = jvm.read();
+                let on_load = match jvm
+                    .linked_libraries
+                    .load_library(entry.path().to_path_buf())
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("{}", e);
+                        None
+                    }
                 };
+                std::mem::drop(jvm);
+                if let Some(on_load_fn) = on_load {
+                    unsafe {
+                        on_load_fn(&mut vm_ptr, null());
+                    }
+                }
             }
         }
 
@@ -405,12 +437,12 @@ impl StaticFields {
     }
 
     pub fn get_field_offset(&self, class: &str, field: &str) -> Option<usize> {
-        let key = format!("{}_{}", clean_str(&class), clean_str(&field));
+        let key = format!("{}_{}", CleanStr(&class), CleanStr(&field));
         self.slots.get(&key).copied()
     }
 
     pub fn set_static(&mut self, class: &str, field: &str, value: JavaValue) {
-        let key = format!("{}_{}", clean_str(&class), clean_str(&field));
+        let key = format!("{}_{}", CleanStr(&class), CleanStr(&field));
         if !self.slots.contains_key(&key) {
             self.slots.insert(key, self.fields.len());
             self.fields.push(value);

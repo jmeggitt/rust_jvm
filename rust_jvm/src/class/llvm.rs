@@ -1,6 +1,6 @@
 use crate::c_str;
 use crate::class::{AccessFlags, BufferedRead, ClassLoader};
-use crate::jvm::call::{clean_str, NativeManager};
+use crate::jvm::call::{clean_desc, CleanStr, NativeManager};
 use crate::jvm::mem::FieldDescriptor;
 use libc::{c_char, c_int};
 use llvm_sys::core::{
@@ -224,7 +224,7 @@ impl ObjectTypeBuilder {
             return *type_ref;
         }
 
-        let llvm_type = LLVMStructCreateNamed(context, str_arena.str_ptr(clean_str(&name)));
+        let llvm_type = LLVMStructCreateNamed(context, str_arena.str_ptr(CleanStr(&name)));
         self.types.insert(name.to_string(), llvm_type);
 
         let element_type = self.type_for_desc(context, str_arena, loader, element);
@@ -275,7 +275,7 @@ impl ObjectTypeBuilder {
             return *type_ref;
         }
 
-        let llvm_type = LLVMStructCreateNamed(context, str_arena.str_ptr(clean_str(name)));
+        let llvm_type = LLVMStructCreateNamed(context, str_arena.str_ptr(CleanStr(name)));
         self.types.insert(name.to_string(), llvm_type);
 
         let raw_class = match loader.class(name) {
@@ -431,7 +431,7 @@ pub trait LLVMInstruction {
 
 pub unsafe fn build_for_class(mut loader: ClassLoader, name: &str) {
     let target = loader.class(name).unwrap().to_owned();
-    let mut module = Module::new(&clean_str(name));
+    let mut module = Module::new(&format!("{}", CleanStr(name)));
 
     let jni_interface = LLVMStructCreateNamed(module.context(), c_str!("JNINativeInterface_"));
     let jni_env = LLVMPointerType(jni_interface, 0);
@@ -458,11 +458,11 @@ pub unsafe fn build_for_class(mut loader: ClassLoader, name: &str) {
         let method_desc = method.descriptor(&target.constants).unwrap();
         let long_name = format!(
             "Java_{}_{}__{}",
-            clean_str(name),
-            clean_str(&method_name),
-            NativeManager::clean_desc(&method_desc).unwrap()
+            CleanStr(name),
+            CleanStr(&method_name),
+            clean_desc(&method_desc).unwrap()
         );
-        // let short_name = format!("Java_{}_{}", clean_str(class), clean_str(name));
+        // let short_name = format!("Java_{}_{}", CleanStr(class), CleanStr(name));
 
         let (function, args, ret) = match FieldDescriptor::read_str(&method_desc).unwrap() {
             FieldDescriptor::Method { args, returns } => {

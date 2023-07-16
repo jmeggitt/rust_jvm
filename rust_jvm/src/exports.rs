@@ -11,10 +11,7 @@ use crate::jvm::mem::{
 use crate::jvm::JavaEnv;
 use jni::sys::*;
 use log::LevelFilter;
-use simplelog::{
-    ColorChoice, CombinedLogger, Config, ConfigBuilder, TermLogger, TerminalMode, ThreadLogMode,
-    WriteLogger,
-};
+use simplelog::{CombinedLogger, ConfigBuilder, ThreadLogMode, WriteLogger};
 use std::collections::hash_map::DefaultHasher;
 use std::env::var;
 use std::ffi::{c_void, CStr};

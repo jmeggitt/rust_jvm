@@ -1,6 +1,6 @@
 [package]
 name = "rust_jvm"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Jasper Meggitt <jasper.meggitt@gmail.com>"]
 edition = "2018"
 
