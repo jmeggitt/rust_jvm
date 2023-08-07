@@ -2,17 +2,15 @@
 // use crate::class::constant::Constant;
 // use crate::class::jar::{unpack_jar, Jar, Manifest};
 use crate::class::Class;
-use crate::constant::Constant;
 use crate::path::ClassPath;
 use crate::read::Readable;
-use log::{debug, info, trace, warn};
+use log::warn;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
+use std::io;
 use std::io::{BufReader, Cursor, Error, ErrorKind, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::{env, io};
-use walkdir::WalkDir;
 use zip::ZipArchive;
 // log_dump!(CLASS_LOADER);
 

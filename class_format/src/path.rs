@@ -1,15 +1,15 @@
 use crate::class::{Class, PeekedClass};
-use crate::loader::ClassLoader;
 use crate::read::Readable;
-use log::{debug, info, trace, warn};
+use log::{debug, info, warn};
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{BufReader, Cursor, Error, ErrorKind, Read, Seek};
+use std::io::{BufReader, Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::{env, io};
 use walkdir::WalkDir;
-use zip::result::{ZipError, ZipResult};
+use zip::result::ZipError;
 use zip::ZipArchive;
 
 pub struct DynamicClassPath {
@@ -70,7 +70,7 @@ impl ResolvedPath {
     }
 
     fn for_jar(file: &Path) -> io::Result<ResolvedPath> {
-        let archive = ZipArchive::new(BufReader::new(File::open(&file)?))?;
+        let archive = ZipArchive::new(BufReader::new(File::open(file)?))?;
         let mut file_names = HashSet::new();
 
         for path in archive.file_names() {
@@ -102,7 +102,7 @@ impl DynamicClassPath {
 
         while self.search_progress < self.search_path.len() {
             let prev_idx = self.resolved_paths.len();
-            self.resolve_next_search_location();
+            let _ = self.resolve_next_search_location();
 
             for resolved in &mut self.resolved_paths[prev_idx..] {
                 if let Some(class) = resolved.try_read_class(target)? {
@@ -333,9 +333,8 @@ impl ClassPath {
         let peeked = PeekedClass::read(&mut data)?;
         // let name = Class::peek_name(data)?;
 
-        if !self.found_classes.contains_key(&peeked.this_class) {
-            self.found_classes
-                .insert(peeked.this_class, file.to_path_buf());
+        if let Entry::Vacant(entry) = self.found_classes.entry(peeked.this_class) {
+            entry.insert(file.to_path_buf());
             return Ok(true);
         }
 
@@ -386,9 +385,9 @@ impl ClassPath {
 
             // info!("Visiting {}", path.display());
             if path.extension().and_then(OsStr::to_str) == Some("jar") {
-                changes |= self.preload_jar(&path.to_path_buf())?;
+                changes |= self.preload_jar(path)?;
             } else if path.extension().and_then(OsStr::to_str) == Some("class") {
-                changes |= self.preload_class(&path.to_path_buf())?;
+                changes |= self.preload_class(path)?;
             }
         }
 

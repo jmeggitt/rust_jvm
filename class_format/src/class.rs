@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 use std::io;
-use std::io::{Cursor, Error, ErrorKind, Read, Seek, Write};
+use std::io::{Error, ErrorKind, Read};
 
 use bitflags::bitflags;
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 
 // use crate::class::attribute::{
 //     BootstrapMethod, BootstrapMethods, CodeAttribute, EnclosingMethod, Exceptions, InnerClasses,
@@ -14,10 +14,9 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 // use crate::class::version::{check_magic_number, ClassVersion};
 // use crate::class::{BufferedRead, DebugWithConst};
 use crate::attributes::AttributeInfo;
-use crate::constant::{Constant, ConstantPool, RawConstantPool};
+use crate::constant::{ConstantPool, RawConstantPool};
 use crate::read::Readable;
 use crate::simple_grammar;
-use std::fmt::Formatter;
 
 bitflags! {
     pub struct ClassAccessFlags: u16 {
@@ -138,10 +137,7 @@ impl ClassVersion {
 
 impl PartialOrd for ClassVersion {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.major.cmp(&other.major) {
-            Ordering::Equal => Some(self.minor.cmp(&other.minor)),
-            x => Some(x),
-        }
+        Some(self.cmp(other))
     }
 }
 

@@ -15,7 +15,6 @@
 
 use crate::read::{BinarySection, Readable};
 use crate::simple_grammar;
-use byteorder::{BigEndian, ReadBytesExt};
 use std::io::{self, Error, ErrorKind, Read};
 
 simple_grammar! {
@@ -112,7 +111,6 @@ simple_grammar! {
     /// method, then its method_info structure must not have a Code attribute in its attributes
     /// table. Otherwise, its method_info structure must have exactly one Code attribute in its
     /// attributes table.
-    #[doc(strip_hidden)]
     #[derive(Debug, Clone)]
     pub struct Code {
         /// The value of the max_stack item gives the maximum depth of the operand stack of this
