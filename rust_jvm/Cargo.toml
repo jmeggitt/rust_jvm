@@ -8,9 +8,6 @@ edition = "2018"
 name = "jvm"
 crate-type = ["cdylib", "rlib"]
 
-[profile.release]
-debug = true
-
 [features]
 default = []
 profile = ["thread_profiler"]
