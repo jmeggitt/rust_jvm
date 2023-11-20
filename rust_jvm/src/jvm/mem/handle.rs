@@ -262,7 +262,7 @@ impl ObjectHandle {
         //     ObjectWrapper::from_raw(ptr.as_ptr()).unwrap();
         // let base_ptr: *mut u8 = raw.base_ptr() as *mut u8;
         // base_ptr.offset(offset as isize) as *mut T
-        (self.ptr() as *mut u8).offset(offset as isize) as *mut T
+        (self.ptr() as *mut u8).add(offset) as *mut T
     }
 }
 

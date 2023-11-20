@@ -3,12 +3,12 @@ use std::io;
 use std::io::{Cursor, Read, Seek, Write};
 
 pub trait DebugWithConst: Sized {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result;
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result;
 
     fn tabbed_fmt(
         &self,
         f: &mut Formatter<'_>,
-        pool: &ConstantPool<'_>,
+        pool: &ConstantPool,
         tabs: usize,
     ) -> std::fmt::Result {
         let out = format!("{}", self.display(pool));
@@ -21,17 +21,14 @@ pub trait DebugWithConst: Sized {
         )
     }
 
-    fn display<'a, 'b: 'a>(
-        &'a self,
-        pool: &'a ConstantPool<'b>,
-    ) -> DebugWithConstDisplay<'a, 'b, Self> {
+    fn display<'a>(&'a self, pool: &'a ConstantPool) -> DebugWithConstDisplay<'a, Self> {
         DebugWithConstDisplay(self, pool)
     }
 }
 
-pub struct DebugWithConstDisplay<'a, 'b, T>(&'a T, &'a ConstantPool<'b>);
+pub struct DebugWithConstDisplay<'a, T>(&'a T, &'a ConstantPool);
 
-impl<'a, 'b, T: DebugWithConst> Display for DebugWithConstDisplay<'a, 'b, T> {
+impl<'a, T: DebugWithConst> Display for DebugWithConstDisplay<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f, self.1)
     }

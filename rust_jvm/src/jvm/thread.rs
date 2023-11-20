@@ -10,7 +10,7 @@ use jni::sys::{
 use std::collections::HashMap;
 use std::thread::{current, park, sleep, spawn, yield_now, Thread, ThreadId};
 
-use crate::instruction::getstatic;
+// use crate::instruction::getstatic;
 #[cfg(feature = "callstack")]
 use crate::jvm::call::callstack_trace::CallTracer;
 use crate::jvm::JavaEnv;
@@ -138,7 +138,7 @@ impl JavaThreadManager {
         _args: &[JavaValue],
     ) {
         let current_thread = current();
-        let mut info = self
+        let info = self
             .threads
             .get_mut(&current_thread.id())
             .expect("Unable to find current thread");
@@ -165,7 +165,7 @@ impl JavaThreadManager {
 
     pub fn pop_call_stack(&mut self, _ret: &Result<Option<JavaValue>, FlowControl>) {
         let current_thread = current();
-        let mut info = self
+        let info = self
             .threads
             .get_mut(&current_thread.id())
             .expect("Unable to find current thread");
@@ -188,7 +188,7 @@ impl JavaThreadManager {
 
         let mut padding = String::new();
         for debug_str in &info.call_stack {
-            debug!("{}{:?}", &padding, debug_str.1);
+            trace!("{}{:?}", &padding, debug_str.1);
             padding.push_str("   ");
         }
     }
@@ -377,16 +377,17 @@ pub fn first_time_sys_thread_init(env: &mut Arc<RwLock<JavaEnv>>) {
         let obj = ObjectHandle::new(jvm.class_schema("java/lang/Thread"));
 
         // Thread must be set up manually :(
-        let tid = match getstatic::check_static_init(
-            &mut *jvm,
-            "java/lang/Thread",
-            "threadSeqNumber",
-            "J",
-        ) {
-            Some(JavaValue::Long(0)) => JavaValue::Long(0),
-            Some(JavaValue::Long(x)) => JavaValue::Long(x + 1),
-            _ => panic!("Error while retrieving java/lang/Thread::threadSeqNumber"),
-        };
+        // let tid = match  {
+        // jvm.static_fields.set_static("java/lang/Thread", "threadSeqNumber", JavaValue::Long(0));
+        // Some(JavaValue::Long(0))
+        // } {
+        //     Some(JavaValue::Long(0)) => JavaValue::Long(0),
+        //     Some(JavaValue::Long(x)) => JavaValue::Long(x + 1),
+        //     _ => panic!("Error while retrieving java/lang/Thread::threadSeqNumber"),
+        // };
+        let tid = JavaValue::Long(0);
+        jvm.static_fields
+            .set_static("java/lang/Thread", "threadSeqNumber", tid);
 
         // let field_reference = format!(
         //     "{}_{}",
@@ -493,7 +494,7 @@ pub fn handle_thread_updates(env: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowC
 
         let action = {
             let mut lock = env.write();
-            let mut info = lock.thread_manager.threads.get_mut(&handle).unwrap();
+            let info = lock.thread_manager.threads.get_mut(&handle).unwrap();
             match info.state_request.take() {
                 None => return Ok(()), // Park request may have been rescinded between locks
                 Some(StateRequest::Park) => {
@@ -512,7 +513,7 @@ pub fn handle_thread_updates(env: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowC
             StateRequest::Park => {
                 park();
                 let mut lock = env.write();
-                let mut info = lock.thread_manager.threads.get_mut(&handle).unwrap();
+                let info = lock.thread_manager.threads.get_mut(&handle).unwrap();
                 info.state = ThreadState::Running;
             }
             StateRequest::Throw(x) => return Err(FlowControl::Throws(Some(x))),
@@ -735,7 +736,7 @@ pub unsafe extern "system" fn JVM_CurrentThread_impl(
     let handle = current().id();
 
     if env.read().thread_manager.threads.get(&handle).is_none() {
-        first_time_sys_thread_init(&mut *env);
+        first_time_sys_thread_init(&mut env);
     }
 
     env.read()

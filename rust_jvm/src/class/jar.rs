@@ -300,13 +300,12 @@ impl Manifest {
             };
             let path_str = format!("{}", file_path.display());
 
-            if !entries.contains_key(&path_str) {
-                let new_entry = JarEntry::new(path_str.clone());
-                entries.insert(path_str, new_entry);
-            }
+            entries
+                .entry(path_str.clone())
+                .or_insert_with(|| JarEntry::new(path_str.clone()));
         }
 
-        self.entries = entries.into_iter().map(|(_, x)| x).collect();
+        self.entries = entries.into_values().collect();
         Ok(())
     }
 

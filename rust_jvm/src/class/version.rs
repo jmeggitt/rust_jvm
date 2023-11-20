@@ -38,10 +38,7 @@ impl ClassVersion {
 
 impl PartialOrd for ClassVersion {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.0.cmp(&other.0) {
-            Ordering::Equal => Some(self.1.cmp(&other.1)),
-            x => Some(x),
-        }
+        Some(self.cmp(other))
     }
 }
 

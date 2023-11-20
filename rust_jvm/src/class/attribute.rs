@@ -7,7 +7,6 @@ use crate::class::class_file::AttributeInfo;
 use crate::class::constant::ConstantPool;
 use crate::class::{AccessFlags, BufferedRead, DebugWithConst};
 use crate::instruction::Instruction;
-use crate::instruction::InstructionReader;
 use crate::jvm::JavaEnv;
 use std::fmt::{Debug, Formatter};
 
@@ -15,13 +14,13 @@ use std::fmt::{Debug, Formatter};
 pub struct CodeAttribute {
     pub max_stack: u16,
     pub max_locals: u16,
-    pub instructions: Vec<(u64, Box<dyn Instruction>)>,
+    pub instructions: Vec<(u64, Instruction)>,
     pub exception_table: Vec<ExceptionRange>,
     pub attributes: Vec<AttributeInfo>,
 }
 
 impl DebugWithConst for CodeAttribute {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         writeln!(
             f,
             "CodeAttribute [{} stack; {} locals]",
@@ -90,12 +89,13 @@ impl BufferedRead for CodeAttribute {
         let mut code = vec![0u8; code_length as usize];
         buffer.read_exact(&mut code)?;
 
-        let reader = InstructionReader::new();
+        let mut instructions = Vec::new();
+        Instruction::parse_method_body(&mut Cursor::new(&code[..]), &mut instructions)?;
 
         Ok(CodeAttribute {
             max_stack,
             max_locals,
-            instructions: reader.parse(&mut Cursor::new(code))?,
+            instructions,
             exception_table: <Vec<ExceptionRange>>::read(buffer)?,
             attributes: <Vec<AttributeInfo>>::read(buffer)?,
         })
@@ -104,14 +104,14 @@ impl BufferedRead for CodeAttribute {
 
 #[derive(Copy, Clone, Debug)]
 pub struct ExceptionRange {
-    try_start: u16,
-    try_end: u16,
-    catch_start: u16,
-    catch_type: u16,
+    pub try_start: u16,
+    pub try_end: u16,
+    pub catch_start: u16,
+    pub catch_type: u16,
 }
 
 impl DebugWithConst for ExceptionRange {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         writeln!(f, "ExceptionRange ({})", pool.class_name(self.catch_type))?;
         writeln!(f, "  Try: [{}, {}]", self.try_start, self.try_end)?;
         write!(f, "  Catch: {}", self.catch_start)
@@ -151,7 +151,7 @@ readable_struct! {
 }
 
 impl DebugWithConst for LineNumberTable {
-    fn fmt(&self, f: &mut Formatter<'_>, _pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, _pool: &ConstantPool) -> std::fmt::Result {
         write!(f, "LineNumberTable:")?;
         for line in &self.table {
             write!(
@@ -173,7 +173,7 @@ readable_struct! {
 }
 
 impl DebugWithConst for SourceFile {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         write!(f, "SourceFile [{}]", pool.text(self.index))
     }
 }
@@ -205,7 +205,7 @@ readable_struct! {
 }
 
 impl DebugWithConst for BootstrapMethods {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         write!(f, "BootstrapMethods")?;
         for method in &self.methods {
             writeln!(f)?;
@@ -236,7 +236,7 @@ readable_struct! {
 }
 
 impl DebugWithConst for InnerClasses {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         write!(f, "InnerClasses")?;
         for inner in &self.classes {
             writeln!(f)?;
@@ -280,7 +280,7 @@ readable_struct! {
 }
 
 impl DebugWithConst for LocalVariableTable {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         write!(f, "LocalVariableTable")?;
 
         for variable in &self.variables {
@@ -310,7 +310,7 @@ readable_struct! {
 }
 
 impl DebugWithConst for Exceptions {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         write!(f, "Exceptions")?;
 
         for except in &self.types {
@@ -326,7 +326,7 @@ readable_struct! {
 }
 
 impl DebugWithConst for RuntimeVisibleAnnotations {
-    fn fmt(&self, f: &mut Formatter<'_>, _pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, _pool: &ConstantPool) -> std::fmt::Result {
         write!(f, "RuntimeVisibleAnnotations: TODO")
     }
 }
@@ -338,7 +338,7 @@ readable_struct! {
 }
 
 impl DebugWithConst for Signature {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         write!(f, "Signature ({:?})", pool.text(self.signature_index))
     }
 }
@@ -348,7 +348,7 @@ readable_struct! {
 }
 
 impl DebugWithConst for StackMapTable {
-    fn fmt(&self, f: &mut Formatter<'_>, _pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, _pool: &ConstantPool) -> std::fmt::Result {
         write!(f, "StackMapTable: TODO")
     }
 }

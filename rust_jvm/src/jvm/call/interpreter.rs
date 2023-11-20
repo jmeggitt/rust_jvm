@@ -1,38 +1,38 @@
 use crate::class::attribute::CodeAttribute;
 use crate::class::constant::ConstantPool;
 use crate::jvm::call::FlowControl;
-use crate::jvm::mem::{ComputationalType, JavaValue, ObjectHandle, ObjectReference, StackValue};
+use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::JavaEnv;
 
 use crate::jvm::thread::handle_thread_updates;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-pub trait OperandStack {
-    fn pop_class_1(&mut self) -> Result<JavaValue, FlowControl>;
-    fn pop_class_2(&mut self) -> Result<JavaValue, FlowControl>;
-
-    fn push_class_1(&mut self, value: JavaValue);
-    fn push_class_2(&mut self, value: JavaValue);
-
-    fn push<T: StackValue>(&mut self, val: T) {
-        match T::CATEGORY {
-            ComputationalType::Category1 => self.push_class_1(val.into()),
-            ComputationalType::Category2 => self.push_class_2(val.into()),
-        }
-    }
-
-    fn pop<T: StackValue>(&mut self) -> Result<T, FlowControl> {
-        match T::CATEGORY {
-            ComputationalType::Category1 => T::try_from(self.pop_class_1()?),
-            ComputationalType::Category2 => T::try_from(self.pop_class_2()?),
-        }
-    }
-}
+// pub trait OperandStack {
+//     fn pop_class_1(&mut self) -> Result<JavaValue, FlowControl>;
+//     fn pop_class_2(&mut self) -> Result<JavaValue, FlowControl>;
+//
+//     fn push_class_1(&mut self, value: JavaValue);
+//     fn push_class_2(&mut self, value: JavaValue);
+//
+//     fn push<T: StackValue>(&mut self, val: T) {
+//         match T::CATEGORY {
+//             ComputationalType::Category1 => self.push_class_1(val.into()),
+//             ComputationalType::Category2 => self.push_class_2(val.into()),
+//         }
+//     }
+//
+//     fn pop<T: StackValue>(&mut self) -> Result<T, FlowControl> {
+//         match T::CATEGORY {
+//             ComputationalType::Category1 => T::try_from(self.pop_class_1()?),
+//             ComputationalType::Category2 => T::try_from(self.pop_class_2()?),
+//         }
+//     }
+// }
 
 pub struct StackFrame<'a> {
     // Comparable to the .text section of a binary
-    pub constants: ConstantPool<'a>,
+    pub constants: &'a ConstantPool,
     // pub constants: Vec<Constant>,
     // Values treated as registers
     pub locals: Vec<JavaValue>,
@@ -49,7 +49,7 @@ impl<'a> StackFrame<'a> {
     pub fn new(
         max_locals: usize,
         max_stack: usize,
-        constants: ConstantPool<'a>,
+        constants: &'a ConstantPool,
         mut args: Vec<JavaValue>,
     ) -> Self {
         if max_locals > args.len() {
@@ -200,7 +200,7 @@ impl<'a> StackFrame<'a> {
                             position,
                             &exception_class,
                             &self.constants,
-                            &mut *jvm.write(),
+                            &mut jvm.write(),
                         ) {
                             Some(jump_dst) => {
                                 // Push to stack so it can be handled by those methods

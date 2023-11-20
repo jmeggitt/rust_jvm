@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::convert::TryFrom;
 use std::fmt::{Debug, Formatter};
 use std::io::{self, Cursor, Error, ErrorKind, Read, Seek, Write};
 
@@ -8,36 +9,54 @@ use num_traits::FromPrimitive;
 use crate::class::version::ClassVersion;
 use crate::class::{BufferedRead, DebugWithConst};
 use crate::jvm::mem::FieldDescriptor;
-use std::ops::Index;
+use std::ops::{Deref, Index};
+use std::sync::Arc;
 
 #[repr(transparent)]
-pub struct ConstantPool<'a> {
-    pool: &'a [Constant],
+#[derive(Debug, Clone)]
+pub struct ConstantPool {
+    pool: Arc<[Constant]>,
 }
 
-impl<'a> From<&'a [Constant]> for ConstantPool<'a> {
-    fn from(pool: &'a [Constant]) -> Self {
-        ConstantPool { pool }
+impl From<Vec<Constant>> for ConstantPool {
+    fn from(value: Vec<Constant>) -> Self {
+        ConstantPool {
+            pool: Arc::from(value),
+        }
     }
 }
 
+impl Deref for ConstantPool {
+    type Target = [Constant];
+
+    fn deref(&self) -> &Self::Target {
+        &*self.pool
+    }
+}
+
+// impl<'a> From<&'a [Constant]> for ConstantPool<'a> {
+//     fn from(pool: &'a [Constant]) -> Self {
+//         ConstantPool { pool }
+//     }
+// }
+
 // TODO: Finish adding helper functions and use in main system
-impl<'a> ConstantPool<'a> {
-    pub fn text(&'a self, index: u16) -> &'a str {
+impl ConstantPool {
+    pub fn text(&self, index: u16) -> &str {
         match &self[index] {
             Constant::Utf8(ConstantUtf8Info { text }) => text.as_ref(),
             x => panic!("Expected Utf8 constant, but found {:?}", x),
         }
     }
 
-    pub fn class_name(&'a self, index: u16) -> &'a str {
+    pub fn class_name(&self, index: u16) -> &str {
         match &self[index] {
             Constant::Class(ConstantClass { name_index }) => self.text(*name_index),
             x => panic!("Expected Class constant, but found {:?}", x),
         }
     }
 
-    pub fn name_and_type(&'a self, index: u16) -> (&'a str, &'a str) {
+    pub fn name_and_type(&self, index: u16) -> (&str, &str) {
         match &self[index] {
             Constant::NameAndType(v) => {
                 let ConstantNameAndType {
@@ -51,7 +70,7 @@ impl<'a> ConstantPool<'a> {
     }
 
     // TODO: Deprecate in favor of class_element_desc?
-    pub fn class_element_ref(&'a self, index: u16) -> (&'a str, &'a str, &'a str) {
+    pub fn class_element_ref(&self, index: u16) -> (&str, &str, &str) {
         let (class_index, name_and_type) = match &self[index] {
             Constant::FieldRef(v) => {
                 let ConstantFieldRef {
@@ -90,11 +109,16 @@ impl<'a> ConstantPool<'a> {
     }
 }
 
-impl<'a> Index<u16> for ConstantPool<'a> {
+impl Index<u16> for ConstantPool {
     type Output = Constant;
 
     fn index(&self, index: u16) -> &Self::Output {
-        &self.pool[index as usize - 1]
+        usize::try_from(index)
+            .ok()
+            .and_then(|index| index.checked_sub(1))
+            .and_then(|index| self.pool.get(index))
+            .expect("index is a valid position in constant pool")
+        // &self.pool[index as usize - 1]
     }
 }
 
@@ -154,7 +178,7 @@ pub enum Constant {
 }
 
 impl DebugWithConst for Constant {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         match self {
             Constant::Utf8(ConstantUtf8Info { text }) => write!(f, "Utf8({:?})", text),
             Constant::Int(ConstantInteger { value }) => write!(f, "Int({:?})", value),
@@ -598,11 +622,15 @@ impl BufferedRead for ConstantUtf8Info {
         let mut text_buffer = vec![0u8; len as usize];
         buffer.read_exact(&mut text_buffer)?;
 
+        // TODO: Use proper encoding
+        // Ok(ConstantUtf8Info {
+        //     text: match String::from_utf8(ConstantUtf8Info::decode(&text_buffer)) {
+        //         Ok(v) => v,
+        //         Err(e) => return Err(Error::new(ErrorKind::Other, e)),
+        //     },
+        // })
         Ok(ConstantUtf8Info {
-            text: match String::from_utf8(ConstantUtf8Info::decode(&text_buffer)) {
-                Ok(v) => v,
-                Err(e) => return Err(Error::new(ErrorKind::Other, e)),
-            },
+            text: String::from_utf8_lossy(&text_buffer).to_string(),
         })
     }
 

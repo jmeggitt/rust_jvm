@@ -1,7 +1,9 @@
 use crate::class::class_file::Class;
 use crate::class::constant::Constant;
-use crate::class::jar::{unpack_jar, Jar, Manifest};
+use crate::class::jar::Manifest;
 use crate::log_dump;
+use std::borrow::Cow;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs::File;
@@ -50,33 +52,33 @@ impl ClassLoader {
         Ok(data)
     }
 
-    pub fn read_buffer(&mut self, bytes: &[u8]) -> io::Result<()> {
+    pub fn read_buffer(&mut self, bytes: &[u8]) -> io::Result<String> {
         let class = Class::parse(bytes.to_vec())?;
-        let class_name_index = match &class.constants[class.this_class as usize - 1] {
+        let class_name_index = match &class.constants[class.this_class] {
             Constant::Class(class) => class.name_index,
             _ => return Err(Error::new(ErrorKind::Other, "Class name not found!")),
         };
 
-        let class_name = match &class.constants[class_name_index as usize - 1].expect_utf8() {
+        let class_name = match &class.constants[class_name_index].expect_utf8() {
             Some(v) => v.clone(),
             None => return Err(Error::new(ErrorKind::Other, "Class name not found!")),
         };
 
         // log_dump!(CLASS_LOADER, "[Explicit Load] {}: {}", &class_name, path.display());
         // log_dump!(CLASS_LOADER, "[Explicit Load]");
-        self.loaded.insert(class_name, class);
-        Ok(())
+        self.loaded.insert(class_name.clone(), class);
+        Ok(class_name)
     }
 
-    pub fn load_new(&mut self, path: &Path) -> io::Result<()> {
+    pub fn load_new(&mut self, path: &Path) -> io::Result<String> {
         let data = ClassLoader::read_file(path)?;
         let class = Class::parse(data)?;
-        let class_name_index = match &class.constants[class.this_class as usize - 1] {
+        let class_name_index = match &class.constants[class.this_class] {
             Constant::Class(class) => class.name_index,
             _ => return Err(Error::new(ErrorKind::Other, "Class name not found!")),
         };
 
-        let class_name = match &class.constants[class_name_index as usize - 1].expect_utf8() {
+        let class_name = match &class.constants[class_name_index].expect_utf8() {
             Some(v) => v.clone(),
             None => return Err(Error::new(ErrorKind::Other, "Class name not found!")),
         };
@@ -84,32 +86,24 @@ impl ClassLoader {
         debug!("Loaded Class {} from {:?}", &class_name, path);
         // log_dump!(CLASS_LOADER, "[Explicit Load] {}: {}", &class_name, path.display());
         // log_dump!(CLASS_LOADER, "[Explicit Load]");
-        self.loaded.insert(class_name, class);
-        Ok(())
+        self.loaded.insert(class_name.clone(), class);
+        Ok(class_name)
     }
 
-    pub fn unpack_jar(&mut self, file: &Path) -> io::Result<()> {
-        info!("Unpacking jar {} for reading", file.display());
-        let unpack_folder = unpack_jar(file)?;
-        let mut jar = Jar::new(unpack_folder.clone())?;
-
-        // TODO: It would be better if we picked the manifest for our java version in a multi-jar
-        for meta in &mut jar.meta {
-            let mut manifest = meta.read_manifest()?;
-            manifest.check_entries(&unpack_folder).unwrap();
-            manifest.verify_entries(&unpack_folder).unwrap();
-
-            // self.loaded_jars.insert(
-            //     file.to_path_buf(),
-            //     UnpackedJar {
-            //         dir: unpack_folder.clone(),
-            //         manifest,
-            //     },
-            // );
-        }
-
-        Ok(())
-    }
+    // pub fn unpack_jar(&mut self, file: &Path) -> io::Result<()> {
+    //     info!("Unpacking jar {} for reading", file.display());
+    //     let unpack_folder = unpack_jar(file)?;
+    //     let mut jar = Jar::new(unpack_folder.clone())?;
+    //
+    //     // TODO: It would be better if we picked the manifest for our java version in a multi-jar
+    //     for meta in &mut jar.meta {
+    //         let mut manifest = meta.read_manifest()?;
+    //         manifest.check_entries(&unpack_folder).unwrap();
+    //         manifest.verify_entries(&unpack_folder).unwrap();
+    //     }
+    //
+    //     Ok(())
+    // }
 
     pub fn preload_class_path(&mut self) -> io::Result<bool> {
         let changes = self.class_path.preload_search_path()?;
@@ -130,6 +124,8 @@ impl ClassLoader {
             return Ok(true);
         }
 
+        let mut found_name = Cow::Borrowed(class);
+
         // debug!("Attempting to load class {}", class);
         let ret = match self.class_path.found_classes.get(class) {
             Some(v) => {
@@ -147,14 +143,8 @@ impl ClassLoader {
                             ZipArchive::new(BufReader::new(File::open(&load_path)?))?,
                         );
                     }
-                    //
                     let buffer = {
                         let jar = self.loaded_jars.get_mut(&load_path).unwrap();
-                        // let unpacked = unpacked.dir.join(format!("{}.class", class));
-                        // self.load_new(&unpacked)?
-
-                        // TODO: Hold file descriptor
-                        // let mut jar = ZipArchive::new(File::open(&load_path)?)?;
 
                         let mut entry = match jar.by_name(&format!("{}.class", class)) {
                             Ok(v) => v,
@@ -167,10 +157,10 @@ impl ClassLoader {
                         entry.read_to_end(&mut bytes)?;
                         bytes
                     };
-                    self.read_buffer(&buffer)?;
+                    found_name = Cow::Owned(self.read_buffer(&buffer)?);
                 } else {
                     // Just a regular class so we can just load it normally
-                    self.load_new(&load_path)?;
+                    found_name = Cow::Owned(self.load_new(&load_path)?);
                 }
 
                 self.load_requests.remove(class);
@@ -187,9 +177,15 @@ impl ClassLoader {
             }
         };
 
-        if class != "java/lang/Object" && matches!(&ret, Ok(true)) {
-            let super_class = self.loaded.get(class).unwrap().super_class();
-            self.attempt_load(&super_class)?;
+        if matches!(&ret, Ok(true)) {
+            let loaded_class = match self.loaded.get(found_name.as_ref()) {
+                Some(x) => x,
+                None => panic!("Failed load of {}", class),
+            };
+
+            if loaded_class.super_class != 0 {
+                self.attempt_load(&loaded_class.super_class())?;
+            }
         }
 
         ret
@@ -328,9 +324,14 @@ impl ClassPath {
             search_dir.display()
         );
 
-        for entry in search_dir.read_dir()? {
-            let alternate_version = entry?.path();
+        let mut paths_to_search = Vec::new();
+        search_dir.read_dir()?.try_for_each(|x| match x {
+            Ok(v) => Ok(paths_to_search.push(v.path())),
+            Err(e) => Err(e),
+        })?;
+        paths_to_search.sort();
 
+        for alternate_version in paths_to_search.into_iter().rev() {
             if let Some(path_buf) = ClassPath::check_lib_for_rt(&alternate_version) {
                 return Ok(path_buf);
             }
@@ -395,8 +396,8 @@ impl ClassPath {
         let data = ClassLoader::read_file(file)?;
         let name = Class::peek_name(data)?;
 
-        if !self.found_classes.contains_key(&name) {
-            self.found_classes.insert(name, file.to_path_buf());
+        if let Entry::Vacant(entry) = self.found_classes.entry(name) {
+            entry.insert(file.to_path_buf());
             return Ok(true);
         }
 
@@ -418,7 +419,7 @@ impl ClassPath {
                 if let Some(name) = path.to_str() {
                     let filtered_name = match name.strip_suffix(".class") {
                         Some(v) => v,
-                        None => name,
+                        None => continue,
                     };
 
                     if !self.found_classes.contains_key(filtered_name) {
@@ -447,16 +448,18 @@ impl ClassPath {
 
             // info!("Visiting {}", path.display());
             if path.extension().and_then(OsStr::to_str) == Some("jar") {
-                changes |= self.preload_jar(&path.to_path_buf())?;
+                changes |= self.preload_jar(path)?;
             } else if path.extension().and_then(OsStr::to_str) == Some("class") {
-                changes |= self.preload_class(&path.to_path_buf())?;
+                changes |= self.preload_class(path)?;
             }
         }
 
         Ok(changes)
     }
 
-    pub fn load_classes(&mut self) {}
+    pub fn iter_class_names(&self) -> impl Iterator<Item = &str> {
+        self.found_classes.keys().map(|x| x.as_str())
+    }
 }
 
 impl Default for ClassPath {

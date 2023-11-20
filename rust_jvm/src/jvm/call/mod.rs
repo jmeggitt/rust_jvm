@@ -23,7 +23,7 @@ mod stack;
 pub mod callstack_trace;
 mod ffi;
 
-use crate::class::constant::{ClassElement, ConstantPool};
+use crate::class::constant::ClassElement;
 use crate::class::AccessFlags;
 use crate::jvm::mem::{JavaValue, ObjectHandle, ObjectReference};
 use crate::jvm::thread::{handle_thread_updates, SynchronousMonitor};
@@ -31,6 +31,7 @@ use crate::jvm::JavaEnv;
 pub use interface::build_interface;
 pub use interpreter::*;
 use jni::sys::JNIEnv;
+use log::Level;
 pub use native::*;
 use parking_lot::RwLock;
 pub use stack::*;
@@ -259,11 +260,13 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         // Check for sticky actions on current thread
         handle_thread_updates(self)?;
 
-        debug!("Running {:?}", &element);
-        // for (idx, local) in locals.iter().enumerate() {
-        //     debug!("\t{}: {:?}", idx, local);
-        // }
-        self.read().debug_print_call_stack();
+        if log::max_level() >= Level::Trace {
+            trace!("Running {:?}", &element);
+            // for (idx, local) in locals.iter().enumerate() {
+            //     debug!("\t{}: {:?}", idx, local);
+            // }
+            self.read().debug_print_call_stack();
+        }
         if !StackFrame::verify_computational_types(&locals) {
             error!("Failed local verification");
             for (idx, local) in locals.iter().enumerate() {
@@ -287,7 +290,6 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             .unwrap()
             .constants
             .to_owned();
-        let constants = ConstantPool::from(&class_constants[..]);
 
         {
             let mut jvm = self.write();
@@ -323,11 +325,11 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
 
             native_call.exec(self, target, locals)
         } else {
-            let instructions = method.code(&constants);
+            let instructions = method.code(&class_constants);
             let mut frame = StackFrame::new(
                 instructions.max_locals as usize,
                 instructions.max_stack as usize,
-                constants,
+                &class_constants,
                 locals,
             );
             frame.exec(self, &instructions)

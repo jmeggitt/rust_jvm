@@ -57,7 +57,8 @@ impl BufferedRead for AccessFlags {
 #[derive(Debug, Clone)]
 pub struct Class {
     version: ClassVersion,
-    pub constants: Vec<Constant>,
+    // pub constants: Vec<Constant>,
+    pub constants: ConstantPool,
     pub access_flags: AccessFlags,
     pub this_class: u16,
     pub super_class: u16,
@@ -109,11 +110,11 @@ impl Class {
 
     #[deprecated(since = "0.2.0", note = "Replace with new Class::constants method")]
     pub fn old_constants(&self) -> &[Constant] {
-        &self.constants
+        &*self.constants
     }
 
-    pub fn constants(&self) -> ConstantPool {
-        ConstantPool::from(&self.constants[..])
+    pub fn constants(&self) -> &ConstantPool {
+        &self.constants
     }
 
     pub fn write(&self) -> io::Result<Vec<u8>> {
@@ -122,7 +123,7 @@ impl Class {
 
         buffer.write_u32::<BigEndian>(0xCAFE_BABE)?;
         self.version.write(&mut buffer)?;
-        Constant::write_pool(&self.constants, &mut buffer)?;
+        Constant::write_pool(&*self.constants, &mut buffer)?;
 
         self.access_flags.write(&mut buffer)?;
 
@@ -211,7 +212,7 @@ impl Class {
 
         Ok(Class {
             version: class_version,
-            constants,
+            constants: ConstantPool::from(constants),
             access_flags,
             this_class,
             super_class,
@@ -259,15 +260,13 @@ impl Class {
     pub fn get_dependencies(&self) -> Vec<String> {
         let mut dependencies = Vec::new();
 
-        for constant in &self.constants {
+        for constant in &*self.constants {
             if let Constant::Class(ConstantClass { name_index }) = constant {
                 if *name_index == self.this_class {
                     continue;
                 }
 
-                let name = self.constants[*name_index as usize - 1]
-                    .expect_utf8()
-                    .unwrap();
+                let name = self.constants[*name_index].expect_utf8().unwrap();
 
                 if name.contains(';') || name.contains('[') {
                     let mut buffer = Cursor::new(name.as_bytes().to_vec());
@@ -326,17 +325,18 @@ impl Class {
     }
 
     pub fn name(&self) -> String {
-        let name_idx = self.constants[self.this_class as usize - 1]
-            .expect_class()
-            .unwrap();
-        self.constants[name_idx as usize - 1].expect_utf8().unwrap()
+        let name_idx = self.constants[self.this_class].expect_class().unwrap();
+        self.constants[name_idx].expect_utf8().unwrap()
     }
 
+    // TODO: This should really be optional
     pub fn super_class(&self) -> String {
-        let name_idx = self.constants[self.super_class as usize - 1]
-            .expect_class()
-            .unwrap();
-        self.constants[name_idx as usize - 1].expect_utf8().unwrap()
+        if self.super_class == 0 {
+            panic!("Superclass not found for {}", self.name());
+        }
+
+        let name_idx = self.constants[self.super_class].expect_class().unwrap();
+        self.constants[name_idx].expect_utf8().unwrap()
     }
 
     // pub fn build_object(&self) -> Object {
@@ -359,12 +359,8 @@ impl Class {
         let mut names = Vec::with_capacity(self.interfaces.len());
 
         for index in &self.interfaces {
-            let class_name = self.constants[*index as usize - 1].expect_class().unwrap();
-            names.push(
-                self.constants[class_name as usize - 1]
-                    .expect_utf8()
-                    .unwrap(),
-            );
+            let class_name = self.constants[*index].expect_class().unwrap();
+            names.push(self.constants[class_name].expect_utf8().unwrap());
         }
 
         names
@@ -419,7 +415,7 @@ pub struct AttributeInfo {
 }
 
 impl DebugWithConst for AttributeInfo {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         let mut buffer = Cursor::new(self.info.clone());
         match pool.text(self.name_index) {
             "Code" => CodeAttribute::read(&mut buffer).unwrap().fmt(f, pool),
@@ -466,7 +462,7 @@ pub struct MethodInfo {
 }
 
 impl DebugWithConst for MethodInfo {
-    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>, pool: &ConstantPool) -> std::fmt::Result {
         writeln!(
             f,
             "{} {}",

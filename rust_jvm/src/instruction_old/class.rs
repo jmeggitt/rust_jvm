@@ -81,9 +81,11 @@ impl InstructionAction for getstatic {
                 }
             };
 
-            debug!(
+            trace!(
                 "Get static request for {}::{} {}",
-                &class_name, &field_name, descriptor
+                &class_name,
+                &field_name,
+                descriptor
             );
 
             if matches!(&value, JavaValue::Long(_) | JavaValue::Double(_)) {
@@ -182,9 +184,12 @@ impl InstructionAction for putstatic {
             value = frame.stack.pop().unwrap();
         }
 
-        debug!(
+        trace!(
             "Put value {:?} into {}::{} {}",
-            &value, &class_name, &field_name, descriptor
+            &value,
+            &class_name,
+            &field_name,
+            descriptor
         );
 
         jvm.write()
@@ -281,7 +286,7 @@ impl InstructionAction for new {
 
         let object = ObjectHandle::new(jvm.write().class_schema(&class_name));
         frame.stack.push(JavaValue::Reference(Some(object)));
-        debug!("Pushed new instance of {} to the stack", class_name);
+        trace!("Pushed new instance of {} to the stack", class_name);
         Ok(())
     }
 }
@@ -310,9 +315,11 @@ impl InstructionAction for invokespecial {
                 ),
             };
 
-        debug!(
+        trace!(
             "Calling special: {}::{} {}",
-            &class_name, &field_name, &descriptor
+            &class_name,
+            &field_name,
+            &descriptor
         );
         if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
             let stack_args =
@@ -407,9 +414,11 @@ impl InstructionAction for putfield {
 
         if let Some(JavaValue::Reference(Some(obj))) = frame.stack.pop() {
             let instance = obj.expect_instance();
-            debug!(
+            trace!(
                 "Putting field {}::{} {}",
-                &class_name, &field_name, &desc_name
+                &class_name,
+                &field_name,
+                &desc_name
             );
             instance.lock().write_named_field(&field_name, value);
             Ok(())

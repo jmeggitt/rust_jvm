@@ -28,6 +28,7 @@ pub mod call;
 pub mod mem;
 
 mod hooks;
+mod interface;
 mod internals;
 pub mod thread;
 
@@ -431,7 +432,7 @@ impl JavaEnv {
     }
 
     pub fn debug_print_call_stack(&self) {
-        debug!("Call stack:");
+        trace!("Call stack:");
         self.thread_manager.debug_print_call_stack();
     }
 }

@@ -89,7 +89,7 @@ impl InstructionAction for anewarray {
         // };
         let class_name = frame.constants.class_name(index);
 
-        debug!("Creating array for {}", &class_name);
+        trace!("Creating array for {}", &class_name);
 
         let length = match frame
             .stack

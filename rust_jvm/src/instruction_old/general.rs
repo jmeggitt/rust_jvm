@@ -246,7 +246,7 @@ impl InstructionAction for checkcast {
 
         if let JavaValue::Reference(Some(v)) = &frame.stack[frame.stack.len() - 1] {
             if matches!(
-                jvm.read().instanceof(&v.get_class(), &class_name),
+                jvm.read().instanceof(&v.get_class(), class_name),
                 Some(false) | None
             ) {
                 // TODO: Check if this is the correct exception

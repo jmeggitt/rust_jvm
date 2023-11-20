@@ -496,7 +496,9 @@ pub unsafe extern "system" fn ToReflectedField(
 
 #[no_mangle]
 pub unsafe extern "system" fn Throw(env: *mut JNIEnv, obj: jthrowable) -> jint {
-    unimplemented!()
+    let env = RawJNIEnv::new(env);
+    env.write_thrown(std::mem::transmute(obj));
+    1 // what do we return?
 }
 
 #[no_mangle]

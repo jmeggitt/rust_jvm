@@ -179,6 +179,13 @@ impl FieldDescriptor {
             }
         }
     }
+
+    pub fn split_method(&self) -> Option<(&[FieldDescriptor], &FieldDescriptor)> {
+        match self {
+            FieldDescriptor::Method { args, returns } => Some((&args, &returns)),
+            _ => None,
+        }
+    }
 }
 
 impl Debug for FieldDescriptor {

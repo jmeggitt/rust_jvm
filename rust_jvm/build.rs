@@ -62,21 +62,7 @@ fn main() {
     def_sym("JVM_SetVmMemoryPressure", "JVM_Unsupported");
     def_sym("JVM_GetVmMemoryPressure", "JVM_Unsupported");
     def_sym("JVM_GetManagementExt", "JVM_Unsupported");
-    // def_sym("JVM_KnownToNotExist", "JVM_Unsupported");
-    // def_sym("JVM_GetResourceLookupCacheURLs", "JVM_Unsupported");
-    // def_sym("JVM_GetResourceLookupCache", "JVM_Unsupported");
     def_sym("JVM_GetTemporaryDirectory", "JVM_Unsupported");
-
-    // Pass unsupported symbols to symbol list
-    // symbols.push("JVM_BeforeHalt".into());
-    // symbols.push("JVM_CopySwapMemory".into());
-    // symbols.push("JVM_SetVmMemoryPressure".into());
-    // symbols.push("JVM_GetVmMemoryPressure".into());
-    // symbols.push("JVM_GetManagementExt".into());
-    // symbols.push("JVM_KnownToNotExist".into());
-    // symbols.push("JVM_GetResourceLookupCacheURLs".into());
-    // symbols.push("JVM_GetResourceLookupCache".into());
-    // symbols.push("JVM_GetTemporaryDirectory".into());
 
     write_symbol_list(&symbol_list_path, &symbols).unwrap();
 
@@ -99,6 +85,13 @@ fn main() {
     cc::Build::new()
         .file("src/va_link_support.c")
         .compile("va_link_support");
+
+    if cfg!(windows) {
+        // For some reason Rust is not exporting these, so do it explicitly
+        println!("cargo:rustc-cdylib-link-arg=/export:jio_printf");
+        println!("cargo:rustc-cdylib-link-arg=/export:jio_snprintf");
+        println!("cargo:rustc-cdylib-link-arg=/export:jio_fprintf");
+    }
 }
 
 pub fn def_sym(name: &str, backing: &str) {
@@ -128,7 +121,7 @@ pub fn build_stdlib() -> io::Result<()> {
         if entry.path().extension() == Some("java".as_ref()) {
             run(Command::new("javac")
                 .arg(entry.path())
-                .args(&["-d", &target]))
+                .args(["-d", &target]))
             .unwrap();
         }
     }

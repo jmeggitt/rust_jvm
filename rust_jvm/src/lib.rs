@@ -20,9 +20,12 @@ pub mod exports;
 // pub mod r#mod;
 pub mod class;
 // pub mod constant_pool;
-pub mod instruction;
 // pub mod jar;
+pub mod instruction;
+
 pub mod jvm;
+mod stack;
+mod util;
 // pub mod version;
 
 #[macro_export]

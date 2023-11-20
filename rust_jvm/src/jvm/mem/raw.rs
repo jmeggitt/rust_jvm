@@ -213,6 +213,7 @@ where
             jdouble::ID => write!(f, "double"),
             ObjectHandle::ID => write!(f, "Object"),
             <Option<ObjectHandle>>::ID => write!(f, "Object"),
+            JavaTypeEnum::ReturnAddress => write!(f, "ReturnAddress"),
         }?;
 
         write!(f, "[")?;
@@ -466,6 +467,7 @@ pub enum JavaTypeEnum {
     Double,
     Reference,
     NonNullReference,
+    ReturnAddress,
 }
 
 /// Utility trait to match type ids

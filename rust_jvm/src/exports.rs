@@ -53,8 +53,8 @@ pub unsafe extern "system" fn JNI_GetDefaultJavaVMInitArgs_impl(args: *mut c_voi
 
 #[no_mangle]
 pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
-    pvm: *mut *mut JavaVM,  // Fill with created JavaVM
-    penv: *mut *mut JNIEnv, // Fill with created JNIEnv
+    pvm: &mut *mut JavaVM,  // Fill with created JavaVM
+    penv: &mut *mut JNIEnv, // Fill with created JNIEnv
     args: *mut c_void,
 ) -> jint {
     // TODO: Apply init arguments instead of hard coding values
@@ -68,7 +68,7 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
             simplelog::ColorChoice::Always,
         ),
         WriteLogger::new(
-            LevelFilter::Debug,
+            LevelFilter::Trace,
             ConfigBuilder::new()
                 .set_thread_mode(ThreadLogMode::IDs)
                 .build(),

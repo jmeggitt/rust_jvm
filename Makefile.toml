@@ -14,13 +14,13 @@ command = "cargo"
 args = ["run", "--release", "-p", "java", "--", "-v", "Medium"]
 dependencies = ["build"]
 
-[tasks.test-run.windows]
-toolchain = "nightly-i686-pc-windows-msvc"
+#[tasks.test-run.windows]
+#toolchain = "nightly-i686-pc-windows-msvc"
 
 [tasks.build]
 toolchain = "nightly"
 command = "cargo"
 args = ["build", "--release", "-p", "rust_jvm"]
 
-[tasks.build.windows]
-toolchain = "nightly-i686-pc-windows-msvc"
+#[tasks.build.windows]
+#toolchain = "nightly-i686-pc-windows-msvc"

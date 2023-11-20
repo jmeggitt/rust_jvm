@@ -316,7 +316,7 @@ impl NativeManager {
                 let symbol = library
                     .get::<unsafe extern "system" fn()>(symbol_name)
                     .ok()?;
-                debug!(
+                trace!(
                     "Found native function {} in {}",
                     String::from_utf8_lossy(symbol_name),
                     path.display()
