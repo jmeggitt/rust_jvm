@@ -1,6 +1,6 @@
 #![feature(c_variadic)]
 // Ensure each result error is either unwrapped or returned
-#![deny(unused_must_use)]
+#![deny(unused_must_use, clippy::unit_arg)]
 
 #[macro_use]
 #[cfg(feature = "thread_profiler")]

@@ -59,7 +59,7 @@ impl CodeAttribute {
         pos: u64,
         class: &str,
         pool: &ConstantPool,
-        jvm: &mut JavaEnv,
+        jvm: &JavaEnv,
     ) -> Option<u64> {
         // I assume that the first one that fits is the one to use?
         for range in self.exception_table.iter().copied() {

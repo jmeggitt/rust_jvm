@@ -102,8 +102,8 @@ pub unsafe extern "system" fn JNI_CreateJavaVM_impl(
     // class_loader.class("java/lang/reflect/Modifier").unwrap().print_method();
     // panic!();
 
-    let mut jvm = Box::new(JavaEnv::new(class_loader));
-    let interface = build_interface(&mut *jvm);
+    let jvm = Box::new(JavaEnv::new(class_loader));
+    let interface = build_interface(&jvm);
 
     let vm = &jvm.read().jni_vm as *const _;
     // let vm = JNIInvokeInterface_ {
@@ -1711,7 +1711,7 @@ pub unsafe extern "system" fn JVM_CX8Field_impl(
 
     let ptr = &mut lock[index] as *mut jvalue as *const AtomicI64;
 
-    let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+    let res = (*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
     res.is_ok() as jboolean
 }
 

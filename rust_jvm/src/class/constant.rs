@@ -30,15 +30,9 @@ impl Deref for ConstantPool {
     type Target = [Constant];
 
     fn deref(&self) -> &Self::Target {
-        &*self.pool
+        &self.pool
     }
 }
-
-// impl<'a> From<&'a [Constant]> for ConstantPool<'a> {
-//     fn from(pool: &'a [Constant]) -> Self {
-//         ConstantPool { pool }
-//     }
-// }
 
 // TODO: Finish adding helper functions and use in main system
 impl ConstantPool {

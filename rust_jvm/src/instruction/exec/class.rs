@@ -112,7 +112,7 @@ pub fn putstatic(frame: &mut StackFrame, jvm: &mut Arc<RwLock<JavaEnv>>, field: 
 
     jvm.write()
         .static_fields
-        .set_static(&class_name, &field_name, value);
+        .set_static(&class_name, field_name, value);
 }
 
 pub fn new(frame: &mut StackFrame, jvm: &mut Arc<RwLock<JavaEnv>>, field: ClassConstIndex) {
@@ -123,8 +123,8 @@ pub fn new(frame: &mut StackFrame, jvm: &mut Arc<RwLock<JavaEnv>>, field: ClassC
         jvm.read().thread_manager.debug_print();
     }
 
-    jvm.init_class(&class_name);
-    jvm.write().class_loader.attempt_load(&class_name).unwrap();
+    jvm.init_class(class_name);
+    jvm.write().class_loader.attempt_load(class_name).unwrap();
 
     let object = ObjectHandle::new(jvm.write().class_schema(class_name));
     frame.stack.push(JavaValue::Reference(Some(object)));
@@ -177,7 +177,7 @@ pub fn putfield(frame: &mut StackFrame, field: ClassConstIndex) -> Result<(), Fl
 
 pub fn instanceof(
     frame: &mut StackFrame,
-    jvm: &mut Arc<RwLock<JavaEnv>>,
+    jvm: &Arc<RwLock<JavaEnv>>,
     class_index: ClassConstIndex,
 ) {
     let class_name = frame.constants.class_name(class_index);
@@ -196,7 +196,7 @@ pub fn instanceof(
     }
 
     frame.stack.push(JavaValue::Byte(
-        jvm.read().instanceof(&target, &class_name).unwrap() as _,
+        jvm.read().instanceof(&target, class_name).unwrap() as _,
     ));
 }
 
@@ -206,8 +206,8 @@ pub fn invokestatic(
     field: ClassConstIndex,
 ) -> Result<(), FlowControl> {
     let (class_name, field_name, descriptor) = frame.constants.class_element_ref(field);
-    jvm.init_class(&class_name);
-    jvm.write().class_loader.attempt_load(&class_name).unwrap();
+    jvm.init_class(class_name);
+    jvm.write().class_loader.attempt_load(class_name).unwrap();
 
     if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(descriptor) {
         let stack_args =
@@ -248,7 +248,7 @@ pub fn invokevirtual(
 ) -> Result<(), FlowControl> {
     let (class_name, field_name, descriptor) = frame.constants.class_element_ref(field);
 
-    if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
+    if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(descriptor) {
         let stack_args =
             frame.stack[frame.stack.len() - FieldDescriptor::word_len(&args)..].to_vec();
 
@@ -307,17 +307,16 @@ pub fn invokespecial(
 ) -> Result<(), FlowControl> {
     let (class_name, field_name, descriptor) = frame.constants.class_element_ref(field);
 
-    let (method_class, _main_method) =
-        match jvm
-            .read()
-            .find_instance_method(&class_name, &field_name, &descriptor)
-        {
-            Some(v) => v,
-            _ => panic!(
-                "Unable to find {}::{} {}",
-                &class_name, &field_name, &descriptor
-            ),
-        };
+    let (method_class, _main_method) = match jvm
+        .read()
+        .find_instance_method(class_name, field_name, descriptor)
+    {
+        Some(v) => v,
+        _ => panic!(
+            "Unable to find {}::{} {}",
+            &class_name, &field_name, &descriptor
+        ),
+    };
 
     trace!(
         "Calling special: {}::{} {}",
@@ -374,7 +373,7 @@ pub fn invokeinterface(
 ) -> Result<(), FlowControl> {
     let (class_name, field_name, descriptor) = frame.constants.class_element_ref(index);
 
-    if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(&descriptor) {
+    if let Ok(FieldDescriptor::Method { args, .. }) = FieldDescriptor::read_str(descriptor) {
         let stack_args =
             frame.stack[frame.stack.len() - FieldDescriptor::word_len(&args)..].to_vec();
 
@@ -479,11 +478,9 @@ pub fn invokedynamic(
 
     let mut dyn_args = Vec::with_capacity(bootstrap_method.bootstrap_arguments.len() + 2);
     dyn_args.push(JavaValue::Reference(Some(lookup)));
-    dyn_args.push(jvm.write().build_string(&field_name));
+    dyn_args.push(jvm.write().build_string(field_name));
 
-    let desc = FieldDescriptor::read_str(&descriptor)
-        .unwrap()
-        .to_class(jvm);
+    let desc = FieldDescriptor::read_str(descriptor).unwrap().to_class(jvm);
     dyn_args.push(JavaValue::Reference(Some(desc)));
 
     for arg in bootstrap_method.bootstrap_arguments {
@@ -491,14 +488,12 @@ pub fn invokedynamic(
             Constant::Class(ConstantClass { name_index }) => {
                 let name = frame.constants.text(*name_index);
                 info!("\tClass {}", &name);
-                dyn_args.push(JavaValue::Reference(Some(
-                    jvm.write().class_instance(&name),
-                )));
+                dyn_args.push(JavaValue::Reference(Some(jvm.write().class_instance(name))));
             }
             Constant::String(ConstantString { string_index }) => {
                 let name = frame.constants.text(*string_index);
                 info!("\tString {}", &name);
-                dyn_args.push(jvm.write().build_string(&name));
+                dyn_args.push(jvm.write().build_string(name));
             }
             Constant::Int(ConstantInteger { value }) => {
                 info!("\tInt {}", value);
@@ -521,7 +516,7 @@ pub fn invokedynamic(
             Constant::MethodType(ConstantMethodType { descriptor_index }) => {
                 let desc = frame.constants.text(*descriptor_index);
                 info!("\tMethod Type {}", &desc);
-                let desc = FieldDescriptor::read_str(&desc).unwrap().to_class(jvm);
+                let desc = FieldDescriptor::read_str(desc).unwrap().to_class(jvm);
                 dyn_args.push(JavaValue::Reference(Some(desc)));
             }
             Constant::MethodHandle(ConstantMethodHandle {

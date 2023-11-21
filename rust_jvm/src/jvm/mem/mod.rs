@@ -383,7 +383,7 @@ impl JavaValue {
             JavaValue::Char(x) => *x as i64,
             JavaValue::Short(x) => *x as i64,
             JavaValue::Int(x) => *x as i64,
-            JavaValue::Long(x) => *x as i64,
+            JavaValue::Long(x) => *x,
             _ => return None,
         })
     }
@@ -397,7 +397,7 @@ impl JavaValue {
             JavaValue::Int(x) => *x as f64,
             JavaValue::Long(x) => *x as f64,
             JavaValue::Float(x) => *x as f64,
-            JavaValue::Double(x) => *x as f64,
+            JavaValue::Double(x) => *x,
             _ => return None,
         })
     }
@@ -408,7 +408,7 @@ impl JavaValue {
             JavaValue::Char(x) if *x == 0 => 0,
             JavaValue::Char(_) => 1,
             JavaValue::Short(x) => x.signum() as i32,
-            JavaValue::Int(x) => x.signum() as i32,
+            JavaValue::Int(x) => x.signum(),
             JavaValue::Float(x) => x.signum() as i32,
             JavaValue::Long(x) => x.signum() as i32,
             JavaValue::Double(x) => x.signum() as i32,

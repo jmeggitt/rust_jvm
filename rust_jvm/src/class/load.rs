@@ -1,6 +1,5 @@
 use crate::class::class_file::Class;
 use crate::class::constant::Constant;
-use crate::class::jar::Manifest;
 use crate::log_dump;
 use std::borrow::Cow;
 use std::collections::hash_map::Entry;
@@ -13,12 +12,6 @@ use std::{env, io};
 use walkdir::WalkDir;
 use zip::ZipArchive;
 log_dump!(CLASS_LOADER);
-
-#[derive(Debug, Default)]
-pub struct UnpackedJar {
-    _dir: PathBuf,
-    pub manifest: Manifest,
-}
 
 #[derive(Default, Debug)]
 pub struct ClassLoader {
@@ -326,7 +319,10 @@ impl ClassPath {
 
         let mut paths_to_search = Vec::new();
         search_dir.read_dir()?.try_for_each(|x| match x {
-            Ok(v) => Ok(paths_to_search.push(v.path())),
+            Ok(v) => {
+                paths_to_search.push(v.path());
+                Ok(())
+            }
             Err(e) => Err(e),
         })?;
         paths_to_search.sort();

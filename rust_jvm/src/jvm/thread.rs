@@ -468,7 +468,7 @@ pub fn first_time_sys_thread_init(env: &mut Arc<RwLock<JavaEnv>>) {
         .java_thread = Some(obj);
 }
 
-pub fn handle_thread_updates(env: &mut Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
+pub fn handle_thread_updates(env: &Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
     // Change to park or sent interrupt exception
     let handle = current().id();
 

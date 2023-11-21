@@ -199,8 +199,8 @@ impl<'a> StackFrame<'a> {
                         match code.attempt_catch(
                             position,
                             &exception_class,
-                            &self.constants,
-                            &mut jvm.write(),
+                            self.constants,
+                            &jvm.write(),
                         ) {
                             Some(jump_dst) => {
                                 // Push to stack so it can be handled by those methods

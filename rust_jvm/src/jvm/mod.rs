@@ -6,6 +6,7 @@ use jni::sys::{
     jchar, jint, JNI_VERSION_1_1, JNI_VERSION_1_2, JNI_VERSION_1_4, JNI_VERSION_1_6,
     JNI_VERSION_1_8,
 };
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use walkdir::WalkDir;
 
@@ -117,7 +118,7 @@ impl RealJavaVM {
 
         // let mut handle = (&*(self.reserved0 as *mut Arc<RwLock<JavaEnv>>)).clone();
         let handle = self.reserved0.clone();
-        let interface = build_interface(&mut handle.upgrade().unwrap());
+        let interface = build_interface(&handle.upgrade().unwrap());
         unsafe {
             *penv = Box::leak(Box::new(Box::new(interface))) as *mut _ as *mut c_void;
         }
@@ -157,9 +158,9 @@ impl JavaEnv {
 
         first_time_sys_thread_init(&mut jvm);
 
-        Self::load_lib_by_name(&mut jvm, "java").unwrap();
-        Self::load_lib_by_name(&mut jvm, "zip").unwrap();
-        Self::load_lib_by_name(&mut jvm, "instrument").unwrap();
+        Self::load_lib_by_name(&jvm, "java").unwrap();
+        Self::load_lib_by_name(&jvm, "zip").unwrap();
+        Self::load_lib_by_name(&jvm, "instrument").unwrap();
         register_hooks(&mut jvm);
 
         // warn!("Loading core")
@@ -273,7 +274,7 @@ impl JavaEnv {
         None
     }
 
-    pub fn load_lib_by_name(jvm: &mut Arc<RwLock<JavaEnv>>, name: &str) -> io::Result<()> {
+    pub fn load_lib_by_name(jvm: &Arc<RwLock<JavaEnv>>, name: &str) -> io::Result<()> {
         let lock = jvm.read();
 
         #[cfg(unix)]
@@ -325,7 +326,7 @@ impl JavaEnv {
     }
 
     // TODO: Split function into windows and unix versions?
-    pub fn load_core_libs(jvm: &mut Arc<RwLock<JavaEnv>>) -> io::Result<()> {
+    pub fn load_core_libs(jvm: &Arc<RwLock<JavaEnv>>) -> io::Result<()> {
         let lock = jvm.read();
 
         #[cfg(unix)]
@@ -444,6 +445,12 @@ pub struct StaticFields {
     fields: Vec<JavaValue>,
 }
 
+impl Default for StaticFields {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StaticFields {
     pub fn new() -> Self {
         StaticFields {
@@ -454,20 +461,21 @@ impl StaticFields {
     }
 
     pub fn get_field_offset(&self, class: &str, field: &str) -> Option<usize> {
-        let key = format!("{}_{}", CleanStr(&class), CleanStr(&field));
+        let key = format!("{}_{}", CleanStr(class), CleanStr(field));
         self.slots.get(&key).copied()
     }
 
     pub fn set_static(&mut self, class: &str, field: &str, value: JavaValue) {
-        let key = format!("{}_{}", CleanStr(&class), CleanStr(&field));
-        if !self.slots.contains_key(&key) {
-            self.slots.insert(key, self.fields.len());
-            self.fields.push(value);
-            return;
+        let key = format!("{}_{}", CleanStr(class), CleanStr(field));
+        match self.slots.entry(key) {
+            Entry::Occupied(slot) => {
+                self.fields[*slot.get()] = value;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(self.fields.len());
+                self.fields.push(value);
+            }
         }
-
-        let idx = *self.slots.get(&key).unwrap();
-        self.fields[idx] = value;
     }
 
     pub fn get_static(&self, class: &str, field: &str) -> Option<JavaValue> {

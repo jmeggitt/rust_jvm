@@ -110,7 +110,7 @@ impl Class {
 
     #[deprecated(since = "0.2.0", note = "Replace with new Class::constants method")]
     pub fn old_constants(&self) -> &[Constant] {
-        &*self.constants
+        &self.constants
     }
 
     pub fn constants(&self) -> &ConstantPool {
@@ -123,7 +123,7 @@ impl Class {
 
         buffer.write_u32::<BigEndian>(0xCAFE_BABE)?;
         self.version.write(&mut buffer)?;
-        Constant::write_pool(&*self.constants, &mut buffer)?;
+        Constant::write_pool(&self.constants, &mut buffer)?;
 
         self.access_flags.write(&mut buffer)?;
 

@@ -95,7 +95,7 @@ impl NativeCall {
 
     pub fn exec(
         &self,
-        jvm: &mut Arc<RwLock<JavaEnv>>,
+        jvm: &Arc<RwLock<JavaEnv>>,
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {

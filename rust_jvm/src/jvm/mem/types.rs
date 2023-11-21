@@ -107,8 +107,8 @@ impl FieldDescriptor {
 
         FieldDescriptor::Method {
             args: ptype_lock
-                .to_vec()
-                .into_iter()
+                .iter()
+                .copied()
                 .map(Option::unwrap)
                 .map(FieldDescriptor::from_class)
                 .collect(),
@@ -128,8 +128,8 @@ impl FieldDescriptor {
             "double" => FieldDescriptor::Double,
             "void" => FieldDescriptor::Void,
             x => {
-                if x.starts_with('[') {
-                    return FieldDescriptor::Array(Box::new(Self::from_class_name(&x[1..])));
+                if let Some(class_name) = x.strip_prefix('[') {
+                    return FieldDescriptor::Array(Box::new(Self::from_class_name(class_name)));
                 }
 
                 FieldDescriptor::Object(x.to_string())
@@ -332,7 +332,7 @@ impl FieldDescriptor {
                 FieldDescriptor::Double => JavaValue::Double(value.d),
                 FieldDescriptor::Float => JavaValue::Float(value.f),
                 FieldDescriptor::Int => JavaValue::Int(value.i),
-                FieldDescriptor::Long => JavaValue::Long(value.j as i64),
+                FieldDescriptor::Long => JavaValue::Long(value.j),
                 FieldDescriptor::Short => JavaValue::Short(value.s),
                 FieldDescriptor::Boolean => JavaValue::Byte(value.z as i8),
                 FieldDescriptor::Object(_) | FieldDescriptor::Array(_) => {

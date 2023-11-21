@@ -3,7 +3,7 @@ use crate::jvm::mem::JavaValue;
 use std::cmp::Ordering;
 
 macro_rules! cmp_instruction {
-    ($name:ident, $cond:expr) => {
+    ($name:ident, |$input:ident| $cond:expr) => {
         pub fn $name(frame: &mut StackFrame, jmp: i16) -> Result<(), FlowControl> {
             let val2 = frame.stack.pop().unwrap();
             let val1 = frame.stack.pop().unwrap();
@@ -14,7 +14,7 @@ macro_rules! cmp_instruction {
             // assert!(matches!(&val1, JavaValue::Byte(_) | JavaValue::Char(_) | JavaValue::Short(_) | JavaValue::Int(_)));
             // assert!(matches!(&val2, JavaValue::Byte(_) | JavaValue::Char(_) | JavaValue::Short(_) | JavaValue::Int(_)));
 
-            let order = match val1.partial_cmp(&val2) {
+            let $input = match val1.partial_cmp(&val2) {
                 Some(v) => v,
                 None => panic!(
                     "Unable to get ordering for branching between {:?} and {:?}",
@@ -23,7 +23,7 @@ macro_rules! cmp_instruction {
             };
             //  .expect("Unable to get ordering for branching");
 
-            if $cond(order) {
+            if $cond {
                 // debug!("Branching by {}", jmp);
                 return Err(FlowControl::Branch(jmp as i64));
                 // frame.branch_offset += jmp as i64;
@@ -43,16 +43,16 @@ cmp_instruction! {if_acmpeq, |x| x == Ordering::Equal}
 cmp_instruction! {if_acmpne, |x| x != Ordering::Equal}
 
 macro_rules! cmp_zero_instruction {
-    ($name:ident, $cond:expr) => {
+    ($name:ident, |$input:ident| $cond:expr) => {
         pub fn $name(frame: &mut StackFrame, jmp: i16) -> Result<(), FlowControl> {
             let val = frame.stack.pop().unwrap();
             assert!(matches!(
                 &val,
                 JavaValue::Byte(_) | JavaValue::Char(_) | JavaValue::Short(_) | JavaValue::Int(_)
             ));
-            let order = val.signum().expect("Unable to get ordering for branching");
+            let $input = val.signum().expect("Unable to get ordering for branching");
 
-            if $cond(order) {
+            if $cond {
                 // debug!("Branching by {}", jmp);
                 // frame.branch_offset += jmp as i64;
                 return Err(FlowControl::Branch(jmp as i64));

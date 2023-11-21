@@ -69,7 +69,7 @@ pub fn athrow(frame: &mut StackFrame) -> Result<(), FlowControl> {
 
 pub fn checkcast(
     frame: &mut StackFrame,
-    jvm: &mut Arc<RwLock<JavaEnv>>,
+    jvm: &Arc<RwLock<JavaEnv>>,
     index: u16,
 ) -> Result<(), FlowControl> {
     let class_name = frame.constants.class_name(index);
@@ -96,7 +96,7 @@ pub fn sipush(frame: &mut StackFrame, value: i16) {
     frame.stack.push(JavaValue::Short(value));
 }
 
-pub fn ldc(frame: &mut StackFrame, jvm: &mut Arc<RwLock<JavaEnv>>, index: u8) {
+pub fn ldc(frame: &mut StackFrame, jvm: &Arc<RwLock<JavaEnv>>, index: u8) {
     frame.stack.push(match &frame.constants[index as u16] {
         Constant::Int(ConstantInteger { value }) => JavaValue::Int(*value),
         Constant::Float(ConstantFloat { value }) => JavaValue::Float(*value),
@@ -123,7 +123,7 @@ pub fn ldc(frame: &mut StackFrame, jvm: &mut Arc<RwLock<JavaEnv>>, index: u8) {
     });
 }
 
-pub fn ldc_w(frame: &mut StackFrame, jvm: &mut Arc<RwLock<JavaEnv>>, index: u16) {
+pub fn ldc_w(frame: &mut StackFrame, jvm: &Arc<RwLock<JavaEnv>>, index: u16) {
     frame.stack.push(match &frame.constants[index] {
         Constant::Int(ConstantInteger { value }) => JavaValue::Int(*value),
         Constant::Float(ConstantFloat { value }) => JavaValue::Float(*value),
@@ -202,18 +202,12 @@ pub fn iinc(frame: &mut StackFrame, index: u16, val: i16) {
     }
 }
 
-pub fn monitorenter(
-    frame: &mut StackFrame,
-    jvm: &mut Arc<RwLock<JavaEnv>>,
-) -> Result<(), FlowControl> {
+pub fn monitorenter(frame: &mut StackFrame, jvm: &Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
     jvm.lock(frame.pop_reference()?);
     Ok(())
 }
 
-pub fn monitorexit(
-    frame: &mut StackFrame,
-    jvm: &mut Arc<RwLock<JavaEnv>>,
-) -> Result<(), FlowControl> {
+pub fn monitorexit(frame: &mut StackFrame, jvm: &Arc<RwLock<JavaEnv>>) -> Result<(), FlowControl> {
     jvm.unlock(frame.pop_reference()?);
     Ok(())
 }

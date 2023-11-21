@@ -70,7 +70,6 @@ macro_rules! readable_struct {
 pub mod attribute;
 mod class_file;
 pub mod constant;
-mod jar;
 mod load;
 mod version;
 

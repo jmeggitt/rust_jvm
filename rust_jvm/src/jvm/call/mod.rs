@@ -349,10 +349,8 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
-        // profile_scope_cfg!("special {:?}", &method);
         #[cfg(feature = "profile")]
-        let mut profile_scope =
-            thread_profiler::ProfileScope::new(format!("special {:?}", &method));
+        let profile_scope = thread_profiler::ProfileScope::new(format!("special {:?}", &method));
 
         assert!(self
             .read()
@@ -368,10 +366,15 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
             panic!("Failed local verification");
         }
         args.insert(0, JavaValue::Reference(Some(target)));
-        let ret = self.invoke(method, args);
         #[cfg(feature = "profile")]
-        std::mem::drop(profile_scope);
-        ret
+        {
+            let ret = self.invoke(method, args);
+            std::mem::drop(profile_scope);
+            ret
+        }
+
+        #[cfg(not(feature = "profile"))]
+        self.invoke(method, args)
     }
 
     fn invoke_virtual(
@@ -380,18 +383,20 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         target: ObjectHandle,
         mut args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
-        // profile_scope_cfg!("virtual {:?}", &method);
-
         #[cfg(feature = "profile")]
-        let mut profile_scope =
-            thread_profiler::ProfileScope::new(format!("virtual {:?}", &method));
+        let profile_scope = thread_profiler::ProfileScope::new(format!("virtual {:?}", &method));
 
         method.class = target.get_class();
         args.insert(0, JavaValue::Reference(Some(target)));
-        let ret = self.invoke(method, args);
         #[cfg(feature = "profile")]
-        std::mem::drop(profile_scope);
-        ret
+        {
+            let ret = self.invoke(method, args);
+            std::mem::drop(profile_scope);
+            ret
+        }
+
+        #[cfg(not(feature = "profile"))]
+        self.invoke(method, args)
     }
 
     fn invoke_static(
@@ -399,14 +404,17 @@ impl JavaEnvInvoke for Arc<RwLock<JavaEnv>> {
         method: ClassElement,
         args: Vec<JavaValue>,
     ) -> Result<Option<JavaValue>, FlowControl> {
-        // profile_scope_cfg!("static {:?}", &method);
+        #[cfg(feature = "profile")]
+        {
+            let mut profile_scope =
+                thread_profiler::ProfileScope::new(format!("static {:?}", &method));
+            let ret = self.invoke(method, args);
+            std::mem::drop(profile_scope);
+            ret
+        }
 
-        #[cfg(feature = "profile")]
-        let mut profile_scope = thread_profiler::ProfileScope::new(format!("static {:?}", &method));
-        let ret = self.invoke(method, args);
-        #[cfg(feature = "profile")]
-        std::mem::drop(profile_scope);
-        ret
+        #[cfg(not(feature = "profile"))]
+        self.invoke(method, args)
     }
 }
 

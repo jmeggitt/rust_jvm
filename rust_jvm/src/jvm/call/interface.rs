@@ -67,7 +67,7 @@ pub unsafe extern "system" fn register_natives(
 unsafe extern "system" fn get_object_class(env: *mut JNIEnv, obj: jobject) -> jclass {
     let env = RawJNIEnv::new(env);
 
-    // let jvm = (&**env).reserved0 as *mut JavaEnv;
+    // let jvm = (**env).reserved0 as *mut JavaEnv;
     match ObjectHandle::from_ptr(obj) {
         Some(v) => env.write().class_instance(&v.get_class()).ptr(),
         None => null_mut(),
@@ -100,7 +100,7 @@ unsafe extern "system" fn get_method_id(
 
 unsafe extern "system" fn exception_check(env: *mut JNIEnv) -> jboolean {
     RawJNIEnv::new(env).read_thrown().is_some() as jboolean
-    // !(&**env).reserved1.is_null() as jboolean
+    // !(**env).reserved1.is_null() as jboolean
 }
 
 unsafe extern "system" fn exception_clear(env: *mut JNIEnv) {
@@ -146,7 +146,7 @@ unsafe extern "system" fn call_obj_method_a(
     let element = read_method_id(method_id);
     let parsed_args = read_args(&element.desc, args);
 
-    // let mut jvm = &mut *((&**env).reserved0 as *mut JavaEnv);
+    // let mut jvm = &mut *((**env).reserved0 as *mut JavaEnv);
     match env.invoke_virtual(element.clone(), target, parsed_args) {
         Ok(Some(JavaValue::Reference(v))) => v.pack().l,
         Err(FlowControl::Throws(x)) => {
@@ -166,7 +166,7 @@ unsafe extern "system" fn call_obj_method_a(
 // }
 
 #[inline]
-pub fn build_interface(jvm: &mut Arc<RwLock<JavaEnv>>) -> JNINativeInterface_ {
+pub fn build_interface(jvm: &Arc<RwLock<JavaEnv>>) -> JNINativeInterface_ {
     let boxed = Box::new(jvm.clone());
     JNINativeInterface_ {
         // Make a memory leak because its easier than doing things right
@@ -590,8 +590,8 @@ pub unsafe extern "system" fn NewObjectV(
     method_id: jmethodID,
     args: va_list,
 ) -> jobject {
-    let obj = (&**env).AllocObject.unwrap()(env, clazz);
-    (&**env).CallVoidMethodV.unwrap()(env, obj, method_id, args);
+    let obj = (**env).AllocObject.unwrap()(env, clazz);
+    (**env).CallVoidMethodV.unwrap()(env, obj, method_id, args);
     obj
 }
 
@@ -602,8 +602,8 @@ pub unsafe extern "system" fn NewObjectA(
     method_id: jmethodID,
     args: *const jvalue,
 ) -> jobject {
-    let obj = (&**env).AllocObject.unwrap()(env, clazz);
-    (&**env).CallVoidMethodA.unwrap()(env, obj, method_id, args);
+    let obj = (**env).AllocObject.unwrap()(env, clazz);
+    (**env).CallVoidMethodA.unwrap()(env, obj, method_id, args);
     obj
 }
 
@@ -943,7 +943,7 @@ pub unsafe extern "system" fn GetStaticFieldID(
     name: *const c_char,
     sig: *const c_char,
 ) -> jfieldID {
-    (&**env).GetFieldID.unwrap()(env, clazz, name, sig)
+    (**env).GetFieldID.unwrap()(env, clazz, name, sig)
 }
 
 macro_rules! impl_static_field {
@@ -1389,28 +1389,28 @@ pub unsafe extern "system" fn GetPrimitiveArrayCritical(
     let obj = obj_expect!(RawJNIEnv::new(env), array, null_mut()).memory_layout();
     match obj {
         ObjectType::Array(JavaTypeEnum::Boolean) => {
-            (&**env).GetBooleanArrayElements.unwrap()(env, array, is_copy) as _
+            (**env).GetBooleanArrayElements.unwrap()(env, array, is_copy) as _
         }
         ObjectType::Array(JavaTypeEnum::Byte) => {
-            (&**env).GetByteArrayElements.unwrap()(env, array, is_copy) as _
+            (**env).GetByteArrayElements.unwrap()(env, array, is_copy) as _
         }
         ObjectType::Array(JavaTypeEnum::Short) => {
-            (&**env).GetShortArrayElements.unwrap()(env, array, is_copy) as _
+            (**env).GetShortArrayElements.unwrap()(env, array, is_copy) as _
         }
         ObjectType::Array(JavaTypeEnum::Char) => {
-            (&**env).GetCharArrayElements.unwrap()(env, array, is_copy) as _
+            (**env).GetCharArrayElements.unwrap()(env, array, is_copy) as _
         }
         ObjectType::Array(JavaTypeEnum::Int) => {
-            (&**env).GetIntArrayElements.unwrap()(env, array, is_copy) as _
+            (**env).GetIntArrayElements.unwrap()(env, array, is_copy) as _
         }
         ObjectType::Array(JavaTypeEnum::Long) => {
-            (&**env).GetLongArrayElements.unwrap()(env, array, is_copy) as _
+            (**env).GetLongArrayElements.unwrap()(env, array, is_copy) as _
         }
         ObjectType::Array(JavaTypeEnum::Float) => {
-            (&**env).GetFloatArrayElements.unwrap()(env, array, is_copy) as _
+            (**env).GetFloatArrayElements.unwrap()(env, array, is_copy) as _
         }
         ObjectType::Array(JavaTypeEnum::Double) => {
-            (&**env).GetDoubleArrayElements.unwrap()(env, array, is_copy) as _
+            (**env).GetDoubleArrayElements.unwrap()(env, array, is_copy) as _
         }
         _ => panic!(),
     }
@@ -1426,28 +1426,28 @@ pub unsafe extern "system" fn ReleasePrimitiveArrayCritical(
     let obj = obj_expect!(RawJNIEnv::new(env), array).memory_layout();
     match obj {
         ObjectType::Array(JavaTypeEnum::Boolean) => {
-            (&**env).ReleaseBooleanArrayElements.unwrap()(env, array, carray as _, mode)
+            (**env).ReleaseBooleanArrayElements.unwrap()(env, array, carray as _, mode)
         }
         ObjectType::Array(JavaTypeEnum::Byte) => {
-            (&**env).ReleaseByteArrayElements.unwrap()(env, array, carray as _, mode)
+            (**env).ReleaseByteArrayElements.unwrap()(env, array, carray as _, mode)
         }
         ObjectType::Array(JavaTypeEnum::Short) => {
-            (&**env).ReleaseShortArrayElements.unwrap()(env, array, carray as _, mode)
+            (**env).ReleaseShortArrayElements.unwrap()(env, array, carray as _, mode)
         }
         ObjectType::Array(JavaTypeEnum::Char) => {
-            (&**env).ReleaseCharArrayElements.unwrap()(env, array, carray as _, mode)
+            (**env).ReleaseCharArrayElements.unwrap()(env, array, carray as _, mode)
         }
         ObjectType::Array(JavaTypeEnum::Int) => {
-            (&**env).ReleaseIntArrayElements.unwrap()(env, array, carray as _, mode)
+            (**env).ReleaseIntArrayElements.unwrap()(env, array, carray as _, mode)
         }
         ObjectType::Array(JavaTypeEnum::Long) => {
-            (&**env).ReleaseLongArrayElements.unwrap()(env, array, carray as _, mode)
+            (**env).ReleaseLongArrayElements.unwrap()(env, array, carray as _, mode)
         }
         ObjectType::Array(JavaTypeEnum::Float) => {
-            (&**env).ReleaseFloatArrayElements.unwrap()(env, array, carray as _, mode)
+            (**env).ReleaseFloatArrayElements.unwrap()(env, array, carray as _, mode)
         }
         ObjectType::Array(JavaTypeEnum::Double) => {
-            (&**env).ReleaseDoubleArrayElements.unwrap()(env, array, carray as _, mode)
+            (**env).ReleaseDoubleArrayElements.unwrap()(env, array, carray as _, mode)
         }
         _ => panic!(),
     }
@@ -1459,7 +1459,7 @@ pub unsafe extern "system" fn GetStringCritical(
     string: jstring,
     is_copy: *mut jboolean,
 ) -> *const jchar {
-    (&**env).GetStringChars.unwrap()(env, string, is_copy)
+    (**env).GetStringChars.unwrap()(env, string, is_copy)
 }
 
 #[no_mangle]
@@ -1468,7 +1468,7 @@ pub unsafe extern "system" fn ReleaseStringCritical(
     string: jstring,
     cstring: *const jchar,
 ) {
-    (&**env).ReleaseStringChars.unwrap()(env, string, cstring)
+    (**env).ReleaseStringChars.unwrap()(env, string, cstring)
 }
 
 #[no_mangle]

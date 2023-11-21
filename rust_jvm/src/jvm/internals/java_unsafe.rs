@@ -11,7 +11,7 @@ use jni::sys::{
 };
 use libc::{free, malloc, realloc};
 use std::ffi::c_void;
-use std::mem::{size_of, transmute};
+use std::mem::size_of;
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicI32, AtomicI64, AtomicPtr, Ordering};
 
@@ -271,7 +271,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getByte__J(
     _this: jobject,
     offset: jlong,
 ) -> jbyte {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr
 }
 
@@ -285,7 +285,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putByte__JB(
     offset: jlong,
     val: jbyte,
 ) {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr = val;
 }
 
@@ -298,7 +298,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getShort__J(
     _this: jobject,
     offset: jlong,
 ) -> jshort {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr
 }
 
@@ -312,7 +312,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putShort__JS(
     offset: jlong,
     val: jshort,
 ) {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr = val;
 }
 
@@ -325,7 +325,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getChar__J(
     _this: jobject,
     offset: jlong,
 ) -> jchar {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr
 }
 
@@ -339,7 +339,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putChar__JC(
     offset: jlong,
     val: jchar,
 ) {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr = val;
 }
 
@@ -352,7 +352,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getInt__J(
     _this: jobject,
     offset: jlong,
 ) -> jint {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr
 }
 
@@ -366,7 +366,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putInt__JI(
     offset: jlong,
     val: jint,
 ) {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr = val;
 }
 
@@ -379,7 +379,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getLong__J(
     _this: jobject,
     offset: jlong,
 ) -> jlong {
-    let ptr: *mut jlong = transmute(offset as isize);
+    let ptr: *mut jlong = offset as isize as *mut _;
     *ptr
 }
 
@@ -393,7 +393,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putLong__JJ(
     offset: jlong,
     val: jlong,
 ) {
-    let ptr: *mut jlong = transmute(offset as isize);
+    let ptr: *mut jlong = offset as isize as *mut _;
     *ptr = val;
 }
 
@@ -406,7 +406,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getFloat__J(
     _this: jobject,
     offset: jlong,
 ) -> jfloat {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr
 }
 
@@ -420,7 +420,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putFloat__JF(
     offset: jlong,
     val: jfloat,
 ) {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr = val;
 }
 
@@ -433,7 +433,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getDouble__J(
     _this: jobject,
     offset: jlong,
 ) -> jdouble {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr
 }
 
@@ -447,7 +447,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putDouble__JD(
     offset: jlong,
     val: jdouble,
 ) {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr = val;
 }
 
@@ -461,7 +461,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_getAddress(
     offset: jlong,
 ) -> jlong {
     // TODO: This will fail to compile on non-x64 machines
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr
 }
 
@@ -475,7 +475,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_putAddress(
     offset: jlong,
     val: jlong,
 ) {
-    let ptr: *mut _ = transmute(offset as isize);
+    let ptr: *mut _ = offset as isize as *mut _;
     *ptr = val;
 }
 
@@ -503,7 +503,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_reallocateMemory(
     ptr: jlong,
     new_size: jlong,
 ) -> jlong {
-    let ret = realloc(transmute(ptr as isize), new_size as _) as i64;
+    let ret = realloc(ptr as isize as *mut _, new_size as _) as i64;
     debug!("Reallocating: 0x{:X} -> 0x{:X}", ptr, ret);
     ret
 }
@@ -549,7 +549,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_freeMemory(
     ptr: jlong,
 ) {
     debug!("Freeing pointer: 0x{:X}", ptr);
-    free(transmute(ptr as isize))
+    free(ptr as isize as *mut _)
 }
 
 /// Class:     sun_misc_Unsafe
@@ -866,7 +866,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapObject(
 
             let ptr = &mut instance_lock[index] as *mut jvalue as *const AtomicPtr<_>;
 
-            let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+            let res = (*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
             res.is_ok() as jboolean
         }
         ObjectType::Array(JavaTypeEnum::Reference) => {
@@ -882,7 +882,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapObject(
             assert_eq!(size_of::<Option<ObjectHandle>>(), size_of::<jobject>());
             let ptr = &mut instance_lock[index] as *mut Option<ObjectHandle> as *const AtomicPtr<_>;
 
-            let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+            let res = (*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
             res.is_ok() as jboolean
         }
         _ => panic!(),
@@ -912,7 +912,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapInt(
 
     let ptr = &mut instance_lock[index] as *mut jvalue as *const AtomicI32;
 
-    let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+    let res = (*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
     res.is_ok() as jboolean
 }
 
@@ -939,7 +939,7 @@ pub unsafe extern "system" fn Java_sun_misc_Unsafe_compareAndSwapLong(
 
     let ptr = &mut instance_lock[index] as *mut jvalue as *const AtomicI64;
 
-    let res = (&*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
+    let res = (*ptr).compare_exchange(expected, x, Ordering::SeqCst, Ordering::Relaxed);
     res.is_ok() as jboolean
 }
 
