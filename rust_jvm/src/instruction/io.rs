@@ -1,6 +1,6 @@
-use crate::instruction::Instruction::*;
 use crate::instruction::{Instruction, PrimitiveType};
-use byteorder::{BigEndian, NativeEndian, ReadBytesExt};
+use byteorder::{BigEndian, NativeEndian, ReadBytesExt, WriteBytesExt};
+use std::convert::TryFrom;
 use std::io;
 use std::io::ErrorKind::InvalidData;
 use std::io::{Error, Read, Seek, Write};
@@ -22,235 +22,401 @@ impl Instruction {
     }
 
     pub fn opcode(&self) -> u8 {
+        use Instruction as I;
+
         match self {
-            Instruction::nop => 0x00,
-            Instruction::aconst_null => 0x01,
-            Instruction::iconst_m1 => 0x02,
-            Instruction::iconst_0 => 0x03,
-            Instruction::iconst_1 => 0x04,
-            Instruction::iconst_2 => 0x05,
-            Instruction::iconst_3 => 0x06,
-            Instruction::iconst_4 => 0x07,
-            Instruction::iconst_5 => 0x08,
-            Instruction::lconst_0 => 0x09,
-            Instruction::lconst_1 => 0x0a,
-            Instruction::fconst_0 => 0x0b,
-            Instruction::fconst_1 => 0x0c,
-            Instruction::fconst_2 => 0x0d,
-            Instruction::dconst_0 => 0x0e,
-            Instruction::dconst_1 => 0x0f,
-            Instruction::bipush(_) => 0x10,
-            Instruction::sipush(_) => 0x11,
-            Instruction::ldc(_) => 0x12,
-            Instruction::ldc_w(_) => 0x13,
-            Instruction::ldc2_w(_) => 0x14,
-            Instruction::iload(0) => 0x1a,
-            Instruction::iload(1) => 0x1b,
-            Instruction::iload(2) => 0x1c,
-            Instruction::iload(3) => 0x1d,
-            Instruction::iload(x) if *x <= u8::MAX as u16 => 0x15,
-            Instruction::iload(_) => 0xc4,
-            Instruction::lload(0) => 0x1e,
-            Instruction::lload(1) => 0x1f,
-            Instruction::lload(2) => 0x20,
-            Instruction::lload(3) => 0x21,
-            Instruction::lload(x) if *x <= u8::MAX as u16 => 0x16,
-            Instruction::lload(_) => 0xc4,
-            Instruction::fload(0) => 0x22,
-            Instruction::fload(1) => 0x23,
-            Instruction::fload(2) => 0x24,
-            Instruction::fload(3) => 0x25,
-            Instruction::fload(x) if *x <= u8::MAX as u16 => 0x17,
-            Instruction::fload(_) => 0xc4,
-            Instruction::dload(0) => 0x26,
-            Instruction::dload(1) => 0x27,
-            Instruction::dload(2) => 0x28,
-            Instruction::dload(3) => 0x29,
-            Instruction::dload(x) if *x <= u8::MAX as u16 => 0x18,
-            Instruction::dload(_) => 0xc4,
-            Instruction::aload(0) => 0x2a,
-            Instruction::aload(1) => 0x2b,
-            Instruction::aload(2) => 0x2c,
-            Instruction::aload(3) => 0x2d,
-            Instruction::aload(x) if *x <= u8::MAX as u16 => 0x19,
-            Instruction::aload(_) => 0xc4,
-            Instruction::iaload => 0x2e,
-            Instruction::laload => 0x2f,
-            Instruction::faload => 0x30,
-            Instruction::daload => 0x31,
-            Instruction::aaload => 0x32,
-            Instruction::baload => 0x33,
-            Instruction::caload => 0x34,
-            Instruction::saload => 0x35,
-            Instruction::istore(0) => 0x3b,
-            Instruction::istore(1) => 0x3c,
-            Instruction::istore(2) => 0x3d,
-            Instruction::istore(3) => 0x3e,
-            Instruction::istore(x) if *x <= u8::MAX as u16 => 0x36,
-            Instruction::istore(_) => 0xc4,
-            Instruction::lstore(0) => 0x3f,
-            Instruction::lstore(1) => 0x40,
-            Instruction::lstore(2) => 0x41,
-            Instruction::lstore(3) => 0x42,
-            Instruction::lstore(x) if *x <= u8::MAX as u16 => 0x37,
-            Instruction::lstore(_) => 0xc4,
-            Instruction::fstore(0) => 0x43,
-            Instruction::fstore(1) => 0x44,
-            Instruction::fstore(2) => 0x45,
-            Instruction::fstore(3) => 0x46,
-            Instruction::fstore(x) if *x <= u8::MAX as u16 => 0x38,
-            Instruction::fstore(_) => 0xc4,
-            Instruction::dstore(0) => 0x47,
-            Instruction::dstore(1) => 0x48,
-            Instruction::dstore(2) => 0x49,
-            Instruction::dstore(3) => 0x4a,
-            Instruction::dstore(x) if *x <= u8::MAX as u16 => 0x39,
-            Instruction::dstore(_) => 0xc4,
-            Instruction::astore(0) => 0x4b,
-            Instruction::astore(1) => 0x4c,
-            Instruction::astore(2) => 0x4d,
-            Instruction::astore(3) => 0x4e,
-            Instruction::astore(x) if *x <= u8::MAX as u16 => 0x3a,
-            Instruction::astore(_) => 0xc4,
-            Instruction::iastore => 0x4f,
-            Instruction::lastore => 0x50,
-            Instruction::fastore => 0x51,
-            Instruction::dastore => 0x52,
-            Instruction::aastore => 0x53,
-            Instruction::bastore => 0x54,
-            Instruction::castore => 0x55,
-            Instruction::sastore => 0x56,
-            Instruction::pop => 0x57,
-            Instruction::pop2 => 0x58,
-            Instruction::dup => 0x59,
-            Instruction::dup_x1 => 0x5a,
-            Instruction::dup_x2 => 0x5b,
-            Instruction::dup2 => 0x5c,
-            Instruction::dup2_x1 => 0x5d,
-            Instruction::dup2_x2 => 0x5e,
-            Instruction::swap => 0x5f,
-            Instruction::iadd => 0x60,
-            Instruction::ladd => 0x61,
-            Instruction::fadd => 0x62,
-            Instruction::dadd => 0x63,
-            Instruction::isub => 0x64,
-            Instruction::lsub => 0x65,
-            Instruction::fsub => 0x66,
-            Instruction::dsub => 0x67,
-            Instruction::imul => 0x68,
-            Instruction::lmul => 0x69,
-            Instruction::fmul => 0x6a,
-            Instruction::dmul => 0x6b,
-            Instruction::idiv => 0x6c,
-            Instruction::ldiv => 0x6d,
-            Instruction::fdiv => 0x6e,
-            Instruction::ddiv => 0x6f,
-            Instruction::irem => 0x70,
-            Instruction::lrem => 0x71,
-            Instruction::frem => 0x72,
-            Instruction::drem => 0x73,
-            Instruction::ineg => 0x74,
-            Instruction::lneg => 0x75,
-            Instruction::fneg => 0x76,
-            Instruction::dneg => 0x77,
-            Instruction::ishl => 0x78,
-            Instruction::lshl => 0x79,
-            Instruction::ishr => 0x7a,
-            Instruction::lshr => 0x7b,
-            Instruction::iushr => 0x7c,
-            Instruction::lushr => 0x7d,
-            Instruction::iand => 0x7e,
-            Instruction::land => 0x7f,
-            Instruction::ior => 0x80,
-            Instruction::lor => 0x81,
-            Instruction::ixor => 0x82,
-            Instruction::lxor => 0x83,
-            Instruction::iinc { index, const_inc }
+            I::nop => 0x00,
+            I::aconst_null => 0x01,
+            I::iconst_m1 => 0x02,
+            I::iconst_0 => 0x03,
+            I::iconst_1 => 0x04,
+            I::iconst_2 => 0x05,
+            I::iconst_3 => 0x06,
+            I::iconst_4 => 0x07,
+            I::iconst_5 => 0x08,
+            I::lconst_0 => 0x09,
+            I::lconst_1 => 0x0a,
+            I::fconst_0 => 0x0b,
+            I::fconst_1 => 0x0c,
+            I::fconst_2 => 0x0d,
+            I::dconst_0 => 0x0e,
+            I::dconst_1 => 0x0f,
+            I::bipush(_) => 0x10,
+            I::sipush(_) => 0x11,
+            I::ldc(_) => 0x12,
+            I::ldc_w(_) => 0x13,
+            I::ldc2_w(_) => 0x14,
+            I::iload(0) => 0x1a,
+            I::iload(1) => 0x1b,
+            I::iload(2) => 0x1c,
+            I::iload(3) => 0x1d,
+            I::iload(x) if *x <= u8::MAX as u16 => 0x15,
+            I::iload(_) => 0xc4,
+            I::lload(0) => 0x1e,
+            I::lload(1) => 0x1f,
+            I::lload(2) => 0x20,
+            I::lload(3) => 0x21,
+            I::lload(x) if *x <= u8::MAX as u16 => 0x16,
+            I::lload(_) => 0xc4,
+            I::fload(0) => 0x22,
+            I::fload(1) => 0x23,
+            I::fload(2) => 0x24,
+            I::fload(3) => 0x25,
+            I::fload(x) if *x <= u8::MAX as u16 => 0x17,
+            I::fload(_) => 0xc4,
+            I::dload(0) => 0x26,
+            I::dload(1) => 0x27,
+            I::dload(2) => 0x28,
+            I::dload(3) => 0x29,
+            I::dload(x) if *x <= u8::MAX as u16 => 0x18,
+            I::dload(_) => 0xc4,
+            I::aload(0) => 0x2a,
+            I::aload(1) => 0x2b,
+            I::aload(2) => 0x2c,
+            I::aload(3) => 0x2d,
+            I::aload(x) if *x <= u8::MAX as u16 => 0x19,
+            I::aload(_) => 0xc4,
+            I::iaload => 0x2e,
+            I::laload => 0x2f,
+            I::faload => 0x30,
+            I::daload => 0x31,
+            I::aaload => 0x32,
+            I::baload => 0x33,
+            I::caload => 0x34,
+            I::saload => 0x35,
+            I::istore(0) => 0x3b,
+            I::istore(1) => 0x3c,
+            I::istore(2) => 0x3d,
+            I::istore(3) => 0x3e,
+            I::istore(x) if *x <= u8::MAX as u16 => 0x36,
+            I::istore(_) => 0xc4,
+            I::lstore(0) => 0x3f,
+            I::lstore(1) => 0x40,
+            I::lstore(2) => 0x41,
+            I::lstore(3) => 0x42,
+            I::lstore(x) if *x <= u8::MAX as u16 => 0x37,
+            I::lstore(_) => 0xc4,
+            I::fstore(0) => 0x43,
+            I::fstore(1) => 0x44,
+            I::fstore(2) => 0x45,
+            I::fstore(3) => 0x46,
+            I::fstore(x) if *x <= u8::MAX as u16 => 0x38,
+            I::fstore(_) => 0xc4,
+            I::dstore(0) => 0x47,
+            I::dstore(1) => 0x48,
+            I::dstore(2) => 0x49,
+            I::dstore(3) => 0x4a,
+            I::dstore(x) if *x <= u8::MAX as u16 => 0x39,
+            I::dstore(_) => 0xc4,
+            I::astore(0) => 0x4b,
+            I::astore(1) => 0x4c,
+            I::astore(2) => 0x4d,
+            I::astore(3) => 0x4e,
+            I::astore(x) if *x <= u8::MAX as u16 => 0x3a,
+            I::astore(_) => 0xc4,
+            I::iastore => 0x4f,
+            I::lastore => 0x50,
+            I::fastore => 0x51,
+            I::dastore => 0x52,
+            I::aastore => 0x53,
+            I::bastore => 0x54,
+            I::castore => 0x55,
+            I::sastore => 0x56,
+            I::pop => 0x57,
+            I::pop2 => 0x58,
+            I::dup => 0x59,
+            I::dup_x1 => 0x5a,
+            I::dup_x2 => 0x5b,
+            I::dup2 => 0x5c,
+            I::dup2_x1 => 0x5d,
+            I::dup2_x2 => 0x5e,
+            I::swap => 0x5f,
+            I::iadd => 0x60,
+            I::ladd => 0x61,
+            I::fadd => 0x62,
+            I::dadd => 0x63,
+            I::isub => 0x64,
+            I::lsub => 0x65,
+            I::fsub => 0x66,
+            I::dsub => 0x67,
+            I::imul => 0x68,
+            I::lmul => 0x69,
+            I::fmul => 0x6a,
+            I::dmul => 0x6b,
+            I::idiv => 0x6c,
+            I::ldiv => 0x6d,
+            I::fdiv => 0x6e,
+            I::ddiv => 0x6f,
+            I::irem => 0x70,
+            I::lrem => 0x71,
+            I::frem => 0x72,
+            I::drem => 0x73,
+            I::ineg => 0x74,
+            I::lneg => 0x75,
+            I::fneg => 0x76,
+            I::dneg => 0x77,
+            I::ishl => 0x78,
+            I::lshl => 0x79,
+            I::ishr => 0x7a,
+            I::lshr => 0x7b,
+            I::iushr => 0x7c,
+            I::lushr => 0x7d,
+            I::iand => 0x7e,
+            I::land => 0x7f,
+            I::ior => 0x80,
+            I::lor => 0x81,
+            I::ixor => 0x82,
+            I::lxor => 0x83,
+            I::iinc { index, const_inc }
                 if *index <= u8::MAX as u16
                     && *const_inc <= i8::MAX as i16
                     && *const_inc >= i8::MIN as i16 =>
             {
                 0x84
             }
-            Instruction::iinc { .. } => 0xc4,
-            Instruction::i2l => 0x85,
-            Instruction::i2f => 0x86,
-            Instruction::i2d => 0x87,
-            Instruction::l2i => 0x88,
-            Instruction::l2f => 0x89,
-            Instruction::l2d => 0x8a,
-            Instruction::f2i => 0x8b,
-            Instruction::f2l => 0x8c,
-            Instruction::f2d => 0x8d,
-            Instruction::d2i => 0x8e,
-            Instruction::d2l => 0x8f,
-            Instruction::d2f => 0x90,
-            Instruction::i2b => 0x91,
-            Instruction::i2c => 0x92,
-            Instruction::i2s => 0x93,
-            Instruction::lcmp => 0x94,
-            Instruction::fcmpl => 0x95,
-            Instruction::fcmpg => 0x96,
-            Instruction::dcmpl => 0x97,
-            Instruction::dcmpg => 0x98,
-            Instruction::ifeq(_) => 0x99,
-            Instruction::ifne(_) => 0x9a,
-            Instruction::iflt(_) => 0x9b,
-            Instruction::ifge(_) => 0x9c,
-            Instruction::ifgt(_) => 0x9d,
-            Instruction::ifle(_) => 0x9e,
-            Instruction::if_icmpeq(_) => 0x9f,
-            Instruction::if_icmpne(_) => 0xa0,
-            Instruction::if_icmplt(_) => 0xa1,
-            Instruction::if_icmpge(_) => 0xa2,
-            Instruction::if_icmpgt(_) => 0xa3,
-            Instruction::if_icmple(_) => 0xa4,
-            Instruction::if_acmpeq(_) => 0xa5,
-            Instruction::if_acmpne(_) => 0xa6,
-            Instruction::goto(_) => 0xa7,
-            Instruction::jsr(_) => 0xa8,
-            Instruction::ret(x) if *x <= u8::MAX as u16 => 0xa9,
-            Instruction::ret(_) => 0xc4,
-            Instruction::tableswitch { .. } => 0xaa,
-            Instruction::lookupswitch { .. } => 0xab,
-            Instruction::ireturn => 0xac,
-            Instruction::lreturn => 0xad,
-            Instruction::freturn => 0xae,
-            Instruction::dreturn => 0xaf,
-            Instruction::areturn => 0xb0,
-            Instruction::r#return => 0xb1,
-            Instruction::getstatic(_) => 0xb2,
-            Instruction::putstatic(_) => 0xb3,
-            Instruction::getfield(_) => 0xb4,
-            Instruction::putfield(_) => 0xb5,
-            Instruction::invokevirtual(_) => 0xb6,
-            Instruction::invokespecial(_) => 0xb7,
-            Instruction::invokestatic(_) => 0xb8,
-            Instruction::invokeinterface { .. } => 0xb9,
-            Instruction::invokedynamic(_) => 0xba,
-            Instruction::new(_) => 0xbb,
-            Instruction::newarray(_) => 0xbc,
-            Instruction::anewarray(_) => 0xbd,
-            Instruction::arraylength => 0xbe,
-            Instruction::athrow => 0xbf,
-            Instruction::checkcast(_) => 0xc0,
-            Instruction::instanceof(_) => 0xc1,
-            Instruction::monitorenter => 0xc2,
-            Instruction::monitorexit => 0xc3,
-            // Instruction::wide => 0xc4,
-            Instruction::multianewarray { .. } => 0xc5,
-            Instruction::ifnull(_) => 0xc6,
-            Instruction::ifnonnull(_) => 0xc7,
-            Instruction::goto_w(_) => 0xc8,
-            Instruction::jsr_w(_) => 0xc9,
+            I::iinc { .. } => 0xc4,
+            I::i2l => 0x85,
+            I::i2f => 0x86,
+            I::i2d => 0x87,
+            I::l2i => 0x88,
+            I::l2f => 0x89,
+            I::l2d => 0x8a,
+            I::f2i => 0x8b,
+            I::f2l => 0x8c,
+            I::f2d => 0x8d,
+            I::d2i => 0x8e,
+            I::d2l => 0x8f,
+            I::d2f => 0x90,
+            I::i2b => 0x91,
+            I::i2c => 0x92,
+            I::i2s => 0x93,
+            I::lcmp => 0x94,
+            I::fcmpl => 0x95,
+            I::fcmpg => 0x96,
+            I::dcmpl => 0x97,
+            I::dcmpg => 0x98,
+            I::ifeq(_) => 0x99,
+            I::ifne(_) => 0x9a,
+            I::iflt(_) => 0x9b,
+            I::ifge(_) => 0x9c,
+            I::ifgt(_) => 0x9d,
+            I::ifle(_) => 0x9e,
+            I::if_icmpeq(_) => 0x9f,
+            I::if_icmpne(_) => 0xa0,
+            I::if_icmplt(_) => 0xa1,
+            I::if_icmpge(_) => 0xa2,
+            I::if_icmpgt(_) => 0xa3,
+            I::if_icmple(_) => 0xa4,
+            I::if_acmpeq(_) => 0xa5,
+            I::if_acmpne(_) => 0xa6,
+            I::goto(_) => 0xa7,
+            I::jsr(_) => 0xa8,
+            I::ret(x) if *x <= u8::MAX as u16 => 0xa9,
+            I::ret(_) => 0xc4,
+            I::tableswitch { .. } => 0xaa,
+            I::lookupswitch { .. } => 0xab,
+            I::ireturn => 0xac,
+            I::lreturn => 0xad,
+            I::freturn => 0xae,
+            I::dreturn => 0xaf,
+            I::areturn => 0xb0,
+            I::r#return => 0xb1,
+            I::getstatic(_) => 0xb2,
+            I::putstatic(_) => 0xb3,
+            I::getfield(_) => 0xb4,
+            I::putfield(_) => 0xb5,
+            I::invokevirtual(_) => 0xb6,
+            I::invokespecial(_) => 0xb7,
+            I::invokestatic(_) => 0xb8,
+            I::invokeinterface { .. } => 0xb9,
+            I::invokedynamic(_) => 0xba,
+            I::new(_) => 0xbb,
+            I::newarray(_) => 0xbc,
+            I::anewarray(_) => 0xbd,
+            I::arraylength => 0xbe,
+            I::athrow => 0xbf,
+            I::checkcast(_) => 0xc0,
+            I::instanceof(_) => 0xc1,
+            I::monitorenter => 0xc2,
+            I::monitorexit => 0xc3,
+            // I::wide => 0xc4,
+            I::multianewarray { .. } => 0xc5,
+            I::ifnull(_) => 0xc6,
+            I::ifnonnull(_) => 0xc7,
+            I::goto_w(_) => 0xc8,
+            I::jsr_w(_) => 0xc9,
         }
     }
 
-    pub fn write_single<W: Write + Seek>(buf: &mut W) -> io::Result<Self> {
-        todo!()
+    pub fn write_single<W: Write + Seek>(&self, buf: &mut W) -> io::Result<()> {
+        use Instruction as I;
+        buf.write_u8(self.opcode())?;
+
+        match self {
+            // Instructions which get modified by the wide opcode
+            I::iload(x)
+            | I::lload(x)
+            | I::fload(x)
+            | I::dload(x)
+            | I::aload(x)
+            | I::istore(x)
+            | I::lstore(x)
+            | I::fstore(x)
+            | I::dstore(x)
+            | I::astore(x)
+                if *x > 3 =>
+            {
+                if let Ok(v) = u8::try_from(*x) {
+                    buf.write_u8(v)
+                } else {
+                    // The opcode we wrote before was the wide instruction opcode. We need to write
+                    // the base opcode of this instruction to specify which variant we are using.
+                    let base_opcode = match self {
+                        I::iload(_) => 0x15,
+                        I::lload(_) => 0x16,
+                        I::fload(_) => 0x17,
+                        I::dload(_) => 0x18,
+                        I::aload(_) => 0x19,
+                        I::istore(_) => 0x36,
+                        I::lstore(_) => 0x37,
+                        I::fstore(_) => 0x38,
+                        I::dstore(_) => 0x39,
+                        I::astore(_) => 0x3a,
+                        _ => unreachable!("Should not reach this point due to parent match"),
+                    };
+
+                    buf.write_u8(base_opcode)?;
+                    buf.write_u16::<BigEndian>(*x)
+                }
+            }
+            I::ret(x) => {
+                if let Ok(v) = u8::try_from(*x) {
+                    buf.write_u8(v)
+                } else {
+                    buf.write_u8(0xa9)?;
+                    buf.write_u16::<BigEndian>(*x)
+                }
+            }
+            I::iinc { index, const_inc }
+                if *index <= u8::MAX as u16
+                    && *const_inc <= i8::MAX as i16
+                    && *const_inc >= i8::MIN as i16 =>
+            {
+                buf.write_u8(*index as u8)?;
+                buf.write_i8(*const_inc as i8)
+            }
+            I::iinc { index, const_inc } => {
+                buf.write_u8(0x84)?;
+                buf.write_u16::<BigEndian>(*index)?;
+                buf.write_i16::<BigEndian>(*const_inc)
+            }
+
+            // Instructions which use an index into the constant pool
+            I::anewarray(index)
+            | I::checkcast(index)
+            | I::getfield(index)
+            | I::getstatic(index)
+            | I::instanceof(index)
+            | I::invokedynamic(index)
+            | I::invokespecial(index)
+            | I::invokestatic(index)
+            | I::invokevirtual(index)
+            | I::new(index)
+            | I::putfield(index)
+            | I::putstatic(index)
+            | I::ldc_w(index)
+            | I::ldc2_w(index) => buf.write_u16::<BigEndian>(*index),
+
+            // Instructions which branch to a specific byte offset
+            I::goto(offset)
+            | I::if_acmpeq(offset)
+            | I::if_acmpne(offset)
+            | I::if_icmpeq(offset)
+            | I::if_icmpne(offset)
+            | I::if_icmplt(offset)
+            | I::if_icmpge(offset)
+            | I::if_icmpgt(offset)
+            | I::if_icmple(offset)
+            | I::ifeq(offset)
+            | I::ifne(offset)
+            | I::iflt(offset)
+            | I::ifge(offset)
+            | I::ifgt(offset)
+            | I::ifle(offset)
+            | I::ifnonnull(offset)
+            | I::ifnull(offset)
+            | I::jsr(offset) => buf.write_i16::<BigEndian>(*offset),
+
+            // Misc instructions
+            I::bipush(x) => buf.write_i8(*x),
+            I::newarray(ty) => {
+                let ty_byte = match ty {
+                    PrimitiveType::Boolean => 4,
+                    PrimitiveType::Char => 5,
+                    PrimitiveType::Float => 6,
+                    PrimitiveType::Double => 7,
+                    PrimitiveType::Byte => 8,
+                    PrimitiveType::Short => 9,
+                    PrimitiveType::Int => 10,
+                    PrimitiveType::Long => 11,
+                };
+
+                buf.write_u8(ty_byte)
+            }
+            I::goto_w(offset) | I::jsr_w(offset) => buf.write_i32::<BigEndian>(*offset),
+            I::ldc(index) => buf.write_u8(*index),
+            I::multianewarray { index, dimensions } => {
+                buf.write_u16::<BigEndian>(*index)?;
+                buf.write_u8(*dimensions)
+            }
+            I::sipush(x) => buf.write_i16::<BigEndian>(*x),
+            I::invokeinterface { index, count } => {
+                buf.write_u16::<BigEndian>(*index)?;
+                buf.write_u8(*count)?;
+                buf.write_u8(0)
+            }
+            I::lookupswitch {
+                default_offset,
+                match_offset,
+            } => {
+                while buf.stream_position()? % 4 != 0 {
+                    buf.write_u8(0)?;
+                }
+
+                buf.write_i32::<BigEndian>(*default_offset)?;
+                buf.write_u32::<BigEndian>(match_offset.len() as u32)?;
+                for (value, offset) in match_offset {
+                    buf.write_i32::<BigEndian>(*value)?;
+                    buf.write_i32::<BigEndian>(*offset)?;
+                }
+
+                Ok(())
+            }
+            I::tableswitch {
+                default_offset,
+                low,
+                jump_offsets,
+            } => {
+                while buf.stream_position()? % 4 != 0 {
+                    buf.write_u8(0)?;
+                }
+
+                buf.write_i32::<BigEndian>(*default_offset)?;
+                buf.write_i32::<BigEndian>(*low)?;
+                buf.write_i32::<BigEndian>(*low + (jump_offsets.len() as i32) - 1)?;
+                for offset in jump_offsets {
+                    buf.write_i32::<BigEndian>(*offset)?;
+                }
+
+                Ok(())
+            }
+            _ => Ok(()),
+        }
     }
 
     pub fn parse_single<R: Read + Seek>(buf: &mut R, opcode: u8) -> io::Result<Self> {
+        use crate::instruction::Instruction::*;
+
         let instruction = match opcode {
             0x32 => aaload,
             0x53 => aastore,
