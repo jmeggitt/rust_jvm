@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::convert::TryFrom;
 use std::fmt::{Debug, Formatter};
 use std::io::{self, Cursor, Error, ErrorKind, Read, Seek, Write};
 
@@ -10,18 +9,43 @@ use crate::class::version::ClassVersion;
 use crate::class::{BufferedRead, DebugWithConst};
 use crate::jvm::mem::FieldDescriptor;
 use std::ops::{Deref, Index};
-use std::sync::Arc;
+use crate::util::ThinArcSlice;
 
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct ConstantPool {
-    pool: Arc<[Constant]>,
+    pool: ThinArcSlice<Constant>,
+}
+
+impl ConstantPool {
+    pub fn into_raw(self) -> *const Constant {
+        self.pool.into_raw()
+    }
+
+    /// Get a constant pool from a raw pointer.
+    ///
+    /// # Safety
+    /// The function should only be called at most one time for each value provided from
+    /// [ConstantPool::into_raw]. Using pointers from other sources will lead to undefined behavior.
+    pub unsafe fn from_raw(ptr: *const Constant) -> Self {
+        ConstantPool {
+            pool: ThinArcSlice::from_raw(ptr),
+        }
+    }
+}
+
+impl Default for ConstantPool {
+    fn default() -> Self {
+        ConstantPool {
+            pool: ThinArcSlice::from(Vec::new()),
+        }
+    }
 }
 
 impl From<Vec<Constant>> for ConstantPool {
     fn from(value: Vec<Constant>) -> Self {
         ConstantPool {
-            pool: Arc::from(value),
+            pool: ThinArcSlice::from(value),
         }
     }
 }
@@ -107,12 +131,9 @@ impl Index<u16> for ConstantPool {
     type Output = Constant;
 
     fn index(&self, index: u16) -> &Self::Output {
-        usize::try_from(index)
-            .ok()
-            .and_then(|index| index.checked_sub(1))
+        usize::from(index).checked_sub(1)
             .and_then(|index| self.pool.get(index))
             .expect("index is a valid position in constant pool")
-        // &self.pool[index as usize - 1]
     }
 }
 

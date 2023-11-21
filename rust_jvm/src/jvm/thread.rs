@@ -10,13 +10,10 @@ use jni::sys::{
 use std::collections::HashMap;
 use std::thread::{current, park, sleep, spawn, yield_now, Thread, ThreadId};
 
-// use crate::instruction::getstatic;
 #[cfg(feature = "callstack")]
 use crate::jvm::call::callstack_trace::CallTracer;
 use crate::jvm::JavaEnv;
 use parking_lot::{Condvar, Mutex, RwLock};
-use std::ffi::c_void;
-use std::ptr::null;
 use std::sync::{Arc, Barrier};
 use std::time::Duration;
 #[cfg(feature = "thread-priority")]
@@ -862,6 +859,6 @@ pub unsafe extern "system" fn JVM_DumpThreads_impl(
 /// No idea what this is for, but the linker gave a ton of errors without it
 #[no_mangle]
 #[cfg(windows)]
-pub unsafe extern "system" fn JVM_GetThreadInterruptEvent() -> *const c_void {
-    null()
+pub unsafe extern "system" fn JVM_GetThreadInterruptEvent() -> *const std::ffi::c_void {
+    std::ptr::null()
 }
