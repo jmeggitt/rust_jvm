@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use walkdir::WalkDir;
 
 use crate::class::{Class, ClassLoader, MethodInfo};
-use crate::jvm::call::{build_interface, CleanStr, NativeManager, VirtualMachine};
+use crate::jvm::call::{build_interface, CleanStr, NativeManager};
 use crate::jvm::hooks::register_hooks;
 use crate::jvm::mem::{
     ClassSchema, JavaValue, ManualInstanceReference, ObjectHandle, OBJECT_SCHEMA,
@@ -39,8 +39,6 @@ pub struct JavaEnv {
     pub static_fields: StaticFields,
     pub static_load: HashSet<String>,
     pub linked_libraries: NativeManager,
-
-    pub vm: VirtualMachine,
 
     pub registered_classes: HashMap<String, ObjectHandle>,
 
@@ -138,7 +136,6 @@ impl JavaEnv {
                 static_fields: StaticFields::new(),
                 static_load: HashSet::new(),
                 linked_libraries: NativeManager::new(),
-                vm: VirtualMachine::default(),
                 registered_classes: HashMap::new(),
                 thread_manager: JavaThreadManager::default(),
                 interned_strings: HashMap::new(),
@@ -260,11 +257,7 @@ impl JavaEnv {
         let entry_class = self.class_loader.class(class)?;
 
         if let Some(main_method) = entry_class.get_method(method, desc) {
-            return Some((
-                class.to_string(),
-                main_method.clone(),
-                // entry_class.constants.to_owned(),
-            ));
+            return Some((class.to_string(), main_method.clone()));
         }
 
         if class != "java/lang/Object" {

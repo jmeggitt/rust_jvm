@@ -8,27 +8,6 @@ use crate::jvm::thread::handle_thread_updates;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-// pub trait OperandStack {
-//     fn pop_class_1(&mut self) -> Result<JavaValue, FlowControl>;
-//     fn pop_class_2(&mut self) -> Result<JavaValue, FlowControl>;
-//
-//     fn push_class_1(&mut self, value: JavaValue);
-//     fn push_class_2(&mut self, value: JavaValue);
-//
-//     fn push<T: StackValue>(&mut self, val: T) {
-//         match T::CATEGORY {
-//             ComputationalType::Category1 => self.push_class_1(val.into()),
-//             ComputationalType::Category2 => self.push_class_2(val.into()),
-//         }
-//     }
-//
-//     fn pop<T: StackValue>(&mut self) -> Result<T, FlowControl> {
-//         match T::CATEGORY {
-//             ComputationalType::Category1 => T::try_from(self.pop_class_1()?),
-//             ComputationalType::Category2 => T::try_from(self.pop_class_2()?),
-//         }
-//     }
-// }
 
 pub struct StackFrame<'a> {
     // Comparable to the .text section of a binary

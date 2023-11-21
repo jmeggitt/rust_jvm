@@ -17,7 +17,6 @@ mod interface;
 ///
 mod interpreter;
 mod native;
-mod stack;
 
 #[cfg(feature = "callstack")]
 pub mod callstack_trace;
@@ -34,7 +33,6 @@ use jni::sys::JNIEnv;
 use log::Level;
 pub use native::*;
 use parking_lot::RwLock;
-pub use stack::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;

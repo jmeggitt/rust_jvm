@@ -1,4 +1,5 @@
 use std::alloc::{alloc, dealloc, Layout};
+use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::mem::align_of;
 use std::ops::Deref;
@@ -9,7 +10,6 @@ use std::sync::atomic;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::{Acquire, Relaxed, Release};
 use std::{mem, ptr};
-use std::fmt::{Debug, Formatter};
 
 /// Roughly equivalent to an `Arc<[T]>`, but with some slight changes. Mainly, it uses a thin
 /// pointer, by prefixing the data with the length.

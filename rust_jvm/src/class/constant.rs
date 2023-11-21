@@ -8,12 +8,13 @@ use num_traits::FromPrimitive;
 use crate::class::version::ClassVersion;
 use crate::class::{BufferedRead, DebugWithConst};
 use crate::jvm::mem::FieldDescriptor;
-use std::ops::{Deref, Index};
 use crate::util::ThinArcSlice;
+use std::ops::{Deref, Index};
 
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct ConstantPool {
+    // TODO: Maybe switch back to Arc<[Constant]> and accept fat pointers on operand stack
     pool: ThinArcSlice<Constant>,
 }
 
@@ -131,7 +132,8 @@ impl Index<u16> for ConstantPool {
     type Output = Constant;
 
     fn index(&self, index: u16) -> &Self::Output {
-        usize::from(index).checked_sub(1)
+        usize::from(index)
+            .checked_sub(1)
             .and_then(|index| self.pool.get(index))
             .expect("index is a valid position in constant pool")
     }
