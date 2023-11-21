@@ -69,7 +69,7 @@ fn main() {
     if app.is_present("constants") {
         println!("Constant Table:");
         let mut idx = 1;
-        for constant in &raw_class.constants {
+        for constant in &*raw_class.constants {
             match constant {
                 Constant::Placeholder => {}
                 x => println!("\t{}/{}: {:?}", idx, raw_class.constants.len(), x),
